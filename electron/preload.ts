@@ -1,0 +1,223 @@
+import { contextBridge, ipcRenderer } from 'electron'
+import { CHANNELS } from './ipc/channels'
+
+const api = {
+  // ── OS dialogs + shell ────────────────────────────────────────────────────
+  openDirectory: (): Promise<string | null> =>
+    ipcRenderer.invoke(CHANNELS.DIALOG_OPEN_DIRECTORY),
+  openExternal: (url: string): Promise<void> =>
+    ipcRenderer.invoke(CHANNELS.SHELL_OPEN_EXTERNAL, url),
+  showInFolder: (fullPath: string): Promise<void> =>
+    ipcRenderer.invoke(CHANNELS.SHELL_SHOW_IN_FOLDER, fullPath),
+  openPath: (fullPath: string): Promise<void> =>
+    ipcRenderer.invoke(CHANNELS.SHELL_OPEN_PATH, fullPath),
+
+  // ── Auth ──────────────────────────────────────────────────────────────────
+  startDeviceFlow: () =>
+    ipcRenderer.invoke(CHANNELS.AUTH_START_DEVICE_FLOW),
+  pollDeviceFlow: (deviceCode: string) =>
+    ipcRenderer.invoke(CHANNELS.AUTH_POLL_DEVICE_FLOW, deviceCode),
+  listAccounts: () =>
+    ipcRenderer.invoke(CHANNELS.AUTH_LIST_ACCOUNTS),
+  logout: (userId: string) =>
+    ipcRenderer.invoke(CHANNELS.AUTH_LOGOUT, userId),
+
+  // ── Git core ──────────────────────────────────────────────────────────────
+  isRepo: (repoPath: string) =>
+    ipcRenderer.invoke(CHANNELS.GIT_IS_REPO, repoPath),
+  clone: (args: { url: string; dir: string; depth?: number }) =>
+    ipcRenderer.invoke(CHANNELS.GIT_CLONE, args),
+  status: (repoPath: string) =>
+    ipcRenderer.invoke(CHANNELS.GIT_STATUS, repoPath),
+  currentBranch: (repoPath: string) =>
+    ipcRenderer.invoke(CHANNELS.GIT_CURRENT_BRANCH, repoPath),
+  stage: (repoPath: string, paths: string[]) =>
+    ipcRenderer.invoke(CHANNELS.GIT_STAGE, repoPath, paths),
+  unstage: (repoPath: string, paths: string[]) =>
+    ipcRenderer.invoke(CHANNELS.GIT_UNSTAGE, repoPath, paths),
+  commit: (repoPath: string, message: string, noVerify?: boolean) =>
+    ipcRenderer.invoke(CHANNELS.GIT_COMMIT, repoPath, message, noVerify),
+  push: (repoPath: string) =>
+    ipcRenderer.invoke(CHANNELS.GIT_PUSH, repoPath),
+  pull: (repoPath: string) =>
+    ipcRenderer.invoke(CHANNELS.GIT_PULL, repoPath),
+  fetch: (repoPath: string) =>
+    ipcRenderer.invoke(CHANNELS.GIT_FETCH, repoPath),
+  log: (repoPath: string, args?: { limit?: number; all?: boolean }) =>
+    ipcRenderer.invoke(CHANNELS.GIT_LOG, repoPath, args),
+  branchList: (repoPath: string) =>
+    ipcRenderer.invoke(CHANNELS.GIT_BRANCH_LIST, repoPath),
+  createBranch: (repoPath: string, name: string, from?: string) =>
+    ipcRenderer.invoke(CHANNELS.GIT_BRANCH_CREATE, repoPath, name, from),
+  renameBranch: (repoPath: string, oldName: string, newName: string) =>
+    ipcRenderer.invoke(CHANNELS.GIT_BRANCH_RENAME, repoPath, oldName, newName),
+  deleteBranch: (repoPath: string, name: string, force: boolean) =>
+    ipcRenderer.invoke(CHANNELS.GIT_BRANCH_DELETE, repoPath, name, force),
+  deleteRemoteBranch: (repoPath: string, remoteName: string, branch: string) =>
+    ipcRenderer.invoke(CHANNELS.GIT_BRANCH_DELETE_REMOTE, repoPath, remoteName, branch),
+  getRemoteUrl: (repoPath: string) =>
+    ipcRenderer.invoke(CHANNELS.GIT_REMOTE_URL, repoPath),
+  getSyncStatus: (repoPath: string) =>
+    ipcRenderer.invoke(CHANNELS.GIT_SYNC_STATUS, repoPath),
+  updateFromMain: (repoPath: string) =>
+    ipcRenderer.invoke(CHANNELS.GIT_UPDATE_FROM_MAIN, repoPath),
+  diff: (repoPath: string, filePath: string, staged: boolean) =>
+    ipcRenderer.invoke(CHANNELS.GIT_DIFF, repoPath, filePath, staged),
+  discard: (repoPath: string, paths: string[], isUntracked: boolean) =>
+    ipcRenderer.invoke(CHANNELS.GIT_DISCARD, repoPath, paths, isUntracked),
+  discardAll: (repoPath: string) =>
+    ipcRenderer.invoke(CHANNELS.GIT_DISCARD_ALL, repoPath),
+  addToGitignore: (repoPath: string, pattern: string) =>
+    ipcRenderer.invoke(CHANNELS.GIT_ADD_GITIGNORE, repoPath, pattern),
+  stashList: (repoPath: string) =>
+    ipcRenderer.invoke(CHANNELS.GIT_STASH_LIST, repoPath),
+  stashSave: (repoPath: string, message?: string) =>
+    ipcRenderer.invoke(CHANNELS.GIT_STASH_SAVE, repoPath, message),
+  stashPop: (repoPath: string, ref: string) =>
+    ipcRenderer.invoke(CHANNELS.GIT_STASH_POP, repoPath, ref),
+  stashApply: (repoPath: string, ref: string) =>
+    ipcRenderer.invoke(CHANNELS.GIT_STASH_APPLY, repoPath, ref),
+  stashDrop: (repoPath: string, ref: string) =>
+    ipcRenderer.invoke(CHANNELS.GIT_STASH_DROP, repoPath, ref),
+  commitFiles: (repoPath: string, hash: string) =>
+    ipcRenderer.invoke(CHANNELS.GIT_COMMIT_FILES, repoPath, hash),
+  checkout: (repoPath: string, branch: string) =>
+    ipcRenderer.invoke(CHANNELS.GIT_CHECKOUT, repoPath, branch),
+  mergePreview: (repoPath: string, targetBranch: string) =>
+    ipcRenderer.invoke(CHANNELS.GIT_MERGE_PREVIEW, repoPath, targetBranch),
+  merge: (repoPath: string, targetBranch: string) =>
+    ipcRenderer.invoke(CHANNELS.GIT_MERGE, repoPath, targetBranch),
+
+  // ── Locks ─────────────────────────────────────────────────────────────────
+  listLocks: (repoPath: string) =>
+    ipcRenderer.invoke(CHANNELS.LOCK_LIST, repoPath),
+  lockFile: (repoPath: string, filePath: string) =>
+    ipcRenderer.invoke(CHANNELS.LOCK_FILE, repoPath, filePath),
+  unlockFile: (repoPath: string, filePath: string, force?: boolean) =>
+    ipcRenderer.invoke(CHANNELS.LOCK_UNLOCK, repoPath, filePath, force),
+  watchLock: (repoPath: string, filePath: string) =>
+    ipcRenderer.invoke(CHANNELS.LOCK_WATCH, repoPath, filePath),
+  startLockPolling: (repoPath: string) =>
+    ipcRenderer.invoke(CHANNELS.LOCK_START_POLLING, repoPath),
+  stopLockPolling: (repoPath: string) =>
+    ipcRenderer.invoke(CHANNELS.LOCK_STOP_POLLING, repoPath),
+
+  // ── LFS ───────────────────────────────────────────────────────────────────
+  lfsStatus: (repoPath: string) =>
+    ipcRenderer.invoke(CHANNELS.LFS_STATUS, repoPath),
+  lfsTrack: (repoPath: string, patterns: string[]) =>
+    ipcRenderer.invoke(CHANNELS.LFS_TRACK, repoPath, patterns),
+  lfsUntrack: (repoPath: string, pattern: string) =>
+    ipcRenderer.invoke(CHANNELS.LFS_UNTRACK, repoPath, pattern),
+  lfsMigrate: (repoPath: string, patterns: string[]) =>
+    ipcRenderer.invoke(CHANNELS.LFS_MIGRATE, repoPath, patterns),
+  lfsAutodetect: (repoPath: string) =>
+    ipcRenderer.invoke(CHANNELS.LFS_AUTODETECT, repoPath),
+
+  // ── Cleanup ───────────────────────────────────────────────────────────────
+  cleanupSize: (repoPath: string) =>
+    ipcRenderer.invoke(CHANNELS.CLEANUP_SIZE, repoPath),
+  cleanupGc: (repoPath: string, aggressive?: boolean) =>
+    ipcRenderer.invoke(CHANNELS.CLEANUP_GC, repoPath, aggressive),
+  cleanupPruneLfs: (repoPath: string) =>
+    ipcRenderer.invoke(CHANNELS.CLEANUP_PRUNE_LFS, repoPath),
+  cleanupShallow: (repoPath: string, depth: number) =>
+    ipcRenderer.invoke(CHANNELS.CLEANUP_SHALLOW, repoPath, depth),
+  cleanupUnshallow: (repoPath: string) =>
+    ipcRenderer.invoke(CHANNELS.CLEANUP_UNSHALLOW, repoPath),
+
+  // ── Notifications + webhooks ──────────────────────────────────────────────
+  notificationList: (repoPath: string) =>
+    ipcRenderer.invoke(CHANNELS.NOTIFICATION_LIST, repoPath),
+  notificationMarkRead: (id: number) =>
+    ipcRenderer.invoke(CHANNELS.NOTIFICATION_MARK_READ, id),
+  webhookTest: (url: string) =>
+    ipcRenderer.invoke(CHANNELS.WEBHOOK_TEST, url),
+  webhookSave: (repoPath: string, config: unknown) =>
+    ipcRenderer.invoke(CHANNELS.WEBHOOK_SAVE, repoPath, config),
+
+  // ── Auto-updater ──────────────────────────────────────────────────────────
+  updateCheck: () =>
+    ipcRenderer.invoke(CHANNELS.UPDATE_CHECK),
+  updateDownload: () =>
+    ipcRenderer.invoke(CHANNELS.UPDATE_DOWNLOAD),
+  updateInstall: () =>
+    ipcRenderer.invoke(CHANNELS.UPDATE_INSTALL),
+
+  // ── Auto-fix helpers ──────────────────────────────────────────────────────
+  rebaseAbort: (repoPath: string) =>
+    ipcRenderer.invoke(CHANNELS.GIT_REBASE_ABORT, repoPath),
+  setUpstream: (repoPath: string, branch: string) =>
+    ipcRenderer.invoke(CHANNELS.GIT_SET_UPSTREAM, repoPath, branch),
+  setGitConfig: (repoPath: string, key: string, value: string) =>
+    ipcRenderer.invoke(CHANNELS.GIT_SET_CONFIG, repoPath, key, value),
+
+  // ── Hooks ─────────────────────────────────────────────────────────────────
+  hookList: (repoPath: string) =>
+    ipcRenderer.invoke(CHANNELS.HOOK_LIST, repoPath),
+  hookEnable: (repoPath: string, name: string) =>
+    ipcRenderer.invoke(CHANNELS.HOOK_ENABLE, repoPath, name),
+  hookDisable: (repoPath: string, name: string) =>
+    ipcRenderer.invoke(CHANNELS.HOOK_DISABLE, repoPath, name),
+  hookBuiltins: () =>
+    ipcRenderer.invoke(CHANNELS.HOOK_BUILTINS),
+  hookInstallBuiltin: (repoPath: string, id: string) =>
+    ipcRenderer.invoke(CHANNELS.HOOK_INSTALL_BUILTIN, repoPath, id),
+  hookRunPreCommit: (repoPath: string) =>
+    ipcRenderer.invoke(CHANNELS.HOOK_RUN_PRECOMMIT, repoPath),
+
+  // ── Unreal ────────────────────────────────────────────────────────────────
+  ueDetect: (repoPath: string) =>
+    ipcRenderer.invoke(CHANNELS.UE_DETECT, repoPath),
+  ueSetupStatus: (repoPath: string) =>
+    ipcRenderer.invoke(CHANNELS.UE_SETUP_STATUS, repoPath),
+  ueTemplates: () =>
+    ipcRenderer.invoke(CHANNELS.UE_TEMPLATES),
+  ueWriteGitattributes: (repoPath: string) =>
+    ipcRenderer.invoke(CHANNELS.UE_WRITE_GITATTRIBUTES, repoPath),
+  ueWriteGitignore: (repoPath: string) =>
+    ipcRenderer.invoke(CHANNELS.UE_WRITE_GITIGNORE, repoPath),
+  uePakSize: (repoPath: string, stagedPaths: string[]) =>
+    ipcRenderer.invoke(CHANNELS.UE_PAK_SIZE, repoPath, stagedPaths),
+
+  // ── App Settings ──────────────────────────────────────────────────────────
+  settingsGet: () =>
+    ipcRenderer.invoke(CHANNELS.SETTINGS_GET),
+  settingsSave: (settings: unknown) =>
+    ipcRenderer.invoke(CHANNELS.SETTINGS_SAVE, settings),
+
+  // ── Team Config ───────────────────────────────────────────────────────────
+  teamConfigLoad: (repoPath: string) =>
+    ipcRenderer.invoke(CHANNELS.TEAM_CONFIG_LOAD, repoPath),
+  teamConfigSave: (repoPath: string, config: unknown) =>
+    ipcRenderer.invoke(CHANNELS.TEAM_CONFIG_SAVE, repoPath, config),
+
+  // ── Events: main → renderer ───────────────────────────────────────────────
+  onOperationProgress: (cb: (step: unknown) => void) => {
+    const handler = (_e: Electron.IpcRendererEvent, step: unknown) => cb(step)
+    ipcRenderer.on(CHANNELS.EVT_OPERATION_PROGRESS, handler)
+    return () => ipcRenderer.removeListener(CHANNELS.EVT_OPERATION_PROGRESS, handler)
+  },
+  onLockChanged: (cb: (locks: unknown) => void) => {
+    const handler = (_e: Electron.IpcRendererEvent, locks: unknown) => cb(locks)
+    ipcRenderer.on(CHANNELS.EVT_LOCK_CHANGED, handler)
+    return () => ipcRenderer.removeListener(CHANNELS.EVT_LOCK_CHANGED, handler)
+  },
+  onNotification: (cb: (notification: unknown) => void) => {
+    const handler = (_e: Electron.IpcRendererEvent, n: unknown) => cb(n)
+    ipcRenderer.on(CHANNELS.EVT_NOTIFICATION, handler)
+    return () => ipcRenderer.removeListener(CHANNELS.EVT_NOTIFICATION, handler)
+  },
+  onUpdateAvailable: (cb: (info: unknown) => void) => {
+    const handler = (_e: Electron.IpcRendererEvent, info: unknown) => cb(info)
+    ipcRenderer.on(CHANNELS.EVT_UPDATE_AVAILABLE, handler)
+    return () => ipcRenderer.removeListener(CHANNELS.EVT_UPDATE_AVAILABLE, handler)
+  },
+  onUpdateReady: (cb: () => void) => {
+    const handler = () => cb()
+    ipcRenderer.on(CHANNELS.EVT_UPDATE_READY, handler)
+    return () => ipcRenderer.removeListener(CHANNELS.EVT_UPDATE_READY, handler)
+  },
+}
+
+contextBridge.exposeInMainWorld('lucidGit', api)

@@ -1,0 +1,82 @@
+appId: com.lucidrainstudios.lucidgit
+productName: Lucid Git
+copyright: Copyright © 2026 Lucid Rain Studios
+
+directories:
+  output: dist
+  buildResources: assets
+
+files:
+  - "dist-electron/**/*"
+  - "dist-renderer/**/*"
+  - "package.json"
+
+# Native modules + bundled Git must live outside the ASAR archive
+asarUnpack:
+  - "node_modules/dugite/**/*"
+  - "node_modules/keytar/**/*"
+  - "node_modules/better-sqlite3/**/*"
+
+# Versioned filenames make GitHub Releases clean
+artifactName: "${productName}-${version}-${os}-${arch}.${ext}"
+
+compression: maximum
+
+# ── Windows ──────────────────────────────────────────────────────────────────
+win:
+  target: nsis
+  icon: assets/icon.ico
+  requestedExecutionLevel: asInvoker   # install to AppData, no UAC prompt
+
+nsis:
+  oneClick: true
+  perMachine: false
+  allowElevation: false
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Lucid Git
+  # Windows code-signing — configure secrets in GitHub when ready:
+  # signingHashAlgorithms: [sha256]
+  # certificateFile: ${CSC_LINK}
+  # certificatePassword: ${CSC_KEY_PASSWORD}
+
+# ── macOS ─────────────────────────────────────────────────────────────────────
+mac:
+  target:
+    - target: dmg
+      arch: [x64, arm64]          # Intel + Apple Silicon
+  icon: assets/icon.icns
+  hardenedRuntime: true            # required for notarization
+  gatekeeperAssess: false
+  category: public.app-category.developer-tools
+  # macOS notarization — configure secrets in GitHub when ready:
+  # afterSign: scripts/notarize.js
+  entitlementsInherit: assets/entitlements.mac.plist
+
+dmg:
+  window:
+    width: 540
+    height: 380
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications
+
+# ── Linux ─────────────────────────────────────────────────────────────────────
+linux:
+  target: AppImage
+  icon: assets/icon.png
+  category: Development
+  synopsis: Git client for game development teams
+  description: Lucid Git — LFS, file locking, merge conflict resolution, and Discord notifications purpose-built for Unreal Engine 5 teams.
+
+# ── Auto-update via GitHub Releases ──────────────────────────────────────────
+publish:
+  provider: github
+  owner: Lucid-Rain-Studios
+  repo: LUCID_GIT
+  releaseType: release
+  publishAutoUpdate: true

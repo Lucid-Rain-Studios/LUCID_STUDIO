@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm --version)",
+      "Bash(npm install:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx vite:*)",
+      "Bash(node ./script/download-git.js)",
+      "Bash(\"C:/Program Files/nodejs/node.exe\" ./script/download-git.js)",
+      "Bash(command -v node)",
+      "Bash(npm run:*)",
+      "Bash(node node_modules/dugite/script/download-git.js)",
+      "Bash(node.exe node_modules/dugite/script/download-git.js)",
+      "Bash(cmd:*)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(echo \"main: $?\")",
+      "Bash(echo \"renderer: $?\")",
+      "Bash(node -p \"require\\('H:/LUCID_GIT/node_modules/monaco-editor/package.json'\\).version\")",
+      "Bash(python3:*)",
+      "Bash(/c/Users/ricar/AppData/Local/nvm/v20.20.2/node.exe H:/LUCID_GIT/node_modules/typescript/bin/tsc -p tsconfig.main.json --noEmit)",
+      "Bash(/c/Users/ricar/AppData/Local/nvm/v20.20.2/node.exe H:/LUCID_GIT/node_modules/typescript/bin/tsc --noEmit)",
+      "Bash(node -e \"const Store = require\\('electron-store'\\); const s = new Store\\(\\); console.log\\(typeof s.get, typeof s.set\\)\")"
+    ]
+  }
+}

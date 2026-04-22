@@ -1,0 +1,176 @@
+// Shared types for the Electron main process.
+// Mirror of the domain types in src/ipc.ts — kept separate because
+// the main and renderer processes are compiled independently.
+
+export interface OperationStep {
+  id: string
+  label: string
+  status: 'pending' | 'running' | 'done' | 'error'
+  progress?: number
+  detail?: string
+  duration?: number
+}
+
+export interface FileStatus {
+  path: string
+  indexStatus: string   // staged status  (X in XY)
+  workingStatus: string // working status (Y in XY)
+  staged: boolean
+}
+
+export interface BranchInfo {
+  name: string          // full short name: "main" or "origin/main"
+  displayName: string   // name without remote prefix: always "main"
+  current: boolean      // true only for the checked-out local branch
+  upstream?: string     // tracking remote ref, e.g. "origin/main"
+  ahead: number
+  behind: number
+  isRemote: boolean
+  remoteName?: string   // e.g. "origin"
+  hasLocal?: boolean    // remote branches: whether a local tracking branch exists
+}
+
+export interface CommitEntry {
+  hash: string
+  parentHashes: string[]
+  author: string
+  email: string
+  timestamp: number
+  message: string
+}
+
+export interface Account {
+  userId: string
+  login: string
+  name: string
+  avatarUrl: string
+}
+
+export interface DeviceFlowStart {
+  deviceCode: string
+  userCode: string
+  verificationUri: string
+  expiresIn: number
+  interval: number
+}
+
+export interface Lock {
+  id: string
+  path: string
+  owner: { name: string; login: string }
+  lockedAt: string  // ISO date string
+}
+
+export interface StashEntry {
+  index:   number
+  ref:     string   // stash@{0}
+  message: string
+  branch:  string
+  date:    string   // ISO date string
+}
+
+export interface DiffContent {
+  oldContent: string
+  newContent: string
+  isBinary: boolean
+  language: string
+}
+
+export interface AppNotification {
+  id: number
+  type: string
+  title: string
+  body: string
+  repoPath: string
+  createdAt: string  // ISO date string
+  read: boolean
+}
+
+export interface WebhookConfig {
+  url: string
+  enabled: boolean
+  events: {
+    fileLocked: boolean
+    fileUnlocked: boolean
+    mergeConflictDetected: boolean
+    pushToMain: boolean
+    branchCreated: boolean
+    forceUnlock: boolean
+    largeFileWarning: boolean
+    fatalError: boolean
+    cleanupCompleted: boolean
+    branchDeleted: boolean
+  }
+  mentionRoles?: string[]
+  quietHours?: { start: string; end: string }
+}
+
+export interface ContributorInfo {
+  branch: string
+  lastContributor: { name: string; email: string }
+  lastEditedAt: string   // ISO date string
+  lastCommitMessage: string
+  sizeBytes: number
+}
+
+export interface ConflictPreviewFile {
+  path: string
+  type: 'text' | 'binary' | 'ue-asset'
+  conflictType: 'content' | 'binary' | 'delete-modify'
+  ours: ContributorInfo
+  theirs: ContributorInfo
+}
+
+export interface LFSStatus {
+  tracked: string[]    // patterns from .gitattributes with filter=lfs
+  untracked: string[]  // suggested patterns (binary exts in repo not yet tracked)
+  objects: number
+  totalBytes: number
+}
+
+export interface SyncStatus {
+  ahead: number
+  behind: number
+  remoteName: string
+  remoteBranch: string
+  hasUpstream: boolean
+}
+
+export interface SizeBreakdown {
+  totalBytes: number
+  objectsBytes: number
+  packsBytes: number
+  lfsCacheBytes: number
+  logsBytes: number
+}
+
+export interface CleanupResult {
+  beforeBytes: number
+  afterBytes: number
+  savedBytes: number
+}
+
+export interface UEProject {
+  name: string
+  uprojectPath: string
+  engineVersion: string
+}
+
+export interface AppSettings {
+  autoFetchIntervalMinutes: number
+  defaultCloneDepth: number
+  largeFileWarnMB: number
+  scheduledCleanup: {
+    enabled: boolean
+    frequencyDays: number
+    includeGc: boolean
+    includePruneLfs: boolean
+  }
+}
+
+export interface TeamConfig {
+  lfsPatterns: string[]
+  webhookEvents: Record<string, boolean>
+  hookIds: string[]
+  largeFileWarnMB?: number
+}
