@@ -12,6 +12,10 @@ export interface AppSettings {
     includeGc: boolean
     includePruneLfs: boolean
   }
+  fontFamily: string
+  fontSize: number
+  uiDensity: 'compact' | 'normal' | 'relaxed'
+  theme: 'dark' | 'darker' | 'midnight'
 }
 
 const DEFAULTS: AppSettings = {
@@ -24,6 +28,10 @@ const DEFAULTS: AppSettings = {
     includeGc: true,
     includePruneLfs: true,
   },
+  fontFamily: 'IBM Plex Sans',
+  fontSize: 13,
+  uiDensity: 'normal',
+  theme: 'dark',
 }
 
 class SettingsService {

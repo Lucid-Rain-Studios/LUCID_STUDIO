@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { ipc, Account, DeviceFlowStart } from '@/ipc'
+import { ipc, Account, DeviceFlowStart, RepoPermission } from '@/ipc'
 
 interface DeviceFlowState {
   deviceCode: string
@@ -17,6 +17,11 @@ interface AuthState {
   deviceFlow: DeviceFlowState | null
   isPolling: boolean
 
+  // Permission tier per repoPath — Phase 20
+  repoPermissions: Record<string, RepoPermission>
+  permissionFetching: Record<string, boolean>
+  permissionErrors: Record<string, boolean>   // true = last fetch failed (fail-open)
+
   loadAccounts:    () => Promise<void>
   startDeviceFlow: () => Promise<void>
   pollOnce:        () => Promise<boolean>
@@ -24,21 +29,26 @@ interface AuthState {
   setCurrentAccount: (userId: string) => void
   clearDeviceFlow: () => void
   clearError:      () => void
+  fetchRepoPermission: (repoPath: string) => Promise<void>
+  isAdmin: (repoPath: string) => boolean
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
-  accounts:         [],
-  currentAccountId: null,
-  isLoading:        false,
-  error:            null,
-  deviceFlow:       null,
-  isPolling:        false,
+  accounts:           [],
+  currentAccountId:   null,
+  isLoading:          false,
+  error:              null,
+  deviceFlow:         null,
+  isPolling:          false,
+  repoPermissions:    {},
+  permissionFetching: {},
+  permissionErrors:   {},
 
   loadAccounts: async () => {
     set({ isLoading: true, error: null })
     try {
-      const accounts = await ipc.listAccounts()
-      set({ accounts, isLoading: false })
+      const { accounts, currentAccountId } = await ipc.listAccounts()
+      set({ accounts, currentAccountId, isLoading: false })
     } catch (e) {
       set({ error: String(e), isLoading: false })
     }
@@ -71,7 +81,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const result = await ipc.pollDeviceFlow(deviceFlow.deviceCode)
       if (result) {
-        const accounts = await ipc.listAccounts()
+        const { accounts } = await ipc.listAccounts()
         set({
           accounts,
           currentAccountId: result.userId,
@@ -106,4 +116,26 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   setCurrentAccount: (userId) => set({ currentAccountId: userId }),
   clearDeviceFlow:   ()       => set({ deviceFlow: null, error: null }),
   clearError:        ()       => set({ error: null }),
+
+  fetchRepoPermission: async (repoPath: string) => {
+    if (get().permissionFetching[repoPath]) return
+    set(s => ({ permissionFetching: { ...s.permissionFetching, [repoPath]: true } }))
+    try {
+      const permission = await ipc.fetchRepoPermission(repoPath)
+      set(s => ({
+        repoPermissions:    { ...s.repoPermissions,    [repoPath]: permission },
+        permissionErrors:   { ...s.permissionErrors,   [repoPath]: false },
+        permissionFetching: { ...s.permissionFetching, [repoPath]: false },
+      }))
+    } catch {
+      // Fail-open: treat as 'write' and flag as error for UI warning
+      set(s => ({
+        repoPermissions:    { ...s.repoPermissions,    [repoPath]: 'write' },
+        permissionErrors:   { ...s.permissionErrors,   [repoPath]: true },
+        permissionFetching: { ...s.permissionFetching, [repoPath]: false },
+      }))
+    }
+  },
+
+  isAdmin: (repoPath: string) => get().repoPermissions[repoPath] === 'admin',
 }))

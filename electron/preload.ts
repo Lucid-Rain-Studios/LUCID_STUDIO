@@ -22,6 +22,12 @@ const api = {
   logout: (userId: string) =>
     ipcRenderer.invoke(CHANNELS.AUTH_LOGOUT, userId),
 
+  // ── Permissions — Phase 20 ────────────────────────────────────────────────
+  fetchRepoPermission: (repoPath: string) =>
+    ipcRenderer.invoke(CHANNELS.AUTH_FETCH_REPO_PERMISSION, repoPath),
+  getRepoPermission: (repoPath: string) =>
+    ipcRenderer.invoke(CHANNELS.AUTH_GET_REPO_PERMISSION, repoPath),
+
   // ── Git core ──────────────────────────────────────────────────────────────
   isRepo: (repoPath: string) =>
     ipcRenderer.invoke(CHANNELS.GIT_IS_REPO, repoPath),
@@ -151,6 +157,8 @@ const api = {
     ipcRenderer.invoke(CHANNELS.GIT_SET_UPSTREAM, repoPath, branch),
   setGitConfig: (repoPath: string, key: string, value: string) =>
     ipcRenderer.invoke(CHANNELS.GIT_SET_CONFIG, repoPath, key, value),
+  getGitConfig: (repoPath: string, key: string) =>
+    ipcRenderer.invoke(CHANNELS.GIT_GET_CONFIG, repoPath, key),
 
   // ── Hooks ─────────────────────────────────────────────────────────────────
   hookList: (repoPath: string) =>
@@ -179,6 +187,18 @@ const api = {
     ipcRenderer.invoke(CHANNELS.UE_WRITE_GITIGNORE, repoPath),
   uePakSize: (repoPath: string, stagedPaths: string[]) =>
     ipcRenderer.invoke(CHANNELS.UE_PAK_SIZE, repoPath, stagedPaths),
+  uePluginStatus: (repoPath: string) =>
+    ipcRenderer.invoke(CHANNELS.UE_PLUGIN_STATUS, repoPath),
+  ueConfigStatus: (repoPath: string) =>
+    ipcRenderer.invoke(CHANNELS.UE_CONFIG_STATUS, repoPath),
+  ueWriteEditorConfig: (repoPath: string) =>
+    ipcRenderer.invoke(CHANNELS.UE_WRITE_EDITOR_CONFIG, repoPath),
+  ueWriteEngineConfig: (repoPath: string) =>
+    ipcRenderer.invoke(CHANNELS.UE_WRITE_ENGINE_CONFIG, repoPath),
+  gitGetIdentity: (repoPath: string) =>
+    ipcRenderer.invoke(CHANNELS.GIT_GET_IDENTITY, repoPath),
+  gitLinkIdentity: (repoPath: string, login: string, name: string) =>
+    ipcRenderer.invoke(CHANNELS.GIT_LINK_IDENTITY, repoPath, login, name),
 
   // ── App Settings ──────────────────────────────────────────────────────────
   settingsGet: () =>
@@ -191,6 +211,81 @@ const api = {
     ipcRenderer.invoke(CHANNELS.TEAM_CONFIG_LOAD, repoPath),
   teamConfigSave: (repoPath: string, config: unknown) =>
     ipcRenderer.invoke(CHANNELS.TEAM_CONFIG_SAVE, repoPath, config),
+
+  // ── Shell ─────────────────────────────────────────────────────────────────
+  openTerminal: (cwd?: string) =>
+    ipcRenderer.invoke(CHANNELS.SHELL_OPEN_TERMINAL, cwd),
+  openFile: (defaultPath?: string) =>
+    ipcRenderer.invoke(CHANNELS.DIALOG_OPEN_FILE, defaultPath),
+
+  // ── Git Tools ─────────────────────────────────────────────────────────────
+  gitRestoreFile: (repoPath: string, filePath: string, fromHash: string) =>
+    ipcRenderer.invoke(CHANNELS.GIT_RESTORE_FILE, repoPath, filePath, fromHash),
+  gitRevert: (repoPath: string, hash: string, noCommit: boolean) =>
+    ipcRenderer.invoke(CHANNELS.GIT_REVERT, repoPath, hash, noCommit),
+  gitCherryPick: (repoPath: string, hash: string) =>
+    ipcRenderer.invoke(CHANNELS.GIT_CHERRY_PICK, repoPath, hash),
+  gitResetTo: (repoPath: string, hash: string, mode: 'soft' | 'mixed' | 'hard') =>
+    ipcRenderer.invoke(CHANNELS.GIT_RESET_TO, repoPath, hash, mode),
+  gitLsFiles: (repoPath: string) =>
+    ipcRenderer.invoke(CHANNELS.GIT_LS_FILES, repoPath),
+  gitFileLog: (repoPath: string, filePath: string, limit?: number) =>
+    ipcRenderer.invoke(CHANNELS.GIT_FILE_LOG, repoPath, filePath, limit),
+  gitBranchActivity: (repoPath: string) =>
+    ipcRenderer.invoke(CHANNELS.GIT_BRANCH_ACTIVITY, repoPath),
+  gitDefaultBranch: (repoPath: string) =>
+    ipcRenderer.invoke(CHANNELS.GIT_DEFAULT_BRANCH, repoPath),
+
+  // ── Asset diff previews — Phase 17 ───────────────────────────────────────
+  assetDiffPreview: (repoPath: string, filePath: string, leftRef: string, rightRef: string, editorBinaryOverride?: string) =>
+    ipcRenderer.invoke(CHANNELS.ASSET_DIFF_PREVIEW, repoPath, filePath, leftRef, rightRef, editorBinaryOverride),
+  assetRenderThumbnail: (repoPath: string, filePath: string, ref: string) =>
+    ipcRenderer.invoke(CHANNELS.ASSET_RENDER_THUMBNAIL, repoPath, filePath, ref),
+  assetExtractMetadata: (repoPath: string, filePath: string, ref: string) =>
+    ipcRenderer.invoke(CHANNELS.ASSET_EXTRACT_METADATA, repoPath, filePath, ref),
+
+  // ── File-system watcher ───────────────────────────────────────────────────
+  watchStatusChanges: (repoPath: string): Promise<void> =>
+    ipcRenderer.invoke(CHANNELS.GIT_WATCH_STATUS, repoPath),
+  unwatchStatusChanges: (repoPath: string): Promise<void> =>
+    ipcRenderer.invoke(CHANNELS.GIT_UNWATCH_STATUS, repoPath),
+
+  // ── Presence ──────────────────────────────────────────────────────────────
+  presenceRead: (repoPath: string) =>
+    ipcRenderer.invoke(CHANNELS.PRESENCE_READ, repoPath),
+  presenceUpdate: (repoPath: string, login: string, entry: unknown) =>
+    ipcRenderer.invoke(CHANNELS.PRESENCE_UPDATE, repoPath, login, entry),
+
+  // ── Lock Heatmap & Conflict Forecasting — Phase 19 ───────────────────────
+  heatmapCompute: (repoPath: string, timeWindowDays: number, groupBy: 'folder' | 'type') =>
+    ipcRenderer.invoke(CHANNELS.HEATMAP_COMPUTE, repoPath, timeWindowDays, groupBy),
+  heatmapTimeline: (repoPath: string, filePath: string, timeWindowDays: number) =>
+    ipcRenderer.invoke(CHANNELS.HEATMAP_TIMELINE, repoPath, filePath, timeWindowDays),
+  heatmapTop: (repoPath: string, timeWindowDays: number, limit?: number) =>
+    ipcRenderer.invoke(CHANNELS.HEATMAP_TOP, repoPath, timeWindowDays, limit),
+  forecastStart: (repoPath: string, intervalMinutes?: number) =>
+    ipcRenderer.invoke(CHANNELS.FORECAST_START, repoPath, intervalMinutes),
+  forecastStop: (repoPath: string) =>
+    ipcRenderer.invoke(CHANNELS.FORECAST_STOP, repoPath),
+  forecastStatus: (repoPath: string) =>
+    ipcRenderer.invoke(CHANNELS.FORECAST_STATUS, repoPath),
+  onForecastConflict: (cb: (conflicts: unknown) => void) => {
+    const handler = (_e: Electron.IpcRendererEvent, c: unknown) => cb(c)
+    ipcRenderer.on(CHANNELS.EVT_FORECAST_CONFLICT, handler)
+    return () => ipcRenderer.removeListener(CHANNELS.EVT_FORECAST_CONFLICT, handler)
+  },
+
+  // ── Dependency-Aware Blame — Phase 18 ────────────────────────────────────
+  depBuildGraph: (repoPath: string) =>
+    ipcRenderer.invoke(CHANNELS.DEP_BUILD_GRAPH, repoPath),
+  depGraphStatus: (repoPath: string) =>
+    ipcRenderer.invoke(CHANNELS.DEP_GRAPH_STATUS, repoPath),
+  depBlameAsset: (repoPath: string, filePath: string) =>
+    ipcRenderer.invoke(CHANNELS.DEP_BLAME_ASSET, repoPath, filePath),
+  depLookupReferences: (repoPath: string, packageName: string) =>
+    ipcRenderer.invoke(CHANNELS.DEP_LOOKUP_REFERENCES, repoPath, packageName),
+  depRefreshCache: (repoPath: string) =>
+    ipcRenderer.invoke(CHANNELS.DEP_REFRESH_CACHE, repoPath),
 
   // ── Events: main → renderer ───────────────────────────────────────────────
   onOperationProgress: (cb: (step: unknown) => void) => {
@@ -217,6 +312,11 @@ const api = {
     const handler = () => cb()
     ipcRenderer.on(CHANNELS.EVT_UPDATE_READY, handler)
     return () => ipcRenderer.removeListener(CHANNELS.EVT_UPDATE_READY, handler)
+  },
+  onStatusChanged: (cb: () => void) => {
+    const handler = () => cb()
+    ipcRenderer.on(CHANNELS.EVT_STATUS_CHANGED, handler)
+    return () => ipcRenderer.removeListener(CHANNELS.EVT_STATUS_CHANGED, handler)
   },
 }
 

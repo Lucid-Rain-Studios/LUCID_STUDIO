@@ -16,6 +16,7 @@ asarUnpack:
   - "node_modules/dugite/**/*"
   - "node_modules/keytar/**/*"
   - "node_modules/better-sqlite3/**/*"
+  - "node_modules/sharp/**/*"
 
 # Versioned filenames make GitHub Releases clean
 artifactName: "${productName}-${version}-${os}-${arch}.${ext}"

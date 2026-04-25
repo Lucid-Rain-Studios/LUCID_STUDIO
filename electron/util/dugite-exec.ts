@@ -22,6 +22,11 @@ const PROGRESS_PATTERNS: ProgressPattern[] = [
   { regex: /remote:\s+Compressing objects:\s+(\d+)%/i,   id: 'remote-zip',   label: 'Remote: compressing' },
   { regex: /Uploading LFS objects:\s+(\d+)%/i,           id: 'lfs-up',       label: 'Uploading LFS objects' },
   { regex: /Downloading LFS objects:\s+(\d+)%/i,         id: 'lfs-down',     label: 'Downloading LFS objects' },
+  { regex: /Packing objects:\s+(\d+)%/i,                 id: 'pack',         label: 'Packing objects' },
+  { regex: /Pruning loose objects:\s+(\d+)%/i,           id: 'prune-loose',  label: 'Pruning loose objects' },
+  { regex: /Updating references:\s+(\d+)%/i,             id: 'update-refs',  label: 'Updating references' },
+  { regex: /migrate:.*Rewriting commits:\s+(\d+)%/i,     id: 'lfs-rewrite',  label: 'Rewriting commits' },
+  { regex: /Checking out files:\s+(\d+)%/i,              id: 'checkout',     label: 'Checking out files' },
 ]
 
 function parseGitProgress(line: string): OperationStep | null {

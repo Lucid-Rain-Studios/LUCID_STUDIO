@@ -1,0 +1,152 @@
+import { BrowserWindow } from 'electron'
+import { execSafe } from '../util/dugite-exec'
+import { CHANNELS } from '../ipc/channels'
+
+export interface ForecastConflict {
+  filePath: string
+  remoteBranch: string
+  remoteLastCommit: string
+  remoteLastAuthor: string
+  remoteLastMessage: string
+  severity: 'high' | 'medium' | 'low'
+}
+
+export interface ForecastStatus {
+  repoPath: string
+  enabled: boolean
+  lastPolledAt: number | null
+  intervalMinutes: number
+  conflicts: ForecastConflict[]
+}
+
+class ForecastService {
+  private timers    = new Map<string, ReturnType<typeof setInterval>>()
+  private status    = new Map<string, ForecastStatus>()
+  private conflicts = new Map<string, ForecastConflict[]>()
+
+  start(repoPath: string, intervalMinutes = 5): ForecastStatus {
+    if (this.timers.has(repoPath)) this.stop(repoPath)
+
+    const st: ForecastStatus = {
+      repoPath,
+      enabled: true,
+      lastPolledAt: null,
+      intervalMinutes,
+      conflicts: [],
+    }
+    this.status.set(repoPath, st)
+
+    // First poll immediately (async, don't block)
+    this.poll(repoPath).catch(() => {})
+
+    const id = setInterval(() => this.poll(repoPath).catch(() => {}), intervalMinutes * 60_000)
+    this.timers.set(repoPath, id)
+    return st
+  }
+
+  stop(repoPath: string): void {
+    const id = this.timers.get(repoPath)
+    if (id !== undefined) {
+      clearInterval(id)
+      this.timers.delete(repoPath)
+    }
+    this.status.delete(repoPath)
+    this.conflicts.delete(repoPath)
+  }
+
+  getStatus(repoPath: string): ForecastStatus | null {
+    const st = this.status.get(repoPath)
+    if (!st) return null
+    return { ...st, conflicts: this.conflicts.get(repoPath) ?? [] }
+  }
+
+  private async poll(repoPath: string): Promise<void> {
+    // 1. Fetch remote updates
+    await execSafe(['fetch', '--all', '--quiet'], repoPath)
+
+    // 2. Get locally modified files (staged + unstaged)
+    const statusRes = await execSafe(['status', '--porcelain=v1', '-z'], repoPath)
+    const modifiedFiles = new Set<string>()
+    if (statusRes.exitCode === 0) {
+      for (const entry of statusRes.stdout.split('\0').filter(Boolean)) {
+        const relPath = entry.slice(3).trim()
+        if (relPath) modifiedFiles.add(relPath.replace(/\\/g, '/'))
+      }
+    }
+
+    // 3. Get current branch
+    const branchRes = await execSafe(['rev-parse', '--abbrev-ref', 'HEAD'], repoPath)
+    const currentBranch = branchRes.exitCode === 0 ? branchRes.stdout.trim() : 'HEAD'
+
+    // 4. List remote tracking branches
+    const refRes = await execSafe(['for-each-ref', '--format=%(refname:short)', 'refs/remotes'], repoPath)
+    if (refRes.exitCode !== 0) return
+
+    const remoteBranches = refRes.stdout.trim().split('\n')
+      .filter(Boolean)
+      .filter(b => !b.includes('/HEAD') && !b.endsWith(`/${currentBranch}`))
+
+    // 5. For each remote branch, find files that differ from HEAD
+    const newConflicts: ForecastConflict[] = []
+
+    for (const remoteBranch of remoteBranches.slice(0, 10)) {
+      const diffRes = await execSafe(
+        ['diff', '--name-only', `HEAD...${remoteBranch}`],
+        repoPath
+      )
+      if (diffRes.exitCode !== 0 || !diffRes.stdout.trim()) continue
+
+      const remoteChanged = new Set(
+        diffRes.stdout.trim().split('\n').filter(Boolean).map(f => f.replace(/\\/g, '/'))
+      )
+
+      // Intersect with locally modified
+      const overlapping = [...modifiedFiles].filter(f => remoteChanged.has(f))
+      if (overlapping.length === 0) continue
+
+      // Get info about the remote branch tip commit
+      const logRes = await execSafe(
+        ['log', '-1', '--format=%H%x00%an%x00%s', remoteBranch],
+        repoPath
+      )
+      let remoteLastCommit = ''
+      let remoteLastAuthor = ''
+      let remoteLastMessage = ''
+      if (logRes.exitCode === 0) {
+        const parts = logRes.stdout.trim().split('\x00')
+        remoteLastCommit  = parts[0]?.slice(0, 7) ?? ''
+        remoteLastAuthor  = parts[1] ?? ''
+        remoteLastMessage = parts[2] ?? ''
+      }
+
+      for (const filePath of overlapping) {
+        newConflicts.push({
+          filePath,
+          remoteBranch,
+          remoteLastCommit,
+          remoteLastAuthor,
+          remoteLastMessage,
+          severity: overlapping.length > 3 ? 'high' : overlapping.length > 1 ? 'medium' : 'low',
+        })
+      }
+    }
+
+    // 6. Update status and emit events
+    this.conflicts.set(repoPath, newConflicts)
+    const st = this.status.get(repoPath)
+    if (st) {
+      st.lastPolledAt = Date.now()
+      st.conflicts = newConflicts
+    }
+
+    if (newConflicts.length > 0) {
+      BrowserWindow.getAllWindows().forEach(win => {
+        if (!win.webContents.isDestroyed()) {
+          win.webContents.send(CHANNELS.EVT_FORECAST_CONFLICT, newConflicts)
+        }
+      })
+    }
+  }
+}
+
+export const forecastService = new ForecastService()

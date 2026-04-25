@@ -135,8 +135,9 @@ class AuthService {
     return { token: d.access_token, userId }
   }
 
-  listAccounts(): Account[] {
-    return readData().accounts
+  listAccounts(): { accounts: Account[]; currentAccountId: string | null } {
+    const data = readData()
+    return { accounts: data.accounts, currentAccountId: data.currentAccountId }
   }
 
   async logout(userId: string): Promise<void> {

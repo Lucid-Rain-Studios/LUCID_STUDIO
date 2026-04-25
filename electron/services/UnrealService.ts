@@ -28,11 +28,11 @@ const GITATTRIBUTES = `# Unreal Engine 5 – Git Attributes
 *.uproject text eol=lf
 *.uplugin  text eol=lf
 
-# ── Unreal Engine assets ───────────────────────────────────────────────────────
-*.uasset   filter=lfs diff=lfs merge=lfs -text
-*.umap     filter=lfs diff=lfs merge=lfs -text
-*.upk      filter=lfs diff=lfs merge=lfs -text
-*.udk      filter=lfs diff=lfs merge=lfs -text
+# ── Unreal Engine assets — lockable so LFS enforces checkout-before-edit ──────
+*.uasset   filter=lfs diff=lfs merge=lfs -text lockable
+*.umap     filter=lfs diff=lfs merge=lfs -text lockable
+*.upk      filter=lfs diff=lfs merge=lfs -text lockable
+*.udk      filter=lfs diff=lfs merge=lfs -text lockable
 
 # ── Images ────────────────────────────────────────────────────────────────────
 *.png      filter=lfs diff=lfs merge=lfs -text
@@ -145,6 +145,44 @@ $RECYCLE.BIN/
 # Plugins/
 `
 
+// ── INI helpers ───────────────────────────────────────────────────────────────
+
+/**
+ * Merge key=value pairs into an INI section, preserving all other content.
+ * Creates the section if it does not exist.
+ */
+function setIniKeys(content: string, section: string, keys: Record<string, string>): string {
+  const lines = content.split('\n')
+  const header = `[${section}]`
+
+  let secIdx = lines.findIndex(l => l.trimEnd() === header)
+
+  if (secIdx === -1) {
+    const appended = ['', header, ...Object.entries(keys).map(([k, v]) => `${k}=${v}`)]
+    return (content.trimEnd() ? content.trimEnd() + '\n' : '') + appended.join('\n') + '\n'
+  }
+
+  let endIdx = lines.length
+  for (let i = secIdx + 1; i < lines.length; i++) {
+    if (lines[i].trimStart().startsWith('[')) { endIdx = i; break }
+  }
+
+  const remaining = new Set(Object.keys(keys))
+  for (let i = secIdx + 1; i < endIdx; i++) {
+    const eqIdx = lines[i].indexOf('=')
+    if (eqIdx > 0) {
+      const k = lines[i].slice(0, eqIdx).trim()
+      if (keys[k] !== undefined) {
+        lines[i] = `${k}=${keys[k]}`
+        remaining.delete(k)
+      }
+    }
+  }
+  lines.splice(endIdx, 0, ...[...remaining].map(k => `${k}=${keys[k]}`))
+
+  return lines.join('\n')
+}
+
 // ── Service ───────────────────────────────────────────────────────────────────
 
 export interface UESetupStatus {
@@ -218,6 +256,139 @@ class UnrealService {
   /** Return the raw template strings for preview in the UI. */
   templates() {
     return { gitattributes: GITATTRIBUTES, gitignore: GITIGNORE }
+  }
+
+  /**
+   * Check whether UEGitPlugin (GitSourceControl) is installed.
+   * Checks project Plugins/, then the engine installation.
+   * Returns the folder name and location so the UI can show the exact path.
+   */
+  pluginStatus(repoPath: string): {
+    installed: boolean
+    location: 'project' | 'engine' | null
+    pluginFolder: string | null
+  } {
+    // Possible folder names — ordered by preference
+    const FOLDER_NAMES = ['UEGitPlugin', 'GitSourceControl', 'UEGitPlugin-main']
+    const UPLUGIN = 'GitSourceControl.uplugin'
+
+    // 1. Project-level — best option: plugin ships with the repo
+    for (const folder of FOLDER_NAMES) {
+      if (fs.existsSync(path.join(repoPath, 'Plugins', folder, UPLUGIN))) {
+        return { installed: true, location: 'project', pluginFolder: folder }
+      }
+    }
+
+    // 2. Engine-level — works for this user but teammates need their own install
+    const project = this.detect(repoPath)
+    const version = project?.engineVersion ?? ''
+    if (/^\d+\.\d+/.test(version)) {
+      const ueFolder = `UE_${version}`
+      const engineRoots: string[] = []
+
+      if (process.platform === 'win32') {
+        const pf  = process.env['PROGRAMFILES']     ?? 'C:\\Program Files'
+        const pf86 = process.env['PROGRAMFILES(X86)'] ?? 'C:\\Program Files (x86)'
+        engineRoots.push(
+          path.join(pf,   'Epic Games', ueFolder),
+          path.join(pf86, 'Epic Games', ueFolder),
+        )
+      } else if (process.platform === 'darwin') {
+        engineRoots.push(
+          path.join('/Users', 'Shared', 'Epic Games', ueFolder),
+          path.join('/Library', 'Application Support', 'Epic', 'UnrealEngine', ueFolder),
+        )
+      }
+
+      const ENGINE_SUBDIRS = ['Developer', 'Marketplace', 'Editor', 'Runtime', '']
+      for (const root of engineRoots) {
+        for (const sub of ENGINE_SUBDIRS) {
+          for (const folder of FOLDER_NAMES) {
+            const candidate = sub
+              ? path.join(root, 'Engine', 'Plugins', sub, folder, UPLUGIN)
+              : path.join(root, 'Engine', 'Plugins', folder, UPLUGIN)
+            if (fs.existsSync(candidate)) {
+              return { installed: true, location: 'engine', pluginFolder: folder }
+            }
+          }
+        }
+      }
+    }
+
+    return { installed: false, location: null, pluginFolder: null }
+  }
+
+  /** Read current state of the two UE config files that affect source control. */
+  ueConfigStatus(repoPath: string): {
+    editorConfigExists: boolean
+    editorConfigHasSccSettings: boolean
+    editorConfigHasCheckoutSettings: boolean
+    engineConfigExists: boolean
+    engineConfigHasSkipCheck: boolean
+  } {
+    const editorPath = path.join(repoPath, 'Config', 'DefaultEditorPerProjectUserSettings.ini')
+    const enginePath = path.join(repoPath, 'Config', 'DefaultEngine.ini')
+
+    let editorContent = ''
+    let engineContent = ''
+    try { editorContent = fs.readFileSync(editorPath, 'utf-8') } catch {}
+    try { engineContent = fs.readFileSync(enginePath, 'utf-8') } catch {}
+
+    return {
+      editorConfigExists:          editorContent.length > 0,
+      editorConfigHasSccSettings:  editorContent.includes('bSCCAutoAddNewFiles=False'),
+      editorConfigHasCheckoutSettings: editorContent.includes('bAutomaticallyCheckoutOnAssetModification=True'),
+      engineConfigExists:          engineContent.length > 0,
+      engineConfigHasSkipCheck:    engineContent.includes('r.Editor.SkipSourceControlCheckForEditablePackages=1'),
+    }
+  }
+
+  /**
+   * Write (or merge into) Config/DefaultEditorPerProjectUserSettings.ini.
+   * Sets source control checkout behaviour for the GitSourceControl plugin workflow.
+   * Preserves all existing content.
+   */
+  writeEditorConfig(repoPath: string): void {
+    const configDir = path.join(repoPath, 'Config')
+    fs.mkdirSync(configDir, { recursive: true })
+    const filePath = path.join(configDir, 'DefaultEditorPerProjectUserSettings.ini')
+
+    let content = ''
+    try { content = fs.readFileSync(filePath, 'utf-8') } catch {}
+
+    // Prevents UE from auto-adding new files to source control (Lucid Git manages staging)
+    content = setIniKeys(content, '/Script/SourceControl.SCC_PackageSettings', {
+      bSCCAutoAddNewFiles: 'False',
+    })
+
+    // Makes the editor lock (checkout) assets automatically when you open them for edit
+    content = setIniKeys(content, '/Script/UnrealEd.EditorLoadingSavingSettings', {
+      bAutomaticallyCheckoutOnAssetModification: 'True',
+      bPromptForCheckoutOnAssetModification:     'False',
+      bAutoloadCheckedOutPackages:               'True',
+    })
+
+    fs.writeFileSync(filePath, content, 'utf-8')
+  }
+
+  /**
+   * Write (or merge into) Config/DefaultEngine.ini.
+   * Disables the read-only file check that conflicts with LFS lock workflows.
+   * Preserves all existing content.
+   */
+  writeEngineConfig(repoPath: string): void {
+    const configDir = path.join(repoPath, 'Config')
+    fs.mkdirSync(configDir, { recursive: true })
+    const filePath = path.join(configDir, 'DefaultEngine.ini')
+
+    let content = ''
+    try { content = fs.readFileSync(filePath, 'utf-8') } catch {}
+
+    content = setIniKeys(content, 'ConsoleVariables', {
+      'r.Editor.SkipSourceControlCheckForEditablePackages': '1',
+    })
+
+    fs.writeFileSync(filePath, content, 'utf-8')
   }
 
   /**

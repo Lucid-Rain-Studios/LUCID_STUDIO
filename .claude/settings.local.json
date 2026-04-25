@@ -19,7 +19,19 @@
       "Bash(python3:*)",
       "Bash(/c/Users/ricar/AppData/Local/nvm/v20.20.2/node.exe H:/LUCID_GIT/node_modules/typescript/bin/tsc -p tsconfig.main.json --noEmit)",
       "Bash(/c/Users/ricar/AppData/Local/nvm/v20.20.2/node.exe H:/LUCID_GIT/node_modules/typescript/bin/tsc --noEmit)",
-      "Bash(node -e \"const Store = require\\('electron-store'\\); const s = new Store\\(\\); console.log\\(typeof s.get, typeof s.set\\)\")"
+      "Bash(node -e \"const Store = require\\('electron-store'\\); const s = new Store\\(\\); console.log\\(typeof s.get, typeof s.set\\)\")",
+      "WebFetch(domain:api.anthropic.com)",
+      "Bash(unzip -p \"LUCID GIT-handoff.zip\" lucid-git/README.md)",
+      "Bash(unzip -p \"LUCID GIT-handoff.zip\" \"lucid-git/project/Lucid Git UI.html\")",
+      "Bash(unzip -p \"LUCID GIT-handoff.zip\" \"lucid-git/project/lucid-git/tokens.js\")",
+      "Bash(unzip -p \"LUCID GIT-handoff.zip\" \"lucid-git/project/lucid-git/data.js\")",
+      "Bash(unzip -p \"LUCID GIT-handoff.zip\" \"lucid-git/project/lucid-git/App.jsx\")",
+      "Bash(unzip -p \"LUCID GIT-handoff.zip\" \"lucid-git/project/lucid-git/TopBar.jsx\")",
+      "WebFetch(domain:github.com)",
+      "Bash(node -e \"require\\('d3-force'\\); console.log\\('d3-force ok'\\)\")",
+      "Bash(node -e \"require\\('better-sqlite3'\\); console.log\\('sqlite ok'\\)\")",
+      "Bash(node -e \"const e = require\\('electron'\\); console.log\\('electron bin:', e\\)\")",
+      "Bash(npx @electron/rebuild -f -w better-sqlite3)"
     ]
   }
 }

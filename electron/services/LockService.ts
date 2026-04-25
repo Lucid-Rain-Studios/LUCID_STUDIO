@@ -4,11 +4,14 @@ import { CHANNELS } from '../ipc/channels'
 import type { Lock } from '../types'
 import { notificationService } from './NotificationService'
 import { webhookService } from './WebhookService'
+import { heatmapService } from './HeatmapService'
 
 class LockService {
   private pollTimers  = new Map<string, ReturnType<typeof setInterval>>()
-  private prevLocks   = new Map<string, Lock[]>()   // repoPath → last known locks
+  private prevLocks   = new Map<string, Lock[]>()
   private watchedFiles: Array<{ repoPath: string; filePath: string }> = []
+  // Track when each file was locked so we can compute duration on unlock
+  private lockTimestamps = new Map<string, number>()  // `${repoPath}::${filePath}` → timestamp
 
   // ── Core LFS commands ───────────────────────────────────────────────────────
 
@@ -24,7 +27,7 @@ class LockService {
       }>
       return raw.map(l => ({
         id:       l.id,
-        path:     l.path,
+        path:     l.path.replace(/\\/g, '/'),   // always forward slashes for consistent matching
         owner:    { name: l.owner.name, login: l.owner.name },
         lockedAt: l.locked_at,
       }))
@@ -33,18 +36,35 @@ class LockService {
     }
   }
 
-  async lockFile(repoPath: string, filePath: string): Promise<Lock> {
-    await exec(['lfs', 'lock', filePath], repoPath)
+  async lockFile(repoPath: string, filePath: string, actorLogin = '', actorName = ''): Promise<Lock> {
+    const normalized = filePath.replace(/\\/g, '/')
+    await exec(['lfs', 'lock', normalized], repoPath)
     const locks = await this.listLocks(repoPath)
-    const lock  = locks.find(l => l.path === filePath)
-    if (!lock) throw new Error(`Lock not found for "${filePath}" after locking`)
+    const lock  = locks.find(l => l.path === normalized)
+    if (!lock) throw new Error(`Lock not found for "${normalized}" after locking`)
+    const now = Date.now()
+    this.lockTimestamps.set(`${repoPath}::${normalized}`, now)
+    heatmapService.recordLockEvent({
+      repoPath, filePath: normalized, eventType: 'locked',
+      actorLogin: actorLogin || lock.owner.login,
+      actorName:  actorName  || lock.owner.name,
+      timestamp: now, durationMs: 0,
+    })
     return lock
   }
 
-  async unlockFile(repoPath: string, filePath: string, force = false): Promise<void> {
-    const args = ['lfs', 'unlock', filePath]
+  async unlockFile(repoPath: string, filePath: string, force = false, actorLogin = '', actorName = ''): Promise<void> {
+    const normalized = filePath.replace(/\\/g, '/')
+    const args = ['lfs', 'unlock', normalized]
     if (force) args.push('--force')
     await exec(args, repoPath)
+    const now = Date.now()
+    const lockedAt = this.lockTimestamps.get(`${repoPath}::${normalized}`) ?? now
+    this.lockTimestamps.delete(`${repoPath}::${normalized}`)
+    heatmapService.recordLockEvent({
+      repoPath, filePath: normalized, eventType: force ? 'force-unlocked' : 'unlocked',
+      actorLogin, actorName, timestamp: now, durationMs: now - lockedAt,
+    })
   }
 
   async watchFile(repoPath: string, filePath: string): Promise<void> {
@@ -90,6 +110,13 @@ class LockService {
         this.emitNotification(n)
         this.showSystemNotification(title, body)
         webhookService.send(repoPath, 'fileLocked', title, body).catch(() => {})
+        const now = Date.now()
+        this.lockTimestamps.set(`${repoPath}::${lock.path}`, now)
+        heatmapService.recordLockEvent({
+          repoPath, filePath: lock.path, eventType: 'locked',
+          actorLogin: lock.owner.login, actorName: lock.owner.name,
+          timestamp: now, durationMs: 0,
+        })
       }
     }
 
@@ -101,6 +128,14 @@ class LockService {
         const n = notificationService.push(repoPath, 'unlock', title, body)
         this.emitNotification(n)
         webhookService.send(repoPath, 'fileUnlocked', title, body).catch(() => {})
+        const now = Date.now()
+        const lockedAt = this.lockTimestamps.get(`${repoPath}::${lock.path}`) ?? now
+        this.lockTimestamps.delete(`${repoPath}::${lock.path}`)
+        heatmapService.recordLockEvent({
+          repoPath, filePath: lock.path, eventType: 'unlocked',
+          actorLogin: lock.owner.login, actorName: lock.owner.name,
+          timestamp: now, durationMs: now - lockedAt,
+        })
 
         // High-priority notification if this file was being watched
         const watchIdx = this.watchedFiles.findIndex(

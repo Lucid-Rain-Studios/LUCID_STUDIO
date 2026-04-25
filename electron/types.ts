@@ -2,6 +2,13 @@
 // Mirror of the domain types in src/ipc.ts — kept separate because
 // the main and renderer processes are compiled independently.
 
+export type RepoPermission = 'admin' | 'write' | 'read'
+
+export interface PermissionCacheEntry {
+  permission: RepoPermission
+  fetchedAt: number  // unix ms
+}
+
 export interface OperationStep {
   id: string
   label: string
@@ -166,6 +173,11 @@ export interface AppSettings {
     includeGc: boolean
     includePruneLfs: boolean
   }
+  // Appearance
+  fontFamily: string
+  fontSize: number
+  uiDensity: 'compact' | 'normal' | 'relaxed'
+  theme: 'dark' | 'darker' | 'midnight'
 }
 
 export interface TeamConfig {
@@ -173,4 +185,27 @@ export interface TeamConfig {
   webhookEvents: Record<string, boolean>
   hookIds: string[]
   largeFileWarnMB?: number
+}
+
+export interface BranchActivity {
+  ref: string
+  author: string
+  email: string
+  date: string
+  message: string
+}
+
+export interface PresenceEntry {
+  login: string
+  name: string
+  branch: string
+  modifiedCount: number
+  modifiedFiles: string[]
+  lastSeen: string   // ISO
+  lastPush?: string  // ISO
+}
+
+export interface PresenceFile {
+  version: number
+  entries: Record<string, PresenceEntry>
 }

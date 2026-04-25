@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lucid Git — UI Redesign</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body, #root { height: 100%; width: 100%; overflow: hidden; }
+    body { background: #0b0d13; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #2a3045; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #3a4560; }
+
+    /* Animations */
+    @keyframes sweep {
+      0%   { transform: translateX(-100%); }
+      100% { transform: translateX(430%); }
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.5; }
+    }
+
+    /* Reset button / input base */
+    button { outline: none; }
+    textarea { outline: none; }
+    input[type="range"] { width: 100%; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <!-- Data + tokens (plain JS) -->
+  <script src="lucid-git/data.js"></script>
+  <script src="lucid-git/tokens.js"></script>
+
+  <!-- Components (JSX via Babel) -->
+  <script type="text/babel" src="lucid-git/StatusBar.jsx"></script>
+  <script type="text/babel" src="lucid-git/TopBar.jsx"></script>
+  <script type="text/babel" src="lucid-git/Sidebar.jsx"></script>
+  <script type="text/babel" src="lucid-git/FilePanel.jsx"></script>
+  <script type="text/babel" src="lucid-git/DiffPanel.jsx"></script>
+  <script type="text/babel" src="lucid-git/HistoryPanel.jsx"></script>
+  <script type="text/babel" src="lucid-git/App.jsx"></script>
+</body>
+</html>

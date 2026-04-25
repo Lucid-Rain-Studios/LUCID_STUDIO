@@ -1,9 +1,9 @@
 import type { CommitEntry } from '@/ipc'
 
 // ── Visual constants (exported so the component can use them) ─────────────────
-export const LANE_W = 14   // px per lane
-export const ROW_H  = 30   // px per commit row
-export const DOT_R  = 4    // commit dot radius
+export const LANE_W = 16   // px per lane
+export const ROW_H  = 48   // px per commit row
+export const DOT_R  = 4.5  // commit dot radius
 
 // Colour palette for lanes — cycles when exhausted
 const LANE_COLORS = [

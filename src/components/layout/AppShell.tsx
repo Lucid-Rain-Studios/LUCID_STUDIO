@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from 'react'
-import { cn } from '@/lib/utils'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { ipc, OperationStep, FileStatus, DiffContent, Lock, AppNotification } from '@/ipc'
 import { useRepoStore } from '@/stores/repoStore'
 import { useOperationStore } from '@/stores/operationStore'
@@ -23,34 +22,96 @@ import { SettingsPage } from '@/components/settings/SettingsPage'
 import { HistoryPanel } from '@/components/history/HistoryPanel'
 import { UnrealPanel } from '@/components/unreal/UnrealPanel'
 import { HooksManager } from '@/components/hooks/HooksManager'
+import { ToolsPanel } from '@/components/tools/ToolsPanel'
+import { PresencePanel } from '@/components/presence/PresencePanel'
+import { OverviewPanel } from '@/components/overview/OverviewPanel'
+import { RepoMapPanel } from '@/components/map/RepoMapPanel'
+import { ContentBrowserPanel } from '@/components/map/ContentBrowserPanel'
 import { ErrorPanel } from '@/components/errors/ErrorPanel'
 import { CommandPalette } from '@/components/command-palette/CommandPalette'
 import { TextDiff } from '@/components/diff/TextDiff'
 import { BinaryDiff } from '@/components/diff/BinaryDiff'
+import { AssetDiffViewer } from '@/components/diff/AssetDiffViewer'
+import { DependencyBlamePanel } from '@/components/blame/DependencyBlamePanel'
+import { LockHeatmap } from '@/components/heatmap/LockHeatmap'
+import { ForecastPanel } from '@/components/heatmap/ForecastPanel'
+import { useForecastStore } from '@/stores/forecastStore'
+
+type TabId = 'changes' | 'stash' | 'branches' | 'lfs' | 'cleanup' | 'unreal' | 'hooks' | 'settings' | 'history' | 'tools' | 'presence' | 'overview' | 'map' | 'content' | 'heatmap' | 'forecast'
+
+const ASSET_EXTS = new Set([
+  'uasset', 'umap', 'upk', 'udk',
+  'png', 'jpg', 'jpeg', 'tga', 'bmp', 'tiff', 'tif', 'dds', 'exr', 'hdr',
+  'wav', 'mp3', 'ogg', 'flac', 'aif', 'aiff',
+  'mp4', 'mov', 'avi', 'mkv',
+])
+
+function isRecognizedAsset(filePath: string): boolean {
+  const ext = filePath.split('.').pop()?.toLowerCase() ?? ''
+  return ASSET_EXTS.has(ext)
+}
 
 export function AppShell() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
-  const [showCloneDialog, setShowCloneDialog]   = useState(false)
-  const [showLoginDialog, setShowLoginDialog]   = useState(false)
-  const [leftTab, setLeftTab] = useState<'changes' | 'stash' | 'branches' | 'lfs' | 'cleanup' | 'unreal' | 'hooks' | 'settings' | 'history'>('changes')
+  const [sidebarWidth,     setSidebarWidth]     = useState(200)
+  const [filePanelWidth,   setFilePanelWidth]   = useState(280)
+  const [showCloneDialog,  setShowCloneDialog]  = useState(false)
+  const [showLoginDialog,  setShowLoginDialog]  = useState(false)
+  const [leftTab, setLeftTab] = useState<TabId>('overview')
   const [mergeTarget, setMergeTarget] = useState<string | null>(null)
-  const [cmdOpen, setCmdOpen]         = useState(false)
+  const [cmdOpen, setCmdOpen] = useState(false)
 
-  // Diff panel state
   const [selectedFile, setSelectedFile] = useState<FileStatus | null>(null)
-  const [diffContent, setDiffContent]   = useState<DiffContent | null>(null)
-  const [diffLoading, setDiffLoading]   = useState(false)
+  const [diffContent,  setDiffContent]  = useState<DiffContent | null>(null)
+  const [diffLoading,  setDiffLoading]  = useState(false)
+  const [blameTarget,  setBlameTarget]  = useState<{ filePath: string; repoPath: string } | null>(null)
 
-  const { repoPath, fileStatus, isLoading, error, openRepo, refreshStatus } = useRepoStore()
+  const { repoPath, fileStatus, isLoading, error, openRepo, refreshStatus, silentRefresh } = useRepoStore()
   const { updateStep } = useOperationStore()
   const { loadAccounts, accounts, currentAccountId } = useAuthStore()
   const { locks, loadLocks, setLocks } = useLockStore()
   const { notifications, push: pushNotification } = useNotificationStore()
   const pushError = useErrorStore(s => s.pushRaw)
+  const { conflicts: forecastConflicts, enabled: forecastEnabled, lastPolledAt, setConflicts: setForecastConflicts, setEnabled: setForecastEnabled, setLastPolledAt } = useForecastStore()
 
   const currentUserName = accounts.find(a => a.userId === currentAccountId)?.login ?? null
 
-  // ── IPC event subscriptions ────────────────────────────────────────────────
+  // ── Drag resize — file panel ───────────────────────────────────────────────
+  const fileDragging   = useRef(false)
+  const fileDragStartX = useRef(0)
+  const fileDragStartW = useRef(0)
+
+  const onFileDragStart = useCallback((e: React.MouseEvent) => {
+    fileDragging.current   = true
+    fileDragStartX.current = e.clientX
+    fileDragStartW.current = filePanelWidth
+    document.body.style.cursor     = 'col-resize'
+    document.body.style.userSelect = 'none'
+    const onMove = (ev: MouseEvent) => {
+      if (!fileDragging.current) return
+      setFilePanelWidth(Math.max(180, Math.min(520, fileDragStartW.current + (ev.clientX - fileDragStartX.current))))
+    }
+    const onUp = () => {
+      fileDragging.current = false
+      document.body.style.cursor     = ''
+      document.body.style.userSelect = ''
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }, [filePanelWidth])
+
+  // ── Keyboard shortcut — command palette ────────────────────────────────────
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); setCmdOpen(o => !o) }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [])
+
+  // ── IPC events ────────────────────────────────────────────────────────────
   useEffect(() => {
     const unsub = ipc.onOperationProgress((step: OperationStep) => updateStep(step))
     return unsub
@@ -66,71 +127,92 @@ export function AppShell() {
     return unsub
   }, [pushNotification])
 
-  // ── Cmd+K / Ctrl+K — command palette ─────────────────────────────────────
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault()
-        setCmdOpen(o => !o)
-      }
-    }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [])
+  useEffect(() => { loadAccounts() }, [])
 
-  // ── Startup ────────────────────────────────────────────────────────────────
   useEffect(() => {
-    loadAccounts()
-  }, [])
-
-  // ── When repo changes ──────────────────────────────────────────────────────
-  useEffect(() => {
-    setSelectedFile(null)
-    setDiffContent(null)
-
+    setSelectedFile(null); setDiffContent(null)
     if (repoPath) {
       loadLocks(repoPath)
       ipc.startLockPolling(repoPath)
-      // Load persisted notifications for this repo into the store
       ipc.notificationList(repoPath).then(persisted => {
-        // Only load ones not already in the store (avoid duplicates on repo re-open)
         const existingIds = new Set(notifications.map(n => n.id))
-        persisted
-          .filter(n => !existingIds.has(n.id))
-          .forEach(n => pushNotification(n))
+        persisted.filter(n => !existingIds.has(n.id)).forEach(n => pushNotification(n))
       }).catch(() => {})
     }
   }, [repoPath])
 
-  // ── Handlers ───────────────────────────────────────────────────────────────
+  // ── File-system watcher — auto-refresh when working tree changes ───────────
+  useEffect(() => {
+    if (!repoPath) return
+    ipc.watchStatusChanges(repoPath).catch(() => {})
+    const unsub = ipc.onStatusChanged(() => silentRefresh())
+    return () => {
+      unsub()
+      ipc.unwatchStatusChanges(repoPath).catch(() => {})
+    }
+  }, [repoPath])
+
+  // ── Forecast — subscribe to conflict events ────────────────────────────────
+  useEffect(() => {
+    const unsub = ipc.onForecastConflict((conflicts) => {
+      setForecastConflicts(conflicts)
+      setLastPolledAt(Date.now())
+    })
+    return unsub
+  }, [])
+
+  useEffect(() => {
+    if (!repoPath) return
+    // Restore forecast status from backend on repo change
+    ipc.forecastStatus(repoPath).then(st => {
+      if (st) {
+        setForecastEnabled(true)
+        setForecastConflicts(st.conflicts)
+        if (st.lastPolledAt) setLastPolledAt(st.lastPolledAt)
+      }
+    }).catch(() => {})
+  }, [repoPath])
+
+  // ── Handlers ──────────────────────────────────────────────────────────────
   const handleOpenRepo = async () => {
     const dir = await ipc.openDirectory()
     if (dir) openRepo(dir)
   }
 
   const handleRefresh = () => {
-    setSelectedFile(null)
-    setDiffContent(null)
+    setSelectedFile(null); setDiffContent(null)
     refreshStatus()
     if (repoPath) loadLocks(repoPath)
   }
 
   const handleSelectFile = async (file: FileStatus) => {
-    setSelectedFile(file)
-    setDiffLoading(true)
-    setDiffContent(null)
+    setSelectedFile(file); setDiffLoading(true); setDiffContent(null)
     try {
       const diff = await ipc.diff(repoPath!, file.path, file.staged)
       setDiffContent(diff)
-    } catch (e) {
-      console.error('Diff error:', e)
-    } finally {
-      setDiffLoading(false)
-    }
+    } catch { /* ignore */ }
+    finally { setDiffLoading(false) }
+  }
+
+  // ── Drag handle component ─────────────────────────────────────────────────
+  const DragHandle = ({ onMouseDown }: { onMouseDown: (e: React.MouseEvent) => void }) => {
+    const [hover, setHover] = useState(false)
+    return (
+      <div
+        onMouseDown={onMouseDown}
+        onMouseEnter={() => setHover(true)}
+        onMouseLeave={() => setHover(false)}
+        style={{
+          width: 4, flexShrink: 0, cursor: 'col-resize',
+          background: hover ? '#e8622f' : '#252d42',
+          transition: 'background 0.15s', zIndex: 5,
+        }}
+      />
+    )
   }
 
   return (
-    <div className="flex flex-col h-screen bg-lg-bg-primary text-lg-text-primary overflow-hidden">
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: '#0b0d13', color: '#dde1f0', overflow: 'hidden' }}>
       <TopBar
         onOpen={handleOpenRepo}
         onClone={() => setShowCloneDialog(true)}
@@ -138,145 +220,169 @@ export function AppShell() {
         onSynced={handleRefresh}
       />
 
-      <div className="flex flex-1 overflow-hidden">
-        <Sidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(c => !c)} />
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+        {/* Sidebar handles its own drag resize internally */}
+        <Sidebar
+          active={leftTab}
+          onChange={tab => setLeftTab(tab as TabId)}
+          collapsed={sidebarCollapsed}
+          onToggle={() => setSidebarCollapsed(c => !c)}
+          width={sidebarWidth}
+          onWidthChange={setSidebarWidth}
+          repoPath={repoPath}
+          onOpenTerminal={() => { if (repoPath) ipc.openTerminal(repoPath) }}
+        />
 
-        <main className="flex-1 flex flex-col overflow-hidden">
-          {!repoPath ? (
+        <main style={{ display: 'flex', flex: 1, overflow: 'hidden', flexDirection: 'column' }}>
+          {/* Settings is always accessible — even without a repo */}
+          {leftTab === 'settings' ? (
+            <SettingsPage repoPath={repoPath} />
+          ) : !repoPath ? (
             /* ── Welcome ── */
-            <div className="flex-1 flex items-center justify-center">
-              <div className="text-center space-y-6">
-                <div>
-                  <div className="font-mono text-5xl font-bold text-lg-accent tracking-tight">
-                    LUCID GIT
-                  </div>
-                  <div className="text-lg-text-secondary text-sm font-mono mt-2">
-                    Git client for game development teams
-                  </div>
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 36, fontWeight: 700, color: '#e8622f', letterSpacing: '0.1em' }}>
+                  LUCID GIT
                 </div>
-
+                <div style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 14, color: '#4e5870', marginTop: 6 }}>
+                  Git client for game development teams
+                </div>
                 {error && (
-                  <div className="bg-lg-error/10 border border-lg-error/40 rounded px-4 py-2 text-xs font-mono text-lg-error max-w-sm text-left whitespace-pre-wrap">
-                    {error}
-                  </div>
+                  <div style={{
+                    marginTop: 16, background: 'rgba(232,69,69,0.1)', border: '1px solid rgba(232,69,69,0.3)',
+                    borderRadius: 6, padding: '8px 16px',
+                    fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: '#e84545',
+                    maxWidth: 400, textAlign: 'left', whiteSpace: 'pre-wrap',
+                  }}>{error}</div>
                 )}
-
-                <div className="flex gap-3 justify-center pt-2">
-                  <button
-                    onClick={handleOpenRepo}
-                    className="px-5 py-2 bg-lg-bg-elevated border border-lg-border rounded text-sm font-mono text-lg-text-primary hover:border-lg-accent hover:text-lg-accent transition-colors"
-                  >
-                    Open Repository
-                  </button>
-                  <button
-                    onClick={() => setShowCloneDialog(true)}
-                    className="px-5 py-2 bg-lg-accent rounded text-sm font-mono text-white hover:bg-lg-accent/80 transition-colors"
-                  >
-                    Clone Repository
-                  </button>
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 24 }}>
+                  <button onClick={handleOpenRepo} style={{
+                    height: 36, paddingLeft: 20, paddingRight: 20, borderRadius: 6,
+                    background: '#1d2235', border: '1px solid #2f3a54', color: '#dde1f0',
+                    fontFamily: "'IBM Plex Sans', system-ui", fontSize: 14, cursor: 'pointer',
+                  }}>Open Repository</button>
+                  <button onClick={() => setShowCloneDialog(true)} style={{
+                    height: 36, paddingLeft: 20, paddingRight: 20, borderRadius: 6,
+                    background: '#e8622f', border: '1px solid #e8622f', color: '#fff',
+                    fontFamily: "'IBM Plex Sans', system-ui", fontSize: 14, fontWeight: 600, cursor: 'pointer',
+                  }}>Clone Repository</button>
                 </div>
               </div>
             </div>
+          ) : leftTab === 'overview' ? (
+            /* ── Overview dashboard ── */
+            <OverviewPanel repoPath={repoPath} onNavigate={tab => setLeftTab(tab as TabId)} onRefresh={handleRefresh} />
+          ) : leftTab === 'history' ? (
+            /* ── History — full width ── */
+            <HistoryPanel repoPath={repoPath} />
+          ) : leftTab === 'tools' ? (
+            /* ── Tools — full width ── */
+            <ToolsPanel repoPath={repoPath} onRefresh={handleRefresh} />
+          ) : leftTab === 'content' ? (
+            /* ── Content Browser — full width ── */
+            <ContentBrowserPanel repoPath={repoPath} onNavigate={tab => setLeftTab(tab as TabId)} />
+          ) : leftTab === 'map' ? (
+            /* ── File Map — full width ── */
+            <RepoMapPanel repoPath={repoPath} />
+          ) : leftTab === 'presence' ? (
+            /* ── Team Presence — full width ── */
+            <PresencePanel repoPath={repoPath} />
+          ) : leftTab === 'heatmap' ? (
+            /* ── Lock Heatmap — full width ── */
+            <LockHeatmap repoPath={repoPath} />
+          ) : leftTab === 'forecast' ? (
+            /* ── Conflict Forecast — full width ── */
+            <ForecastPanel
+              repoPath={repoPath}
+              conflicts={forecastConflicts}
+              enabled={forecastEnabled}
+              lastPolledAt={lastPolledAt}
+              onStart={async () => {
+                const st = await ipc.forecastStart(repoPath)
+                setForecastEnabled(true)
+                setForecastConflicts(st.conflicts)
+              }}
+              onStop={async () => {
+                await ipc.forecastStop(repoPath)
+                setForecastEnabled(false)
+                setForecastConflicts([])
+              }}
+            />
           ) : (
-            /* ── Repo open: split view ── */
-            <div className="flex-1 flex flex-col overflow-hidden">
-              {/* Header with tab bar */}
-              <div className="flex items-center justify-between px-3 py-1.5 bg-lg-bg-secondary border-b border-lg-border shrink-0">
-                <div className="flex items-center gap-1">
-                  {(['changes', 'stash', 'branches', 'lfs', 'cleanup', 'unreal', 'hooks', 'settings', 'history'] as const).map(tab => (
-                    <button
-                      key={tab}
-                      onClick={() => setLeftTab(tab)}
-                      className={cn(
-                        'px-2.5 py-0.5 rounded text-[10px] font-mono uppercase tracking-widest transition-colors',
-                        leftTab === tab
-                          ? 'bg-lg-accent/20 text-lg-accent'
-                          : 'text-lg-text-secondary hover:text-lg-text-primary'
-                      )}
-                    >
-                      {tab}
-                    </button>
-                  ))}
-                </div>
-                {leftTab === 'changes' && (
-                  <button
-                    onClick={handleRefresh}
-                    disabled={isLoading}
-                    className="text-[10px] font-mono text-lg-text-secondary hover:text-lg-accent transition-colors disabled:opacity-40"
-                  >
-                    {isLoading ? 'Refreshing…' : 'Refresh'}
-                  </button>
+            /* ── Split: left panel | diff ── */
+            <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+              {/* Left panel */}
+              <div style={{ width: filePanelWidth, flexShrink: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                {leftTab === 'changes' ? (
+                  <>
+                    <FileTree
+                      files={fileStatus}
+                      repoPath={repoPath}
+                      selectedPath={selectedFile?.path ?? null}
+                      locks={locks}
+                      currentUserName={currentUserName}
+                      isLoading={isLoading}
+                      onSelect={handleSelectFile}
+                      onRefresh={handleRefresh}
+                      onBlameDeps={file => setBlameTarget({ filePath: file.path, repoPath: repoPath! })}
+                    />
+                    <CommitBox />
+                  </>
+                ) : leftTab === 'stash' ? (
+                  <StashPanel repoPath={repoPath} onRefresh={handleRefresh} />
+                ) : leftTab === 'branches' ? (
+                  <BranchPanel onMergePreview={branch => setMergeTarget(branch)} onRefresh={handleRefresh} />
+                ) : leftTab === 'lfs' ? (
+                  <LfsPanel repoPath={repoPath} />
+                ) : leftTab === 'cleanup' ? (
+                  <CleanupPanel repoPath={repoPath} />
+                ) : leftTab === 'unreal' ? (
+                  <UnrealPanel repoPath={repoPath} />
+                ) : leftTab === 'hooks' ? (
+                  <HooksManager repoPath={repoPath} />
+                ) : null}
+              </div>
+
+              <DragHandle onMouseDown={onFileDragStart} />
+
+              {/* Right: diff or blame */}
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#0b0d13' }}>
+                {blameTarget ? (
+                  <DependencyBlamePanel
+                    repoPath={blameTarget.repoPath}
+                    filePath={blameTarget.filePath}
+                    onClose={() => setBlameTarget(null)}
+                  />
+                ) : (
+                  <>
+                    {diffLoading && (
+                      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: '#4e5870', animation: 'pulse 1.5s infinite' }}>
+                          Loading diff…
+                        </span>
+                      </div>
+                    )}
+                    {!diffLoading && diffContent && (
+                      diffContent.isBinary
+                        ? isRecognizedAsset(selectedFile!.path)
+                          ? <AssetDiffViewer file={selectedFile!} repoPath={repoPath!} staged={selectedFile!.staged} />
+                          : <BinaryDiff file={selectedFile!} repoPath={repoPath!} />
+                        : <TextDiff diff={diffContent} />
+                    )}
+                    {!diffLoading && !diffContent && (
+                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                        <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
+                          <rect x="7" y="5" width="22" height="26" rx="3" stroke="#2f3a54" strokeWidth="1.5" />
+                          <path d="M12 12h12M12 17h8M12 22h10" stroke="#2f3a54" strokeWidth="1.5" strokeLinecap="round" />
+                        </svg>
+                        <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 13, color: '#4e5870' }}>
+                          Select a file to view diff
+                        </span>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
-
-              {/* History tab: full-width, no diff panel */}
-              {leftTab === 'history' ? (
-                <HistoryPanel repoPath={repoPath} />
-              ) : (
-
-              /* Split: file list | diff */
-              <div className="flex-1 flex overflow-hidden">
-                {/* Left: file list + commit box */}
-                <div className="w-72 flex flex-col border-r border-lg-border overflow-hidden shrink-0">
-                  {leftTab === 'changes' ? (
-                    <>
-                      <FileTree
-                        files={fileStatus}
-                        repoPath={repoPath}
-                        selectedPath={selectedFile?.path ?? null}
-                        locks={locks}
-                        currentUserName={currentUserName}
-                        onSelect={handleSelectFile}
-                        onRefresh={handleRefresh}
-                      />
-                      <CommitBox />
-                    </>
-                  ) : leftTab === 'stash' ? (
-                    <StashPanel repoPath={repoPath} onRefresh={handleRefresh} />
-                  ) : leftTab === 'branches' ? (
-                    <BranchPanel
-                      onMergePreview={branch => setMergeTarget(branch)}
-                      onRefresh={handleRefresh}
-                    />
-                  ) : leftTab === 'lfs' ? (
-                    <LfsPanel repoPath={repoPath} />
-                  ) : leftTab === 'cleanup' ? (
-                    <CleanupPanel repoPath={repoPath} />
-                  ) : leftTab === 'unreal' ? (
-                    <UnrealPanel repoPath={repoPath} />
-                  ) : leftTab === 'hooks' ? (
-                    <HooksManager repoPath={repoPath} />
-                  ) : (
-                    <SettingsPage repoPath={repoPath} />
-                  )}
-                </div>
-
-                {/* Right: diff panel */}
-                <div className="flex-1 flex flex-col overflow-hidden">
-                  {diffLoading && (
-                    <div className="flex-1 flex items-center justify-center">
-                      <span className="text-xs font-mono text-lg-text-secondary animate-pulse">
-                        Loading diff…
-                      </span>
-                    </div>
-                  )}
-
-                  {!diffLoading && diffContent && (
-                    diffContent.isBinary
-                      ? <BinaryDiff file={selectedFile!} />
-                      : <TextDiff diff={diffContent} />
-                  )}
-
-                  {!diffLoading && !diffContent && (
-                    <div className="flex-1 flex items-center justify-center">
-                      <div className="text-xs font-mono text-lg-text-secondary">
-                        Select a file to view its diff
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-              )} {/* end history ternary */}
             </div>
           )}
         </main>
@@ -296,13 +402,12 @@ export function AppShell() {
 
       <ErrorPanel
         onReauth={() => setShowLoginDialog(true)}
-        onNavigateTab={(tab) => setLeftTab(tab as typeof leftTab)}
+        onNavigateTab={(tab) => setLeftTab(tab as TabId)}
       />
-
       <CommandPalette
         open={cmdOpen}
         onClose={() => setCmdOpen(false)}
-        onNavigateTab={(tab) => setLeftTab(tab as typeof leftTab)}
+        onNavigateTab={(tab) => setLeftTab(tab as TabId)}
         onOpenRepo={handleOpenRepo}
         onClone={() => setShowCloneDialog(true)}
         onAddAccount={() => setShowLoginDialog(true)}

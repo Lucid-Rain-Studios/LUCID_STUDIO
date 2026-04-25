@@ -3,7 +3,7 @@ import fs from 'fs'
 import path from 'path'
 import { exec, execSafe, execWithProgress, ProgressCallback } from '../util/dugite-exec'
 import { parseGitLog, GIT_LOG_FORMAT } from '../util/git-log-parse'
-import { FileStatus, BranchInfo, CommitEntry, DiffContent, StashEntry, ContributorInfo, ConflictPreviewFile, SyncStatus, LFSStatus, SizeBreakdown, CleanupResult } from '../types'
+import { FileStatus, BranchInfo, CommitEntry, DiffContent, StashEntry, ContributorInfo, ConflictPreviewFile, SyncStatus, LFSStatus, SizeBreakdown, CleanupResult, BranchActivity } from '../types'
 
 // ── Diff helpers ──────────────────────────────────────────────────────────────
 
@@ -279,18 +279,67 @@ class GitService {
     throw new Error('Could not find origin/main or origin/master')
   }
 
-  /** git log with parsed output. */
+  /** git log with parsed output. Pass filePath to filter to a single file, or refs to limit to specific branches. */
   async log(
     repoPath: string,
-    args: { limit?: number; all?: boolean } = {}
+    args: { limit?: number; all?: boolean; filePath?: string; refs?: string[] } = {}
   ): Promise<CommitEntry[]> {
     const cmdArgs = ['log', `--format=${GIT_LOG_FORMAT}`, '--topo-order']
-    if (args.all) cmdArgs.push('--all')
+    if (args.all && !args.filePath && !args.refs?.length) cmdArgs.push('--all')
     if (args.limit) cmdArgs.push(`-${args.limit}`)
+    if (args.refs?.length) cmdArgs.push(...args.refs)
+    if (args.filePath) cmdArgs.push('--follow', '--', args.filePath)
 
     const { exitCode, stdout } = await execSafe(cmdArgs, repoPath)
     if (exitCode !== 0) return []
     return parseGitLog(stdout)
+  }
+
+  /** Returns the name of the default branch (main or master). */
+  async defaultBranch(repoPath: string): Promise<string> {
+    for (const name of ['main', 'master']) {
+      const r = await execSafe(['rev-parse', '--verify', name], repoPath)
+      if (r.exitCode === 0) return name
+    }
+    return 'HEAD'
+  }
+
+  /** Per-branch activity: last committer + timestamp for each local + remote branch. */
+  async branchActivity(repoPath: string): Promise<BranchActivity[]> {
+    const fmt = '%(refname:short)\t%(authorname)\t%(authoremail)\t%(authordate:iso-strict)\t%(subject)'
+    const { exitCode, stdout } = await execSafe(
+      ['for-each-ref', `--format=${fmt}`, '--sort=-authordate', 'refs/heads/', 'refs/remotes/origin/'],
+      repoPath
+    )
+    if (exitCode !== 0) return []
+    return stdout.trim().split('\n').filter(Boolean)
+      .filter(line => !line.includes('HEAD'))
+      .map(line => {
+        const [ref, author, email, date, ...msg] = line.split('\t')
+        return { ref: ref.trim(), author: author.trim(), email: email.trim(), date: date.trim(), message: msg.join('\t').trim() }
+      })
+  }
+
+  /** Restore a single file to its state at a given commit. */
+  async restoreFile(repoPath: string, filePath: string, fromHash: string): Promise<void> {
+    await exec(['checkout', fromHash, '--', filePath], repoPath)
+  }
+
+  /** Revert a commit (creates a new revert commit, or stages without committing). */
+  async revert(repoPath: string, hash: string, noCommit = false): Promise<void> {
+    const args = ['revert', hash]
+    if (noCommit) args.push('--no-commit')
+    await exec(args, repoPath)
+  }
+
+  /** Cherry-pick a commit onto HEAD. */
+  async cherryPick(repoPath: string, hash: string): Promise<void> {
+    await exec(['cherry-pick', hash], repoPath)
+  }
+
+  /** Reset HEAD to a given commit with the specified mode. */
+  async resetTo(repoPath: string, hash: string, mode: 'soft' | 'mixed' | 'hard'): Promise<void> {
+    await exec(['reset', `--${mode}`, hash], repoPath)
   }
 
   /** Files changed in a specific commit (uses diff-tree). */
@@ -493,29 +542,38 @@ class GitService {
     return total
   }
 
-  async cleanupSize(repoPath: string): Promise<SizeBreakdown> {
-    const gitDir = path.join(repoPath, '.git')
+  async cleanupSize(repoPath: string, onProgress?: ProgressCallback): Promise<SizeBreakdown> {
+    const gitDir     = path.join(repoPath, '.git')
     const objectsDir = path.join(gitDir, 'objects')
     const packsDir   = path.join(gitDir, 'objects', 'pack')
     const lfsDir     = path.join(gitDir, 'lfs')
     const logsDir    = path.join(gitDir, 'logs')
 
-    const [totalBytes, objectsBytes, packsBytes, lfsCacheBytes, logsBytes] = await Promise.all([
-      this._dirBytes(gitDir),
-      this._dirBytes(objectsDir),
-      this._dirBytes(packsDir),
-      this._dirBytes(lfsDir),
-      this._dirBytes(logsDir),
-    ])
+    onProgress?.({ id: 'size', label: 'Measuring repository', status: 'running', progress: 10, detail: 'Scanning pack files…' })
+    const packsBytes = await this._dirBytes(packsDir)
+
+    onProgress?.({ id: 'size', label: 'Measuring repository', status: 'running', progress: 30, detail: 'Counting loose objects…' })
+    const objectsBytes = await this._dirBytes(objectsDir)
+
+    onProgress?.({ id: 'size', label: 'Measuring repository', status: 'running', progress: 55, detail: 'Measuring LFS cache…' })
+    const lfsCacheBytes = await this._dirBytes(lfsDir)
+
+    onProgress?.({ id: 'size', label: 'Measuring repository', status: 'running', progress: 75, detail: 'Scanning reflog…' })
+    const logsBytes = await this._dirBytes(logsDir)
+
+    onProgress?.({ id: 'size', label: 'Measuring repository', status: 'running', progress: 92, detail: 'Computing total size…' })
+    const totalBytes = await this._dirBytes(gitDir)
 
     return { totalBytes, objectsBytes, packsBytes, lfsCacheBytes, logsBytes }
   }
 
-  async cleanupGc(repoPath: string, aggressive = false): Promise<CleanupResult> {
+  async cleanupGc(repoPath: string, aggressive = false, onProgress?: ProgressCallback): Promise<CleanupResult> {
+    onProgress?.({ id: 'gc', label: 'Git GC', status: 'running', detail: 'Measuring current size…' })
     const before = await this.cleanupSize(repoPath)
-    const args = ['gc', '--quiet']
+    const args = ['gc']
     if (aggressive) args.push('--aggressive')
-    await execSafe(args, repoPath)
+    await execWithProgress(args, repoPath, onProgress)
+    onProgress?.({ id: 'gc', label: 'Git GC', status: 'running', detail: 'Recalculating size…' })
     const after = await this.cleanupSize(repoPath)
     return {
       beforeBytes: before.totalBytes,
@@ -528,12 +586,12 @@ class GitService {
     await exec(['lfs', 'prune'], repoPath)
   }
 
-  async cleanupShallow(repoPath: string, depth: number): Promise<void> {
-    await exec(['fetch', '--depth', String(depth)], repoPath)
+  async cleanupShallow(repoPath: string, depth: number, onProgress?: ProgressCallback): Promise<void> {
+    await execWithProgress(['fetch', '--depth', String(depth), '--progress'], repoPath, onProgress)
   }
 
-  async cleanupUnshallow(repoPath: string): Promise<void> {
-    await exec(['fetch', '--unshallow'], repoPath)
+  async cleanupUnshallow(repoPath: string, onProgress?: ProgressCallback): Promise<void> {
+    await execWithProgress(['fetch', '--unshallow', '--progress'], repoPath, onProgress)
   }
 
   // ── LFS ───────────────────────────────────────────────────────────────────
@@ -612,9 +670,9 @@ class GitService {
    * Migrate existing committed files to LFS.
    * ⚠ Rewrites history — callers must warn the user and force-push afterward.
    */
-  async lfsMigrate(repoPath: string, patterns: string[]): Promise<void> {
+  async lfsMigrate(repoPath: string, patterns: string[], onProgress?: ProgressCallback): Promise<void> {
     const include = patterns.join(',')
-    await exec(['lfs', 'migrate', 'import', `--include=${include}`, '--everything'], repoPath)
+    await execWithProgress(['lfs', 'migrate', 'import', `--include=${include}`, '--everything'], repoPath, onProgress)
   }
 
   /** Return old/new content for the Monaco diff viewer. */
@@ -656,6 +714,47 @@ class GitService {
 
   async setGitConfig(repoPath: string, key: string, value: string): Promise<void> {
     await exec(['config', key, value], repoPath)
+  }
+
+  async getGitConfig(repoPath: string, key: string): Promise<string | null> {
+    const { exitCode, stdout } = await execSafe(['config', '--get', key], repoPath)
+    if (exitCode !== 0) return null
+    return stdout.trim() || null
+  }
+
+  /** Read the repo-local git identity (user.name + user.email). */
+  async getIdentity(repoPath: string): Promise<{ name: string; email: string }> {
+    const [nameRes, emailRes] = await Promise.all([
+      execSafe(['config', 'user.name'],  repoPath),
+      execSafe(['config', 'user.email'], repoPath),
+    ])
+    return {
+      name:  nameRes.stdout.trim(),
+      email: emailRes.stdout.trim(),
+    }
+  }
+
+  /**
+   * Write the GitHub login as the local git user.name so that LFS lock
+   * owners created by Lucid Git and the GitSourceControl plugin reconcile correctly.
+   * Also enables lfs.locksverify to block pushes on locked files.
+   */
+  async linkIdentity(repoPath: string, login: string, name: string): Promise<void> {
+    // Use login as user.name — LFS lock owner.name is the GitHub login
+    await exec(['config', '--local', 'user.name', login], repoPath)
+    if (name && name !== login) {
+      // Store display name in a custom key (non-standard but useful for UE attribution)
+      await exec(['config', '--local', 'lucidgit.displayname', name], repoPath)
+    }
+    // Prevent pushing if you're modifying a file locked by someone else
+    await exec(['config', '--local', 'lfs.locksverify', 'true'], repoPath)
+  }
+
+  /** List all tracked files in the working tree (includes untracked non-ignored). */
+  async lsFiles(repoPath: string): Promise<string[]> {
+    const res = await execSafe(['ls-files', '--cached', '--others', '--exclude-standard'], repoPath)
+    if (res.exitCode !== 0) return []
+    return res.stdout.split('\n').map(l => l.trim()).filter(Boolean)
   }
 }
 

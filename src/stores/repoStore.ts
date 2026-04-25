@@ -12,6 +12,7 @@ interface RepoState {
 
   openRepo: (path: string) => Promise<void>
   refreshStatus: () => Promise<void>
+  silentRefresh: () => Promise<void>
   loadBranches: () => Promise<void>
   checkout: (branch: string) => Promise<void>
   clearRepo: () => void
@@ -70,6 +71,22 @@ export const useRepoStore = create<RepoState>((set, get) => ({
     } finally {
       set({ isLoading: false })
     }
+  },
+
+  silentRefresh: async () => {
+    const { repoPath, isLoading } = get()
+    // Skip if an explicit refreshStatus is already in flight — it will win
+    if (!repoPath || isLoading) return
+    try {
+      const [status, branch] = await Promise.all([
+        window.lucidGit.status(repoPath),
+        window.lucidGit.currentBranch(repoPath),
+      ])
+      // Only write if no explicit refresh started while we were waiting
+      if (!get().isLoading) {
+        set({ fileStatus: status ?? [], currentBranch: branch ?? '' })
+      }
+    } catch { /* ignore */ }
   },
 
   loadBranches: async () => {

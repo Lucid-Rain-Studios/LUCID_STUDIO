@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { FileStatus, Lock, ipc } from '@/ipc'
 import { useLockStore } from '@/stores/lockStore'
-import { cn } from '@/lib/utils'
+import { useForecastStore } from '@/stores/forecastStore'
+import { useAuthStore } from '@/stores/authStore'
 
 interface FileRowProps {
   file: FileStatus
@@ -11,43 +12,55 @@ interface FileRowProps {
   currentUserName: string | null
   onSelect: () => void
   onRefresh: () => void
+  onBlameDeps?: (file: FileStatus) => void
 }
 
 const STATUS_COLOR: Record<string, string> = {
-  M: 'bg-[#4a9eff]/20 text-[#4a9eff]',
-  A: 'bg-lg-success/20 text-lg-success',
-  D: 'bg-lg-error/20 text-lg-error',
-  R: 'bg-lg-warning/20 text-lg-warning',
-  C: 'bg-lg-warning/20 text-lg-warning',
-  U: 'bg-lg-error/20 text-lg-error',
-  '?': 'bg-lg-text-secondary/10 text-lg-text-secondary',
-  '!': 'bg-lg-text-secondary/10 text-lg-text-secondary',
+  M: '#f5a832', A: '#2ec573', D: '#e84545',
+  R: '#4d9dff', C: '#4d9dff', U: '#e84545',
+  '?': '#a27ef0', '!': '#8b94b0',
+}
+const STATUS_BG: Record<string, string> = {
+  M: 'rgba(245,168,50,0.15)',  A: 'rgba(46,197,115,0.15)',  D: 'rgba(232,69,69,0.15)',
+  R: 'rgba(77,157,255,0.15)',  C: 'rgba(77,157,255,0.15)',  U: 'rgba(232,69,69,0.15)',
+  '?': 'rgba(162,126,240,0.15)', '!': 'rgba(139,148,176,0.1)',
 }
 
-function Checkbox({ checked, className }: { checked: boolean; className?: string }) {
+function Checkbox({ checked, color }: { checked: boolean; color: string }) {
+  const [hover, setHover] = useState(false)
   return (
-    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" className={className}>
-      <rect x="0.75" y="0.75" width="11.5" height="11.5" rx="2"
-        stroke="currentColor" strokeWidth="1.25"
-        fill={checked ? 'currentColor' : 'none'} fillOpacity={checked ? 0.15 : 0}
-      />
+    <button
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        width: 16, height: 16, borderRadius: 3, flexShrink: 0,
+        border: `1.5px solid ${checked ? color : hover ? '#2f3a54' : '#252d42'}`,
+        background: checked ? `${color}22` : hover ? '#242a3d' : 'transparent',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        cursor: 'pointer', transition: 'all 0.12s', padding: 0,
+      }}
+    >
       {checked && (
-        <polyline points="3,6.5 5.5,9 10,4"
-          stroke="currentColor" strokeWidth="1.5"
-          strokeLinecap="round" strokeLinejoin="round"
-        />
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+          <polyline points="1.5,5 4,7.5 8.5,2.5" stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
       )}
-    </svg>
+    </button>
   )
 }
 
 export function FileRow({
-  file, repoPath, selected, lock, currentUserName, onSelect, onRefresh,
+  file, repoPath, selected, lock, currentUserName, onSelect, onRefresh, onBlameDeps,
 }: FileRowProps) {
+  const isUEAsset = /\.(uasset|umap|udk|upk)$/i.test(file.path)
+  const forecastConflicts = useForecastStore(s => s.conflicts)
+  const fileConflicts = forecastConflicts.filter(c => c.filePath === file.path || c.filePath.endsWith('/' + file.path))
   const { lockFile, unlockFile, watchFile } = useLockStore()
+  const isAdmin = useAuthStore(s => s.isAdmin(repoPath))
 
   const effectiveStatus = file.staged ? file.indexStatus : file.workingStatus
-  const statusColor     = STATUS_COLOR[effectiveStatus] ?? 'bg-lg-text-secondary/10 text-lg-text-secondary'
+  const statusColor     = STATUS_COLOR[effectiveStatus] ?? '#8b94b0'
+  const statusBg        = STATUS_BG[effectiveStatus]    ?? 'transparent'
   const isUntracked     = effectiveStatus === '?'
 
   const fileName = file.path.includes('/') || file.path.includes('\\')
@@ -57,14 +70,11 @@ export function FileRow({
     ? file.path.replace(/\\/g, '/').slice(0, file.path.replace(/\\/g, '/').lastIndexOf('/'))
     : ''
 
-  const fullPath     = `${repoPath.replace(/\\/g, '/')}/${file.path.replace(/\\/g, '/')}`
-  const folderPath   = dir ? `${repoPath.replace(/\\/g, '/')}/${dir}` : repoPath.replace(/\\/g, '/')
-
+  const fullPath   = `${repoPath.replace(/\\/g, '/')}/${file.path.replace(/\\/g, '/')}`
   const isLockedByMe    = lock !== null && lock.owner.login === currentUserName
   const isLockedByOther = lock !== null && !isLockedByMe
 
-  // ── Context menu ───────────────────────────────────────────────────────────
-  const [ctx, setCtx] = useState<{ x: number; y: number } | null>(null)
+  const [ctx, setCtx]   = useState<{ x: number; y: number } | null>(null)
   const ctxRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -76,167 +86,208 @@ export function FileRow({
     return () => document.removeEventListener('mousedown', handler)
   }, [ctx])
 
-  // ── Stage / unstage ────────────────────────────────────────────────────────
   const toggleStage = async (e: React.MouseEvent) => {
     e.stopPropagation()
-    if (isLockedByOther) {
-      alert(`Cannot stage "${file.path}" — locked by ${lock!.owner.name}`)
-      return
-    }
+    if (isLockedByOther) { alert(`Cannot stage "${file.path}" — locked by ${lock!.owner.name}`); return }
     try {
       if (file.staged) await ipc.unstage(repoPath, [file.path])
       else             await ipc.stage(repoPath, [file.path])
       onRefresh()
-    } catch (err) {
-      console.error('Stage/unstage error:', err)
-    }
+    } catch { /* ignore */ }
   }
 
-  // ── Context menu actions ───────────────────────────────────────────────────
   const close = () => setCtx(null)
-
   const doDiscard = async () => {
     close()
-    const label = isUntracked ? 'Delete' : 'Discard changes to'
-    if (!confirm(`${label} "${file.path}"? This cannot be undone.`)) return
-    try {
-      await ipc.discard(repoPath, [file.path], isUntracked)
-      onRefresh()
-    } catch (e) { alert(String(e)) }
+    if (!confirm(`${isUntracked ? 'Delete' : 'Discard changes to'} "${file.path}"? This cannot be undone.`)) return
+    try { await ipc.discard(repoPath, [file.path], isUntracked); onRefresh() } catch (e) { alert(String(e)) }
   }
-
-  const doIgnoreFile = async () => {
-    close()
-    try { await ipc.addToGitignore(repoPath, file.path); onRefresh() }
-    catch (e) { alert(String(e)) }
-  }
-
-  const doIgnoreFolder = async () => {
-    close()
-    if (!dir) return
-    try { await ipc.addToGitignore(repoPath, dir + '/'); onRefresh() }
-    catch (e) { alert(String(e)) }
-  }
-
-  const doCopyFullPath     = () => { close(); navigator.clipboard.writeText(fullPath.replace(/\//g, '\\')) }
-  const doCopyRelativePath = () => { close(); navigator.clipboard.writeText(file.path.replace(/\//g, '\\')) }
-
+  const doIgnoreFile   = async () => { close(); try { await ipc.addToGitignore(repoPath, file.path); onRefresh() } catch (e) { alert(String(e)) } }
+  const doIgnoreFolder = async () => { close(); if (!dir) return; try { await ipc.addToGitignore(repoPath, dir + '/'); onRefresh() } catch (e) { alert(String(e)) } }
+  const doCopyFullPath = () => { close(); navigator.clipboard.writeText(fullPath.replace(/\//g, '\\')) }
+  const doCopyRelPath  = () => { close(); navigator.clipboard.writeText(file.path.replace(/\//g, '\\')) }
   const doShowInExplorer = () => { close(); ipc.showInFolder(fullPath.replace(/\//g, '\\')) }
   const doOpenVSCode     = () => { close(); ipc.openExternal(`vscode://file/${fullPath}`) }
   const doOpenDefault    = () => { close(); ipc.openPath(fullPath.replace(/\//g, '\\')) }
-
-  // Lock actions — go through lockStore for instant state update
   const doLock    = async () => { close(); try { await lockFile(repoPath, file.path) } catch (e) { alert(String(e)) } }
   const doUnlock  = async (force = false) => {
     close()
-    if (force && !confirm(`Force-unlock "${file.path}" (held by ${lock?.owner.name})?`)) return
+    if (force && !confirm(`Force-unlock "${file.path}"?`)) return
     try { await unlockFile(repoPath, file.path, force) } catch (e) { alert(String(e)) }
   }
-  const doWatch   = async () => { close(); await watchFile(repoPath, file.path) }
+  const doWatch = async () => { close(); await watchFile(repoPath, file.path) }
+
+  const checkColor = file.staged ? '#2ec573' : '#f5a832'
 
   return (
-    <div className="relative">
+    <div style={{ position: 'relative' }}>
       <div
         onClick={onSelect}
         onContextMenu={e => { e.preventDefault(); setCtx({ x: e.clientX, y: e.clientY }) }}
-        className={cn(
-          'w-full flex items-center gap-2 px-3 py-1.5 cursor-pointer transition-colors border-l-2',
-          selected
-            ? 'bg-lg-bg-elevated border-lg-accent'
-            : 'hover:bg-lg-bg-elevated/60 border-transparent'
-        )}
-        title={file.path}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          height: 36, paddingLeft: 10, paddingRight: 10,
+          background: selected ? '#242a3d' : 'transparent',
+          borderLeft: `2px solid ${selected ? '#e8622f' : 'transparent'}`,
+          borderBottom: '1px solid #252d42',
+          cursor: 'pointer', transition: 'background 0.1s',
+          opacity: isLockedByOther ? 0.75 : 1,
+        }}
+        onMouseEnter={e => { if (!selected) e.currentTarget.style.background = '#1e2436' }}
+        onMouseLeave={e => { if (!selected) e.currentTarget.style.background = 'transparent' }}
       >
-        {/* Stage/unstage checkbox */}
-        <button
-          onClick={toggleStage}
-          title={file.staged ? 'Click to unstage' : 'Click to stage'}
-          className={cn('shrink-0 transition-colors',
-            file.staged ? 'text-lg-success' : 'text-lg-border hover:text-lg-text-secondary'
-          )}
-        >
-          <Checkbox checked={file.staged} />
+        <button onClick={toggleStage} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
+          <Checkbox checked={file.staged} color={checkColor} />
         </button>
 
-        {/* File name + dir */}
-        <div className="flex-1 min-w-0">
-          <span className={cn('block text-xs font-mono truncate',
-            isLockedByOther ? 'text-lg-warning' : 'text-lg-text-primary'
-          )}>
-            {fileName}
-          </span>
+        {/* Status pill */}
+        <span style={{
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          width: 18, height: 18, borderRadius: 4, flexShrink: 0,
+          background: statusBg, color: statusColor,
+          fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700,
+        }}>{effectiveStatus}</span>
+
+        {/* Name + dir */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{
+              fontFamily: "'JetBrains Mono', monospace", fontSize: 12, fontWeight: 500,
+              color: '#dde1f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>{fileName}</span>
+
+            {/* Forecast warning badge */}
+            {fileConflicts.length > 0 && (
+              <span
+                title={`${fileConflicts.length} remote branch${fileConflicts.length !== 1 ? 'es' : ''} ahead — possible conflict`}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  width: 14, height: 14, borderRadius: '50%', flexShrink: 0,
+                  background: fileConflicts[0].severity === 'high' ? 'rgba(232,69,69,0.2)' : 'rgba(245,168,50,0.2)',
+                  color: fileConflicts[0].severity === 'high' ? '#e84545' : '#f5a832',
+                  fontSize: 9, fontWeight: 700, cursor: 'default',
+                }}
+              >!</span>
+            )}
+
+            {/* Lock badge */}
+            {isLockedByMe && (
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: 3,
+                paddingLeft: 4, paddingRight: 6, height: 16, borderRadius: 10, flexShrink: 0,
+                background: 'rgba(46,197,115,0.15)', border: '1px solid rgba(46,197,115,0.4)',
+                color: '#2ec573', fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
+              }} title="Locked by you">
+                <LockIcon color="#2ec573" />
+                You
+              </span>
+            )}
+            {isLockedByOther && (
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: 3,
+                paddingLeft: 4, paddingRight: 6, height: 16, borderRadius: 10, flexShrink: 0,
+                background: 'rgba(232,98,47,0.15)', border: '1px solid rgba(232,98,47,0.4)',
+                color: '#e8622f', fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
+              }} title={`Locked by ${lock!.owner.name}`}>
+                <LockIcon color="#e8622f" />
+                {lock!.owner.login}
+              </span>
+            )}
+          </div>
           {dir && (
-            <span className="block text-[10px] font-mono text-lg-text-secondary truncate">{dir}</span>
+            <span style={{
+              fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#4e5870',
+              display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>{dir}</span>
           )}
         </div>
-
-        {/* Status pill */}
-        <span className={cn('shrink-0 px-1 rounded text-[9px] font-mono font-bold uppercase', statusColor)}>
-          {effectiveStatus}
-        </span>
-
-        {/* Lock badge */}
-        {isLockedByMe    && <span className="shrink-0 text-[11px] text-lg-success" title="Locked by you">🔒</span>}
-        {isLockedByOther && <span className="shrink-0 text-[11px]" title={`Locked by ${lock!.owner.name}`}>⚠️</span>}
       </div>
 
       {/* Context menu */}
       {ctx && (
         <div
           ref={ctxRef}
-          style={{ position: 'fixed', top: ctx.y, left: ctx.x }}
-          className="z-50 bg-lg-bg-elevated border border-lg-border rounded shadow-xl py-1 min-w-[200px]"
+          style={{
+            position: 'fixed', top: ctx.y, left: ctx.x, zIndex: 50,
+            background: '#1d2235', border: '1px solid #2f3a54',
+            borderRadius: 6, boxShadow: '0 8px 32px rgba(0,0,0,0.55)',
+            padding: '4px 0', minWidth: 200,
+          }}
         >
-          {/* File actions */}
           <CtxItem label={isUntracked ? 'Delete file…' : 'Discard changes…'} onClick={doDiscard} danger />
           <CtxSep />
-          <CtxItem label="Ignore file"   onClick={doIgnoreFile} />
-          {dir && <CtxItem label="Ignore folder" onClick={doIgnoreFolder} />}
+          <CtxItem label="Ignore file"                onClick={doIgnoreFile} />
+          {dir && <CtxItem label="Ignore folder"      onClick={doIgnoreFolder} />}
           <CtxSep />
-          <CtxItem label="Copy file path"          onClick={doCopyFullPath} />
-          <CtxItem label="Copy relative file path" onClick={doCopyRelativePath} />
+          <CtxItem label="Copy file path"             onClick={doCopyFullPath} />
+          <CtxItem label="Copy relative path"         onClick={doCopyRelPath} />
           <CtxSep />
-          <CtxItem label="Show in Explorer"        onClick={doShowInExplorer} />
-          <CtxItem label="Open in VS Code"         onClick={doOpenVSCode} />
-          <CtxItem label="Open with default app"   onClick={doOpenDefault} />
+          <CtxItem label="Show in Explorer"           onClick={doShowInExplorer} />
+          <CtxItem label="Open in VS Code"            onClick={doOpenVSCode} />
+          <CtxItem label="Open with default app"      onClick={doOpenDefault} />
           <CtxSep />
-          {/* Lock actions */}
-          {!lock && <CtxItem label="Lock file" onClick={doLock} />}
-          {isLockedByMe && <CtxItem label="Unlock" onClick={() => doUnlock(false)} />}
-          {isLockedByOther && (
-            <>
-              <CtxItem label={`Locked by ${lock!.owner.name}`} disabled />
-              <CtxItem label="Force unlock…" onClick={() => doUnlock(true)} danger />
-              <CtxItem label="Notify me when unlocked" onClick={doWatch} />
-            </>
-          )}
+          {!lock && <CtxItem label="Lock file"        onClick={doLock} />}
+          {isLockedByMe && <CtxItem label="Unlock"   onClick={() => doUnlock(false)} />}
+          {isLockedByOther && <>
+            <CtxItem label={`Locked by ${lock!.owner.name}`} disabled />
+            <CtxItem
+              label="Force unlock…"
+              onClick={isAdmin ? () => doUnlock(true) : undefined}
+              disabled={!isAdmin}
+              danger={isAdmin}
+              title={isAdmin ? undefined : 'Admin access required'}
+            />
+            <CtxItem label="Notify me when unlocked"  onClick={doWatch} />
+          </>}
+          {isUEAsset && onBlameDeps && <>
+            <CtxSep />
+            <CtxItem label="Blame with dependencies" onClick={() => { close(); onBlameDeps(file) }} />
+          </>}
         </div>
       )}
     </div>
   )
 }
 
-function CtxItem({ label, onClick, disabled, danger }: {
-  label: string; onClick?: () => void; disabled?: boolean; danger?: boolean
+function CtxItem({ label, onClick, disabled, danger, title }: {
+  label: string; onClick?: () => void; disabled?: boolean; danger?: boolean; title?: string
 }) {
   return (
     <button
       onClick={onClick}
       disabled={disabled}
-      className={cn(
-        'w-full text-left px-3 py-1 text-[11px] font-mono transition-colors',
-        disabled
-          ? 'text-lg-text-secondary/50 cursor-default'
-          : danger
-            ? 'text-lg-error hover:bg-lg-bg-secondary'
-            : 'text-lg-text-primary hover:bg-lg-bg-secondary'
-      )}
+      title={title}
+      style={{
+        width: '100%', textAlign: 'left', padding: '5px 12px',
+        fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12,
+        background: 'transparent', border: 'none',
+        color: disabled ? '#4e5870' : danger ? '#e84545' : '#dde1f0',
+        cursor: disabled ? 'default' : 'pointer',
+        display: 'flex', alignItems: 'center', gap: 6,
+      }}
+      onMouseEnter={e => { if (!disabled) e.currentTarget.style.background = '#242a3d' }}
+      onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
     >
-      {label}
+      <span style={{ flex: 1 }}>{label}</span>
+      {disabled && title && (
+        <svg width="9" height="10" viewBox="0 0 9 10" fill="none" style={{ flexShrink: 0, opacity: 0.5 }}>
+          <rect x="0.5" y="4" width="8" height="5.5" rx="1" stroke="currentColor" strokeWidth="1" />
+          <path d="M2 4V3a2.5 2.5 0 0 1 5 0v1" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
+        </svg>
+      )}
     </button>
   )
 }
 
 function CtxSep() {
-  return <div className="my-1 border-t border-lg-border/50" />
+  return <div style={{ margin: '4px 0', borderTop: '1px solid #252d42' }} />
+}
+
+function LockIcon({ color }: { color: string }) {
+  return (
+    <svg width="9" height="10" viewBox="0 0 9 10" fill="none" style={{ flexShrink: 0 }}>
+      <rect x="0.75" y="4.5" width="7.5" height="5" rx="1" stroke={color} strokeWidth="1" />
+      <path d="M2.5 4.5V3a2 2 0 1 1 4 0v1.5" stroke={color} strokeWidth="1" strokeLinecap="round" />
+    </svg>
+  )
 }

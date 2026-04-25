@@ -167,6 +167,25 @@ export interface UESetupStatus {
   hasUeGitignore: boolean
 }
 
+export interface UEPluginStatus {
+  installed: boolean
+  location: 'project' | 'engine' | null
+  pluginFolder: string | null
+}
+
+export interface UEConfigStatus {
+  editorConfigExists: boolean
+  editorConfigHasSccSettings: boolean
+  editorConfigHasCheckoutSettings: boolean
+  engineConfigExists: boolean
+  engineConfigHasSkipCheck: boolean
+}
+
+export interface GitIdentity {
+  name: string
+  email: string
+}
+
 export interface OperationStep {
   id: string
   label: string
@@ -191,6 +210,39 @@ export interface DiffContent {
   language: string
 }
 
+// ── Asset diff (Phase 17) ─────────────────────────────────────────────────────
+
+export type AssetType = 'texture' | 'audio' | 'video' | 'level' | 'generic-ue' | 'binary'
+
+export interface AssetPreviewData {
+  previewPath: string | null   // absolute path to cached PNG preview
+  sizeBytes: number
+  width?: number
+  height?: number
+  format?: string
+}
+
+export type AssetDelta =
+  | { kind: 'texture'
+      sizeDelta: number
+      widthBefore: number; heightBefore: number
+      widthAfter: number;  heightAfter: number
+      formatBefore: string; formatAfter: string }
+  | { kind: 'metadata'
+      before: Record<string, string>
+      after:  Record<string, string> }
+  | { kind: 'unavailable'; reason: string }
+
+export interface AssetDiffResult {
+  assetType: AssetType
+  left:  AssetPreviewData
+  right: AssetPreviewData
+  delta: AssetDelta
+  cacheKey: string
+  ueAvailable: boolean
+  fallbackReason: string | null
+}
+
 export interface UpdateInfo {
   version: string
   releaseDate: string
@@ -207,6 +259,11 @@ export interface AppSettings {
     includeGc: boolean
     includePruneLfs: boolean
   }
+  // Appearance
+  fontFamily: string
+  fontSize: number
+  uiDensity: 'compact' | 'normal' | 'relaxed'
+  theme: 'dark' | 'darker' | 'midnight'
 }
 
 export interface TeamConfig {
@@ -216,20 +273,149 @@ export interface TeamConfig {
   largeFileWarnMB?: number
 }
 
+export interface BranchActivity {
+  ref: string
+  author: string
+  email: string
+  date: string
+  message: string
+}
+
+export interface PresenceEntry {
+  login: string
+  name: string
+  branch: string
+  modifiedCount: number
+  modifiedFiles: string[]
+  lastSeen: string
+  lastPush?: string
+}
+
+export interface PresenceFile {
+  version: number
+  entries: Record<string, PresenceEntry>
+}
+
+// ── Lock Heatmap & Conflict Forecasting (Phase 19) ───────────────────────────
+
+export interface HeatmapNode {
+  name: string
+  path: string
+  score: number
+  value: number
+  lockCount: number
+  conflictCount: number
+  uniqueContributors: number
+  meanDurationMs: number
+  children?: HeatmapNode[]
+}
+
+export interface HeatmapTimelineEntry {
+  id: number
+  timestamp: number
+  eventType: string
+  actor: string
+  durationMs: number
+  source: 'lock' | 'conflict'
+}
+
+export interface ForecastConflict {
+  filePath: string
+  remoteBranch: string
+  remoteLastCommit: string
+  remoteLastAuthor: string
+  remoteLastMessage: string
+  severity: 'high' | 'medium' | 'low'
+}
+
+export interface ForecastStatus {
+  repoPath: string
+  enabled: boolean
+  lastPolledAt: number | null
+  intervalMinutes: number
+  conflicts: ForecastConflict[]
+}
+
+// ── Dependency-Aware Blame (Phase 18) ─────────────────────────────────────────
+
+export interface DepNodeInfo {
+  packageName: string
+  filePath: string
+  assetClass: string
+  hardRefs: string[]
+  softRefs: string[]
+}
+
+export interface DepCommit {
+  hash: string
+  author: string
+  email: string
+  timestamp: number
+  message: string
+  churnCount: number
+}
+
+export interface DepBlameEntry {
+  filePath: string
+  packageName: string
+  assetClass: string
+  hopDistance: number
+  recentCommits: DepCommit[]
+}
+
+export interface SuspectEntry {
+  hash: string
+  author: string
+  email: string
+  timestamp: number
+  message: string
+  score: number
+  reasons: string[]
+  filePath: string
+}
+
+export interface DepBlameResult {
+  target: DepBlameEntry
+  dependencies: DepBlameEntry[]
+  suspects: SuspectEntry[]
+}
+
+export interface DepGraphStatus {
+  cacheKey: string
+  nodeCount: number
+  edgeCount: number
+  builtAt: number
+}
+
+export interface DepRefResult {
+  packageName: string
+  referencedBy: DepNodeInfo[]
+}
+
+// ── Permissions (Phase 20) ────────────────────────────────────────────────────
+
+export type RepoPermission = 'admin' | 'write' | 'read'
+
 // ── API surface type ──────────────────────────────────────────────────────────
 
 export interface LucidGitAPI {
   // OS dialogs + shell
   openDirectory:  () => Promise<string | null>
+  openFile:       (defaultPath?: string) => Promise<string | null>
   openExternal:   (url: string) => Promise<void>
   showInFolder:   (fullPath: string) => Promise<void>
   openPath:       (fullPath: string) => Promise<void>
+  openTerminal:   (cwd?: string) => Promise<void>
 
   // Auth
   startDeviceFlow: () => Promise<DeviceFlowStart>
   pollDeviceFlow: (deviceCode: string) => Promise<{ token: string; userId: string } | null>
-  listAccounts: () => Promise<Account[]>
+  listAccounts: () => Promise<{ accounts: Account[]; currentAccountId: string | null }>
   logout: (userId: string) => Promise<void>
+
+  // Permissions — Phase 20
+  fetchRepoPermission: (repoPath: string) => Promise<RepoPermission>
+  getRepoPermission: (repoPath: string) => Promise<RepoPermission | null>
 
   // Git core
   isRepo: (repoPath: string) => Promise<boolean>
@@ -242,7 +428,7 @@ export interface LucidGitAPI {
   push: (repoPath: string) => Promise<void>
   pull: (repoPath: string) => Promise<void>
   fetch: (repoPath: string) => Promise<void>
-  log: (repoPath: string, args?: { limit?: number; all?: boolean }) => Promise<CommitEntry[]>
+  log: (repoPath: string, args?: { limit?: number; all?: boolean; filePath?: string; refs?: string[] }) => Promise<CommitEntry[]>
   commitFiles: (repoPath: string, hash: string) => Promise<CommitFileChange[]>
   branchList:    (repoPath: string) => Promise<BranchInfo[]>
   createBranch:  (repoPath: string, name: string, from?: string) => Promise<void>
@@ -303,6 +489,7 @@ export interface LucidGitAPI {
   rebaseAbort: (repoPath: string) => Promise<void>
   setUpstream: (repoPath: string, branch: string) => Promise<void>
   setGitConfig: (repoPath: string, key: string, value: string) => Promise<void>
+  getGitConfig: (repoPath: string, key: string) => Promise<string | null>
 
   // Hooks
   hookList: (repoPath: string) => Promise<HookInfo[]>
@@ -319,6 +506,14 @@ export interface LucidGitAPI {
   ueWriteGitattributes: (repoPath: string) => Promise<void>
   ueWriteGitignore: (repoPath: string) => Promise<void>
   uePakSize: (repoPath: string, stagedPaths: string[]) => Promise<number>
+  uePluginStatus: (repoPath: string) => Promise<UEPluginStatus>
+  ueConfigStatus: (repoPath: string) => Promise<UEConfigStatus>
+  ueWriteEditorConfig: (repoPath: string) => Promise<void>
+  ueWriteEngineConfig: (repoPath: string) => Promise<void>
+
+  // Git identity + locking config
+  gitGetIdentity: (repoPath: string) => Promise<GitIdentity>
+  gitLinkIdentity: (repoPath: string, login: string, name: string) => Promise<void>
 
   // App Settings
   settingsGet: () => Promise<AppSettings>
@@ -328,11 +523,51 @@ export interface LucidGitAPI {
   teamConfigLoad: (repoPath: string) => Promise<TeamConfig | null>
   teamConfigSave: (repoPath: string, config: TeamConfig) => Promise<void>
 
+  // Git Tools
+  gitRestoreFile: (repoPath: string, filePath: string, fromHash: string) => Promise<void>
+  gitRevert: (repoPath: string, hash: string, noCommit: boolean) => Promise<void>
+  gitCherryPick: (repoPath: string, hash: string) => Promise<void>
+  gitResetTo: (repoPath: string, hash: string, mode: 'soft' | 'mixed' | 'hard') => Promise<void>
+  gitLsFiles: (repoPath: string) => Promise<string[]>
+  gitFileLog: (repoPath: string, filePath: string, limit?: number) => Promise<CommitEntry[]>
+  gitBranchActivity: (repoPath: string) => Promise<BranchActivity[]>
+  gitDefaultBranch: (repoPath: string) => Promise<string>
+
+  // Asset diff previews — Phase 17
+  assetDiffPreview: (repoPath: string, filePath: string, leftRef: string, rightRef: string, editorBinaryOverride?: string) => Promise<AssetDiffResult>
+  assetRenderThumbnail: (repoPath: string, filePath: string, ref: string) => Promise<string | null>
+  assetExtractMetadata: (repoPath: string, filePath: string, ref: string) => Promise<Record<string, string>>
+
+  // File-system watcher
+  watchStatusChanges: (repoPath: string) => Promise<void>
+  unwatchStatusChanges: (repoPath: string) => Promise<void>
+
+  // Presence
+  presenceRead: (repoPath: string) => Promise<PresenceFile>
+  presenceUpdate: (repoPath: string, login: string, entry: PresenceEntry) => Promise<void>
+
+  // Lock Heatmap & Conflict Forecasting — Phase 19
+  heatmapCompute: (repoPath: string, timeWindowDays: number, groupBy: 'folder' | 'type') => Promise<HeatmapNode>
+  heatmapTimeline: (repoPath: string, filePath: string, timeWindowDays: number) => Promise<HeatmapTimelineEntry[]>
+  heatmapTop: (repoPath: string, timeWindowDays: number, limit?: number) => Promise<HeatmapNode[]>
+  forecastStart: (repoPath: string, intervalMinutes?: number) => Promise<ForecastStatus>
+  forecastStop: (repoPath: string) => Promise<void>
+  forecastStatus: (repoPath: string) => Promise<ForecastStatus | null>
+  onForecastConflict: (cb: (conflicts: ForecastConflict[]) => void) => () => void
+
+  // Dependency-Aware Blame — Phase 18
+  depBuildGraph: (repoPath: string) => Promise<DepGraphStatus>
+  depGraphStatus: (repoPath: string) => Promise<DepGraphStatus | null>
+  depBlameAsset: (repoPath: string, filePath: string) => Promise<DepBlameResult>
+  depLookupReferences: (repoPath: string, packageName: string) => Promise<DepRefResult>
+  depRefreshCache: (repoPath: string) => Promise<void>
+
   // Events: main → renderer — each returns an unsubscribe function
   onOperationProgress: (cb: (step: OperationStep) => void) => () => void
   onLockChanged: (cb: (locks: Lock[]) => void) => () => void
   onNotification: (cb: (notification: AppNotification) => void) => () => void
   onUpdateAvailable: (cb: (info: UpdateInfo) => void) => () => void
+  onStatusChanged: (cb: () => void) => () => void
 }
 
 // ── Window augmentation ───────────────────────────────────────────────────────

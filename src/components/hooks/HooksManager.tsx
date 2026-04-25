@@ -108,16 +108,21 @@ export function HooksManager({ repoPath }: HooksManagerProps) {
                   <button
                     onClick={() => toggle(hook)}
                     disabled={busy !== null}
-                    className={cn(
-                      'w-8 h-4 rounded-full transition-colors relative shrink-0 disabled:opacity-40',
-                      hook.enabled ? 'bg-lg-success' : 'bg-lg-border'
-                    )}
                     title={hook.enabled ? 'Disable hook' : 'Enable hook'}
+                    style={{
+                      width: 32, height: 18, borderRadius: 9, flexShrink: 0,
+                      background: hook.enabled ? '#2ec573' : '#252d42',
+                      border: 'none', padding: 0, cursor: busy ? 'not-allowed' : 'pointer',
+                      position: 'relative', transition: 'background 0.2s',
+                      opacity: busy !== null ? 0.5 : 1,
+                    }}
                   >
-                    <span className={cn(
-                      'absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform',
-                      hook.enabled ? 'translate-x-4' : 'translate-x-0.5'
-                    )} />
+                    <span style={{
+                      position: 'absolute', top: 3, width: 12, height: 12,
+                      borderRadius: '50%', background: '#fff',
+                      transition: 'left 0.2s',
+                      left: hook.enabled ? 17 : 3,
+                    }} />
                   </button>
 
                   <div className="flex-1 min-w-0">

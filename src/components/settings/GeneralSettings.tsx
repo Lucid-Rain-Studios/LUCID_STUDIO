@@ -12,6 +12,10 @@ const DEFAULTS: AppSettings = {
     includeGc: true,
     includePruneLfs: true,
   },
+  fontFamily: 'IBM Plex Sans',
+  fontSize: 13,
+  uiDensity: 'normal',
+  theme: 'dark',
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {

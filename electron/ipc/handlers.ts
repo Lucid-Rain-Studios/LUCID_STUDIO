@@ -1,4 +1,13 @@
 import { ipcMain, dialog, shell, BrowserWindow } from 'electron'
+import { permissionService } from '../services/PermissionService'
+import { watcherService } from '../services/WatcherService'
+import { dependencyService } from '../services/DependencyService'
+import { heatmapService } from '../services/HeatmapService'
+import { forecastService } from '../services/ForecastService'
+import { assetDiffService } from '../services/AssetDiffService'
+import { spawn } from 'child_process'
+import { presenceService } from '../services/PresenceService'
+import type { PresenceEntry } from '../types'
 import { CHANNELS } from './channels'
 import { gitService } from '../services/GitService'
 import { authService } from '../services/AuthService'
@@ -10,6 +19,17 @@ import { hookService } from '../services/HookService'
 import { settingsService } from '../services/SettingsService'
 import { teamConfigService } from '../services/TeamConfigService'
 import type { WebhookConfig, AppSettings, TeamConfig } from '../types'
+
+async function requireAdmin(repoPath: string): Promise<void> {
+  const cached = permissionService.getCachedPermission(repoPath)
+  if (cached === 'admin') return
+  if (cached === 'write' || cached === 'read') {
+    throw new Error('PERMISSION_DENIED: Admin access required for this operation')
+  }
+  // Cache miss — fetch and check
+  const perm = await permissionService.fetchPermission(repoPath)
+  if (perm !== 'admin') throw new Error('PERMISSION_DENIED: Admin access required for this operation')
+}
 
 export function registerHandlers(): void {
 
@@ -26,12 +46,38 @@ export function registerHandlers(): void {
     await shell.openPath(fullPath)
   })
 
+  ipcMain.handle(CHANNELS.SHELL_OPEN_TERMINAL, async (_event, cwd?: string) => {
+    const dir = cwd ?? process.cwd()
+    if (process.platform === 'win32') {
+      // Try Windows Terminal first, fall back to cmd
+      spawn('wt.exe', ['-d', dir], { detached: true, stdio: 'ignore' }).on('error', () => {
+        spawn('cmd.exe', ['/K', `cd /d "${dir}"`], { detached: true, stdio: 'ignore' })
+      })
+    } else if (process.platform === 'darwin') {
+      spawn('open', ['-a', 'Terminal', dir], { detached: true, stdio: 'ignore' })
+    } else {
+      const terms = ['gnome-terminal', 'xterm', 'konsole', 'xfce4-terminal']
+      const [term] = terms
+      spawn(term, ['--working-directory', dir], { detached: true, stdio: 'ignore' })
+    }
+  })
+
   // ── OS Dialogs ─────────────────────────────────────────────────────────────
   ipcMain.handle(CHANNELS.DIALOG_OPEN_DIRECTORY, async (event) => {
     const win = BrowserWindow.fromWebContents(event.sender)
     const result = await dialog.showOpenDialog(win ?? BrowserWindow.getFocusedWindow()!, {
       properties: ['openDirectory', 'createDirectory'],
       title: 'Select Repository Folder',
+    })
+    return result.canceled ? null : result.filePaths[0]
+  })
+
+  ipcMain.handle(CHANNELS.DIALOG_OPEN_FILE, async (event, defaultPath?: string) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    const result = await dialog.showOpenDialog(win ?? BrowserWindow.getFocusedWindow()!, {
+      properties: ['openFile'],
+      title: 'Select File',
+      defaultPath,
     })
     return result.canceled ? null : result.filePaths[0]
   })
@@ -104,10 +150,12 @@ export function registerHandlers(): void {
   })
 
   ipcMain.handle(CHANNELS.GIT_BRANCH_DELETE, async (_event, repoPath: string, name: string, force: boolean) => {
+    if (force) await requireAdmin(repoPath)
     return gitService.deleteBranch(repoPath, name, force)
   })
 
   ipcMain.handle(CHANNELS.GIT_BRANCH_DELETE_REMOTE, async (_event, repoPath: string, remoteName: string, branch: string) => {
+    await requireAdmin(repoPath)
     return gitService.deleteRemoteBranch(repoPath, remoteName, branch)
   })
 
@@ -180,16 +228,36 @@ export function registerHandlers(): void {
     return authService.logout(userId)
   })
 
+  // ── Permissions — Phase 20 ────────────────────────────────────────────────
+  ipcMain.handle(CHANNELS.AUTH_FETCH_REPO_PERMISSION, async (_event, repoPath: string) => {
+    return permissionService.fetchPermission(repoPath)
+  })
+
+  ipcMain.handle(CHANNELS.AUTH_GET_REPO_PERMISSION, async (_event, repoPath: string) => {
+    return permissionService.getCachedPermission(repoPath)
+  })
+
   ipcMain.handle(CHANNELS.GIT_CHECKOUT, async (_event, repoPath: string, branch: string) => {
     return gitService.checkout(repoPath, branch)
   })
 
   ipcMain.handle(CHANNELS.GIT_MERGE_PREVIEW, async (_event, repoPath: string, targetBranch: string) => {
-    return gitService.mergePreview(repoPath, targetBranch)
+    const conflicts = await gitService.mergePreview(repoPath, targetBranch)
+    const ourBranch = await gitService.currentBranch(repoPath)
+    for (const c of conflicts) {
+      heatmapService.recordConflictEvent({
+        repoPath, filePath: c.path,
+        ourBranch, theirBranch: targetBranch,
+        conflictType: c.conflictType,
+      })
+    }
+    return conflicts
   })
 
   ipcMain.handle(CHANNELS.GIT_MERGE, async (_event, repoPath: string, targetBranch: string) => {
-    return gitService.merge(repoPath, targetBranch)
+    await gitService.merge(repoPath, targetBranch)
+    const ourBranch = await gitService.currentBranch(repoPath)
+    heatmapService.markConflictsResolved(repoPath, ourBranch, targetBranch)
   })
 
   // ── Locks — Phase 5 ───────────────────────────────────────────────────────
@@ -202,6 +270,7 @@ export function registerHandlers(): void {
   })
 
   ipcMain.handle(CHANNELS.LOCK_UNLOCK, async (_event, repoPath: string, filePath: string, force?: boolean) => {
+    if (force) await requireAdmin(repoPath)
     return lockService.unlockFile(repoPath, filePath, force)
   })
 
@@ -233,28 +302,43 @@ export function registerHandlers(): void {
     return gitService.lfsAutodetect(repoPath)
   })
 
-  ipcMain.handle(CHANNELS.LFS_MIGRATE, async (_event, repoPath: string, patterns: string[]) => {
-    return gitService.lfsMigrate(repoPath, patterns)
+  ipcMain.handle(CHANNELS.LFS_MIGRATE, async (event, repoPath: string, patterns: string[]) => {
+    await requireAdmin(repoPath)
+    return gitService.lfsMigrate(repoPath, patterns, (step) => {
+      if (!event.sender.isDestroyed()) event.sender.send(CHANNELS.EVT_OPERATION_PROGRESS, step)
+    })
   })
 
-  ipcMain.handle(CHANNELS.CLEANUP_SIZE, async (_event, repoPath: string) => {
-    return gitService.cleanupSize(repoPath)
+  ipcMain.handle(CHANNELS.CLEANUP_SIZE, async (event, repoPath: string) => {
+    return gitService.cleanupSize(repoPath, (step) => {
+      if (!event.sender.isDestroyed()) event.sender.send(CHANNELS.EVT_OPERATION_PROGRESS, step)
+    })
   })
 
-  ipcMain.handle(CHANNELS.CLEANUP_GC, async (_event, repoPath: string, aggressive?: boolean) => {
-    return gitService.cleanupGc(repoPath, aggressive)
+  ipcMain.handle(CHANNELS.CLEANUP_GC, async (event, repoPath: string, aggressive?: boolean) => {
+    await requireAdmin(repoPath)
+    return gitService.cleanupGc(repoPath, aggressive, (step) => {
+      if (!event.sender.isDestroyed()) event.sender.send(CHANNELS.EVT_OPERATION_PROGRESS, step)
+    })
   })
 
   ipcMain.handle(CHANNELS.CLEANUP_PRUNE_LFS, async (_event, repoPath: string) => {
+    await requireAdmin(repoPath)
     return gitService.cleanupPruneLfs(repoPath)
   })
 
-  ipcMain.handle(CHANNELS.CLEANUP_SHALLOW, async (_event, repoPath: string, depth: number) => {
-    return gitService.cleanupShallow(repoPath, depth)
+  ipcMain.handle(CHANNELS.CLEANUP_SHALLOW, async (event, repoPath: string, depth: number) => {
+    await requireAdmin(repoPath)
+    return gitService.cleanupShallow(repoPath, depth, (step) => {
+      if (!event.sender.isDestroyed()) event.sender.send(CHANNELS.EVT_OPERATION_PROGRESS, step)
+    })
   })
 
-  ipcMain.handle(CHANNELS.CLEANUP_UNSHALLOW, async (_event, repoPath: string) => {
-    return gitService.cleanupUnshallow(repoPath)
+  ipcMain.handle(CHANNELS.CLEANUP_UNSHALLOW, async (event, repoPath: string) => {
+    await requireAdmin(repoPath)
+    return gitService.cleanupUnshallow(repoPath, (step) => {
+      if (!event.sender.isDestroyed()) event.sender.send(CHANNELS.EVT_OPERATION_PROGRESS, step)
+    })
   })
 
   ipcMain.handle(CHANNELS.NOTIFICATION_LIST, async (_event, repoPath: string) => {
@@ -270,6 +354,7 @@ export function registerHandlers(): void {
   })
 
   ipcMain.handle(CHANNELS.WEBHOOK_SAVE, async (_event, repoPath: string, config: WebhookConfig) => {
+    await requireAdmin(repoPath)
     webhookService.saveConfig(repoPath, config)
   })
 
@@ -284,6 +369,10 @@ export function registerHandlers(): void {
 
   ipcMain.handle(CHANNELS.GIT_SET_CONFIG, (_event, repoPath: string, key: string, value: string) =>
     gitService.setGitConfig(repoPath, key, value)
+  )
+
+  ipcMain.handle(CHANNELS.GIT_GET_CONFIG, (_event, repoPath: string, key: string) =>
+    gitService.getGitConfig(repoPath, key)
   )
 
   // ── Hooks — Phase 12 ──────────────────────────────────────────────────────
@@ -303,9 +392,10 @@ export function registerHandlers(): void {
     hookService.builtins()
   )
 
-  ipcMain.handle(CHANNELS.HOOK_INSTALL_BUILTIN, (_event, repoPath: string, id: string) =>
-    hookService.installBuiltin(repoPath, id)
-  )
+  ipcMain.handle(CHANNELS.HOOK_INSTALL_BUILTIN, async (_event, repoPath: string, id: string) => {
+    await requireAdmin(repoPath)
+    return hookService.installBuiltin(repoPath, id)
+  })
 
   ipcMain.handle(CHANNELS.HOOK_RUN_PRECOMMIT, (_event, repoPath: string) =>
     hookService.runPreCommit(repoPath)
@@ -323,16 +413,44 @@ export function registerHandlers(): void {
     unrealService.templates()
   )
 
-  ipcMain.handle(CHANNELS.UE_WRITE_GITATTRIBUTES, (_event, repoPath: string) =>
-    unrealService.writeGitattributes(repoPath)
-  )
+  ipcMain.handle(CHANNELS.UE_WRITE_GITATTRIBUTES, async (_event, repoPath: string) => {
+    await requireAdmin(repoPath)
+    return unrealService.writeGitattributes(repoPath)
+  })
 
-  ipcMain.handle(CHANNELS.UE_WRITE_GITIGNORE, (_event, repoPath: string) =>
-    unrealService.writeGitignore(repoPath)
-  )
+  ipcMain.handle(CHANNELS.UE_WRITE_GITIGNORE, async (_event, repoPath: string) => {
+    await requireAdmin(repoPath)
+    return unrealService.writeGitignore(repoPath)
+  })
 
   ipcMain.handle(CHANNELS.UE_PAK_SIZE, (_event, repoPath: string, stagedPaths: string[]) =>
     unrealService.pakSizeEstimate(repoPath, stagedPaths)
+  )
+
+  ipcMain.handle(CHANNELS.UE_PLUGIN_STATUS, (_event, repoPath: string) =>
+    unrealService.pluginStatus(repoPath)
+  )
+
+  ipcMain.handle(CHANNELS.UE_CONFIG_STATUS, (_event, repoPath: string) =>
+    unrealService.ueConfigStatus(repoPath)
+  )
+
+  ipcMain.handle(CHANNELS.UE_WRITE_EDITOR_CONFIG, async (_event, repoPath: string) => {
+    await requireAdmin(repoPath)
+    return unrealService.writeEditorConfig(repoPath)
+  })
+
+  ipcMain.handle(CHANNELS.UE_WRITE_ENGINE_CONFIG, async (_event, repoPath: string) => {
+    await requireAdmin(repoPath)
+    return unrealService.writeEngineConfig(repoPath)
+  })
+
+  ipcMain.handle(CHANNELS.GIT_GET_IDENTITY, (_event, repoPath: string) =>
+    gitService.getIdentity(repoPath)
+  )
+
+  ipcMain.handle(CHANNELS.GIT_LINK_IDENTITY, (_event, repoPath: string, login: string, name: string) =>
+    gitService.linkIdentity(repoPath, login, name)
   )
 
   // ── App Settings — Phase 15 ───────────────────────────────────────────────
@@ -349,7 +467,127 @@ export function registerHandlers(): void {
     teamConfigService.load(repoPath)
   )
 
-  ipcMain.handle(CHANNELS.TEAM_CONFIG_SAVE, (_event, repoPath: string, config: TeamConfig) =>
-    teamConfigService.save(repoPath, config)
+  ipcMain.handle(CHANNELS.TEAM_CONFIG_SAVE, async (_event, repoPath: string, config: TeamConfig) => {
+    await requireAdmin(repoPath)
+    return teamConfigService.save(repoPath, config)
+  })
+
+  // ── Git Tools ─────────────────────────────────────────────────────────────
+  ipcMain.handle(CHANNELS.GIT_LS_FILES, (_event, repoPath: string) =>
+    gitService.lsFiles(repoPath)
+  )
+
+  ipcMain.handle(CHANNELS.GIT_RESTORE_FILE, (_event, repoPath: string, filePath: string, fromHash: string) =>
+    gitService.restoreFile(repoPath, filePath, fromHash)
+  )
+
+  ipcMain.handle(CHANNELS.GIT_REVERT, (_event, repoPath: string, hash: string, noCommit: boolean) =>
+    gitService.revert(repoPath, hash, noCommit)
+  )
+
+  ipcMain.handle(CHANNELS.GIT_CHERRY_PICK, (_event, repoPath: string, hash: string) =>
+    gitService.cherryPick(repoPath, hash)
+  )
+
+  ipcMain.handle(CHANNELS.GIT_RESET_TO, async (_event, repoPath: string, hash: string, mode: 'soft' | 'mixed' | 'hard') => {
+    if (mode === 'hard') await requireAdmin(repoPath)
+    return gitService.resetTo(repoPath, hash, mode)
+  })
+
+  ipcMain.handle(CHANNELS.GIT_FILE_LOG, (_event, repoPath: string, filePath: string, limit?: number) =>
+    gitService.log(repoPath, { limit: limit ?? 100, filePath })
+  )
+
+  ipcMain.handle(CHANNELS.GIT_BRANCH_ACTIVITY, (_event, repoPath: string) =>
+    gitService.branchActivity(repoPath)
+  )
+
+  ipcMain.handle(CHANNELS.GIT_DEFAULT_BRANCH, (_event, repoPath: string) =>
+    gitService.defaultBranch(repoPath)
+  )
+
+  // ── Asset diff previews — Phase 17 ───────────────────────────────────────
+  ipcMain.handle(CHANNELS.ASSET_DIFF_PREVIEW, (_event, repoPath: string, filePath: string, leftRef: string, rightRef: string, editorBinaryOverride?: string) =>
+    assetDiffService.diff({ repoPath, filePath, leftRef, rightRef, editorBinaryOverride })
+  )
+
+  ipcMain.handle(CHANNELS.ASSET_RENDER_THUMBNAIL, (_event, repoPath: string, filePath: string, ref: string) =>
+    assetDiffService.renderThumbnail(repoPath, filePath, ref)
+  )
+
+  ipcMain.handle(CHANNELS.ASSET_EXTRACT_METADATA, (_event, repoPath: string, filePath: string, ref: string) =>
+    assetDiffService.extractMetadata(repoPath, filePath, ref)
+  )
+
+  // ── File-system watcher ───────────────────────────────────────────────────
+  ipcMain.handle(CHANNELS.GIT_WATCH_STATUS, (event, repoPath: string) => {
+    watcherService.watch(repoPath, () => {
+      const win = BrowserWindow.fromWebContents(event.sender)
+      if (win && !win.isDestroyed()) {
+        win.webContents.send(CHANNELS.EVT_STATUS_CHANGED)
+      }
+    })
+  })
+
+  ipcMain.handle(CHANNELS.GIT_UNWATCH_STATUS, (_event, repoPath: string) => {
+    watcherService.unwatch(repoPath)
+  })
+
+  // ── Presence ─────────────────────────────────────────────────────────────
+  ipcMain.handle(CHANNELS.PRESENCE_READ, (_event, repoPath: string) => {
+    presenceService.removeStale(repoPath)
+    return presenceService.read(repoPath)
+  })
+
+  ipcMain.handle(CHANNELS.PRESENCE_UPDATE, (_event, repoPath: string, login: string, entry: PresenceEntry) =>
+    presenceService.update(repoPath, login, entry)
+  )
+
+  // ── Lock Heatmap & Conflict Forecasting — Phase 19 ───────────────────────
+  ipcMain.handle(CHANNELS.HEATMAP_COMPUTE, (_event, repoPath: string, timeWindowDays: number, groupBy: 'folder' | 'type') =>
+    heatmapService.computeHeatmap(repoPath, timeWindowDays, groupBy)
+  )
+
+  ipcMain.handle(CHANNELS.HEATMAP_TIMELINE, (_event, repoPath: string, filePath: string, timeWindowDays: number) =>
+    heatmapService.getTimeline(repoPath, filePath, timeWindowDays)
+  )
+
+  ipcMain.handle(CHANNELS.HEATMAP_TOP, (_event, repoPath: string, timeWindowDays: number, limit?: number) =>
+    heatmapService.topContended(repoPath, timeWindowDays, limit)
+  )
+
+  ipcMain.handle(CHANNELS.FORECAST_START, (_event, repoPath: string, intervalMinutes?: number) =>
+    forecastService.start(repoPath, intervalMinutes)
+  )
+
+  ipcMain.handle(CHANNELS.FORECAST_STOP, (_event, repoPath: string) => {
+    forecastService.stop(repoPath)
+  })
+
+  ipcMain.handle(CHANNELS.FORECAST_STATUS, (_event, repoPath: string) =>
+    forecastService.getStatus(repoPath)
+  )
+
+  // ── Dependency-Aware Blame — Phase 18 ────────────────────────────────────
+  ipcMain.handle(CHANNELS.DEP_BUILD_GRAPH, (event, repoPath: string) =>
+    dependencyService.buildGraph(repoPath, (step) => {
+      if (!event.sender.isDestroyed()) event.sender.send(CHANNELS.EVT_OPERATION_PROGRESS, step)
+    })
+  )
+
+  ipcMain.handle(CHANNELS.DEP_GRAPH_STATUS, (_event, repoPath: string) =>
+    dependencyService.graphStatus(repoPath)
+  )
+
+  ipcMain.handle(CHANNELS.DEP_BLAME_ASSET, (_event, repoPath: string, filePath: string) =>
+    dependencyService.blameWithDependencies(repoPath, filePath)
+  )
+
+  ipcMain.handle(CHANNELS.DEP_LOOKUP_REFERENCES, (_event, repoPath: string, packageName: string) =>
+    dependencyService.findReferences(repoPath, packageName)
+  )
+
+  ipcMain.handle(CHANNELS.DEP_REFRESH_CACHE, (_event, repoPath: string) =>
+    dependencyService.refreshCache(repoPath)
   )
 }

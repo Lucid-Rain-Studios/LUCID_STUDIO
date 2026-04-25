@@ -1,5 +1,5 @@
 # Lucid Git — Git Client for Game Developers
-## Claude Code Build Specification — v2.0 (Audited)
+## Claude Code Build Specification — v2.1 (Audited)
 
 ---
 
@@ -105,6 +105,11 @@ lucid-git/
 │   │   ├── NotificationService.ts
 │   │   ├── AuthService.ts
 │   │   ├── UnrealService.ts
+│   │   ├── AssetDiffService.ts
+│   │   ├── UEHeadlessService.ts
+│   │   ├── DependencyService.ts
+│   │   ├── HeatmapService.ts
+│   │   ├── ForecastService.ts
 │   │   ├── HookService.ts
 │   │   └── ErrorParser.ts
 │   ├── workers/
@@ -170,6 +175,17 @@ lucid-git/
 │   │   │   ├── UProjectDetector.tsx
 │   │   │   ├── GitAttributesEditor.tsx
 │   │   │   └── GitIgnoreEditor.tsx
+│   │   ├── diff/
+│   │   │   ├── TextDiff.tsx       # monaco-based
+│   │   │   ├── BinaryDiff.tsx     # size / hash / metadata
+│   │   │   └── AssetDiffViewer.tsx  # replaces BinaryDiff for recognised UE types
+│   │   ├── blame/
+│   │   │   ├── DependencyBlamePanel.tsx
+│   │   │   └── ReferenceViewer.tsx
+│   │   ├── heatmap/
+│   │   │   └── LockHeatmap.tsx
+│   │   ├── forecast/
+│   │   │   └── ForecastPanel.tsx
 │   │   ├── hooks/
 │   │   │   └── HooksManager.tsx
 │   │   ├── settings/
@@ -261,11 +277,32 @@ export const CHANNELS = {
   UE_WRITE_GITATTRIBUTES: 'ue:write-gitattributes',
   UE_WRITE_GITIGNORE: 'ue:write-gitignore',
 
+  // Asset diff previews (binary renderer)
+  ASSET_DIFF_PREVIEW: 'asset:diff-preview',
+  ASSET_RENDER_THUMBNAIL: 'asset:render-thumbnail',
+  ASSET_EXTRACT_METADATA: 'asset:extract-metadata',
+  ASSET_BLUEPRINT_DIFF: 'asset:blueprint-diff',
+
+  // Dependency-aware blame
+  DEP_BUILD_GRAPH: 'dep:build-graph',
+  DEP_BLAME_ASSET: 'dep:blame-asset',
+  DEP_LOOKUP_REFERENCES: 'dep:lookup-references',
+  DEP_REFRESH_CACHE: 'dep:refresh-cache',
+
+  // Lock heatmap + conflict forecasting
+  HEATMAP_COMPUTE: 'heatmap:compute',
+  FORECAST_REMOTE_EDITS: 'forecast:remote-edits',
+  FORECAST_POLL_START: 'forecast:poll-start',
+  FORECAST_POLL_STOP: 'forecast:poll-stop',
+  FORECAST_PUBLISH_WIP: 'forecast:publish-wip',  // user-initiated opt-in share
+
   // Events (main → renderer, one-way)
   EVT_OPERATION_PROGRESS: 'evt:operation-progress',
   EVT_LOCK_CHANGED: 'evt:lock-changed',
   EVT_NOTIFICATION: 'evt:notification',
   EVT_UPDATE_AVAILABLE: 'evt:update-available',
+  EVT_DEP_GRAPH_READY: 'evt:dep-graph-ready',
+  EVT_FORECAST_CONFLICT: 'evt:forecast-conflict',
 } as const
 ```
 
@@ -753,6 +790,470 @@ jobs:
 
 ---
 
+### 13. Binary Asset Diff Previews
+
+Git shows `.uasset`, `.umap`, textures, and other binaries as opaque blobs. Lucid Git renders **actual visual diffs** so reviewers and teammates can see what changed without launching the editor.
+
+**Scope — what we support at v1:**
+
+| Asset type | Diff treatment | Backend |
+|---|---|---|
+| Textures (.png, .tga, .bmp, .jpg, .tif, .exr, .hdr, .psd) | Side-by-side image render + pixel-diff overlay + resolution/format/size delta | `sharp` (native image lib bundled with Electron) |
+| Blueprints (.uasset containing UBlueprint) | Node-graph diff using UE's `DiffAssets` commandlet | Headless UE invocation |
+| Materials (.uasset containing UMaterial / UMaterialInstance) | Parameter diff + node-graph diff | Headless UE invocation |
+| Static/Skeletal Meshes (.uasset containing UStaticMesh / USkeletalMesh) | Bounds/vert-count/material-slot delta + thumbnail comparison | UE thumbnail cache + metadata |
+| Levels (.umap) | Actor add/remove/move list + overhead minimap snapshot | Headless UE commandlet |
+| Data Tables / Curve Tables | Row-level text diff after CSV export | UE `DataTableCSVExporter` commandlet |
+| Audio (.wav, .ogg, .mp3, .flac) | Waveform render + duration/sample-rate delta | `fluent-ffmpeg` + `sharp` |
+| Video (.mp4, .mov, .bk2) | First-frame + middle-frame thumbnail + duration | `fluent-ffmpeg` |
+| Generic .uasset | Fallback: thumbnail extracted from UE `AssetRegistry.bin` cache + metadata delta | Thumbnail cache reader |
+
+**Why headless UE works — and its honest cost:**
+
+Unreal ships `UnrealEditor-Cmd.exe` (Windows) / `UnrealEditor` (Mac/Linux) which accepts `-run=DiffAssets` and similar commandlets. Lucid Git doesn't embed UE; it *invokes* the user's already-installed UE. Cold-start on first invocation is 15–45s; warm invocations reuse a persistent editor process via a persistent-process pool. Output is a structured JSON written to a temp path.
+
+This means: **the user must have UE installed, and the engine version must match the project's `.uproject` EngineAssociation.** If UE isn't found, the feature falls back to thumbnail-only diff (still useful).
+
+**Implementation:**
+
+```typescript
+// electron/services/AssetDiffService.ts
+
+interface AssetDiffRequest {
+  repoPath: string
+  filePath: string           // e.g. 'Content/Characters/Hero/SK_Hero.uasset'
+  leftRef: string            // commit SHA or 'HEAD' or 'WORKING'
+  rightRef: string           // commit SHA or 'HEAD' or 'WORKING'
+}
+
+interface AssetDiffResult {
+  assetType: AssetType
+  leftPreview: PreviewData   // PNG path, JSON data, or both
+  rightPreview: PreviewData
+  delta: AssetDelta          // type-specific structured diff
+  renderedAt: Date
+  cacheKey: string           // sha of leftRef+rightRef+filePath
+}
+
+type AssetDelta =
+  | { kind: 'texture'; widthDelta: [number, number]; heightDelta: [number, number]; formatChanged: boolean; pixelDiffPath: string }
+  | { kind: 'blueprint'; nodesAdded: BPNodeRef[]; nodesRemoved: BPNodeRef[]; nodesModified: BPNodeRef[]; connectionsChanged: number }
+  | { kind: 'material'; parameterChanges: { name: string; before: any; after: any }[]; nodeGraphDelta: BPNodeDelta }
+  | { kind: 'mesh'; vertsDelta: [number, number]; trianglesDelta: [number, number]; materialSlotsDelta: string[]; boundsDelta: BoundsDelta }
+  | { kind: 'level'; actorsAdded: ActorRef[]; actorsRemoved: ActorRef[]; actorsMoved: { name: string; fromLoc: Vec3; toLoc: Vec3 }[] }
+  | { kind: 'datatable'; rowsAdded: string[]; rowsRemoved: string[]; rowsChanged: { rowKey: string; columns: string[] }[] }
+  | { kind: 'audio'; durationDelta: [number, number]; sampleRateDelta: [number, number]; waveformDiffPath: string }
+  | { kind: 'generic'; metadataBefore: Record<string, any>; metadataAfter: Record<string, any> }
+
+class AssetDiffService {
+  async diff(req: AssetDiffRequest): Promise<AssetDiffResult>
+  async renderThumbnail(repoPath: string, filePath: string, ref: string): Promise<string>  // returns PNG path
+  async extractMetadata(repoPath: string, filePath: string, ref: string): Promise<Record<string, any>>
+  async classifyAsset(repoPath: string, filePath: string): Promise<AssetType>
+  clearCache(olderThanDays: number): Promise<void>
+}
+```
+
+**Git plumbing for the "two versions" problem:**
+
+To diff an asset at commit A vs commit B, Lucid Git needs both blobs on disk. It uses `git cat-file -p <ref>:<path>` to extract to a temp dir — cheap and doesn't touch the working tree. For LFS-tracked files, `git lfs smudge < /tmp/pointer` expands the pointer to the real binary. Results are cached by SHA so re-opening the same diff is instant.
+
+**Caching:**
+- Rendered PNGs stored in `~/.lucid-git/cache/asset-diffs/<repo-hash>/<left-sha>-<right-sha>/`
+- Metadata JSON stored alongside
+- LRU eviction at 5GB default (configurable in Settings)
+- Cache key includes engine version — engine upgrade invalidates BP/material diffs
+
+**UE commandlet wrapper:**
+
+```typescript
+// electron/services/UEHeadlessService.ts
+class UEHeadlessService {
+  async findEditorBinary(engineVersion: string): Promise<string | null>
+  // Searches: Epic Games Launcher install paths, Registry (Win),
+  // ~/Library/Application Support/Epic (Mac), user-configured override in electron-store
+
+  async runCommandlet(args: {
+    projectPath: string
+    commandlet: 'DiffAssets' | 'DataTableCSVExporter' | 'ExportThumbnail'
+    params: string[]
+    timeoutMs: number
+  }): Promise<CommandletResult>
+  // Spawns UnrealEditor-Cmd with -run=<Commandlet>.
+  // Persistent-process pool for warm invocations after first cold start.
+
+  isEditorRunning(projectPath: string): boolean
+  // If the user has the editor open, Lucid Git prompts rather than spawning
+  // a second instance (UE locks the project file).
+}
+```
+
+**UI — `AssetDiffViewer` component:**
+
+- Replaces `BinaryDiff.tsx` when asset type is recognized
+- Top bar: left-ref / right-ref picker, asset type badge, "Open in Unreal" button
+- Main panel: split view appropriate to asset type (images side-by-side, BP node graph from commandlet JSON, mesh metadata table, actor diff list for levels, row diff for data tables, waveform for audio)
+- Bottom strip: structured delta list with human-readable labels
+- Loading state: "Starting Unreal Engine..." spinner while commandlet warms up
+- Fallback banner: if UE isn't installed, engine version mismatches, asset is >500MB, or commandlet times out — show thumbnail + metadata only with a clear "UE diff unavailable — [reason]" banner. Never a blank panel.
+
+**Graceful degradation:**
+- No UE installed → thumbnail + metadata only (still better than stock Git)
+- Engine version mismatch → thumbnail + metadata + warning banner
+- Asset too large (>500MB) → metadata-only, no render attempted
+- Legacy `.uasset` (UE4 format in UE5 repo) → metadata-only
+
+**Where Lucid Git will NOT try to be clever:**
+- We don't auto-merge binary assets. Ever.
+- We don't write our own `.uasset` parser — that's a rabbit hole with no bottom. We use UE's own tooling.
+- We don't try to diff Niagara systems visually at v1 (commandlet support is inconsistent). Fall back to metadata.
+
+---
+
+### 14. Dependency-Aware Blame
+
+Stock `git blame` answers "who last touched this file?" That's useless for game dev, where a material breaking can be caused by any of its *referenced* assets being changed. Lucid Git answers "who last touched this asset **or any of its dependencies**?"
+
+**Data source:**
+
+Unreal writes an `AssetRegistry.bin` to `<Project>/Saved/Cooked/` after cooking, and to `<Project>/Intermediate/` during normal editor use. This is a binary-serialized index of all assets and their soft/hard references — the same data the editor's Reference Viewer uses.
+
+Lucid Git reads this file directly. At v1 we implement a minimal reader that extracts just the `PackageName → [Referenced PackageNames]` map, using the schema documented in `Engine/Source/Runtime/AssetRegistry/`.
+
+**If AssetRegistry isn't available:**
+
+Fresh clone, never opened in editor → `AssetRegistry.bin` doesn't exist. Two fallbacks:
+1. **Quick scan:** parse `.uasset` headers directly for the import table (`FPackageFileSummary` → walk `FObjectImport` entries). ~50x faster than a full load, gives us the reference graph without needing UE.
+2. **Commandlet fallback:** run `UnrealEditor-Cmd -run=DumpAssetRegistry` to regenerate. Slow (2–10 min on a large project) but always works. Triggered only on user request.
+
+**Implementation:**
+
+```typescript
+// electron/services/DependencyService.ts
+
+interface DependencyGraph {
+  nodes: Map<string, AssetNode>          // keyed by package name
+  buildTime: Date
+  engineVersion: string
+  sourcePath: string                     // 'AssetRegistry.bin' | 'header-scan' | 'commandlet'
+}
+
+interface AssetNode {
+  packageName: string                    // '/Game/Characters/Hero/BP_Hero'
+  filePath: string                       // 'Content/Characters/Hero/BP_Hero.uasset'
+  assetClass: string                     // 'Blueprint', 'Material', 'Texture2D', etc.
+  hardReferences: string[]               // package names this asset hard-depends on
+  softReferences: string[]
+  referencedBy: string[]                 // reverse index (computed by Lucid Git)
+}
+
+interface DependencyBlame {
+  targetAsset: string
+  directBlame: GitBlameEntry
+  dependencyBlames: DependencyBlameEntry[]
+  suspects: SuspectRank[]
+}
+
+interface DependencyBlameEntry {
+  dependencyPath: string
+  hops: number                           // 1 = direct dep, 2 = dep-of-dep
+  relationshipType: 'hard' | 'soft'
+  lastCommit: { sha: string; author: string; email: string; date: Date; message: string }
+  changedInLastNCommits: number          // churn signal
+}
+
+interface SuspectRank {
+  path: string
+  score: number                          // 0–100
+  reasoning: string                      // e.g. "Changed 3 times this week, direct hard dependency"
+}
+
+class DependencyService {
+  async buildGraph(repoPath: string, opts?: { maxDepth?: number; forceRebuild?: boolean }): Promise<DependencyGraph>
+  // Priority: AssetRegistry.bin → header scan (worker_threads) → DumpAssetRegistry commandlet
+  // Graph cached in SQLite keyed by repo + HEAD sha + engine version.
+  // After git pull touching .uasset files: incremental re-scan of changed files only (debounced).
+
+  async blameWithDependencies(repoPath: string, assetPath: string, opts?: {
+    maxHops?: number      // default 2
+    sinceDays?: number
+  }): Promise<DependencyBlame>
+
+  async findReferences(repoPath: string, assetPath: string): Promise<{ uses: string[]; usedBy: string[] }>
+  // Powers the Reference Viewer panel
+
+  async rankSuspects(blame: DependencyBlame): Promise<SuspectRank[]>
+  // Scoring: recency 40% + hop-distance inverse 30% + churn frequency 20% + hard-vs-soft 10%
+}
+```
+
+**Performance:**
+- Graph build on a 50k-asset project: ~30–90s first time (parallelized worker scan), ~2s from SQLite cache
+- Incremental update: re-scan only changed `.uasset` files after each pull, patch the graph in-place
+- `better-sqlite3` adjacency list handles 100k+ nodes without issue
+- Graph rebuild triggered automatically after `git pull` that touches `.uasset` files (debounced 2s)
+
+**UI — `DependencyBlamePanel`:**
+
+- Right-click any `.uasset` in the file tree → "Blame with dependencies"
+- Top: standard git blame for the asset (author, date, commit message)
+- Below: expandable dependency tree — each row shows path, hop count, last committer, date, and a churn badge (red if changed >3× in last 30 days)
+- Suspect sidebar: top 5 ranked suspects with score bar and plain-English reasoning. Click → opens `AssetDiffViewer` for that asset
+- "Reference Viewer" tab: force-directed neighborhood graph using `d3-force`. Nodes coloured by asset class. Capped at 200 nodes. Click a node → jump to that asset's blame panel.
+- Loading state while graph builds: "Scanning 12,400 assets..." with live count
+
+**Integration with Phase 10 commit graph:**
+
+New "Dependency lens" button on the CommitGraph toolbar. When active and an asset is selected, every commit that changed that asset *or any of its dependencies* (up to 2 hops) is highlighted. All other commits are dimmed.
+
+**Known limitations:**
+- Soft references via runtime-computed `FSoftObjectPath` strings can't be statically resolved — rare in practice
+- Blueprint interface calls: we see the interface reference, not the concrete implementer
+- World Partition levels: handled via AssetRegistry, but cap neighborhood display at 200 nodes for large open worlds
+
+---
+
+### 15. Lock Heatmap & Conflict Forecasting
+
+Two distinct features that share a data foundation. **Heatmap** is retrospective: where is the team contending? **Forecasting** is predictive: are you about to step on someone right now?
+
+#### 15.1 Lock Heatmap (retrospective)
+
+**What it shows:**
+
+The project's asset tree visualized as a treemap, each cell color-graded by contention — a composite of lock frequency, mean lock duration, unique contributors, and merge conflict history.
+
+**Data source — no new collection needed:**
+
+The Section 2 lock poller already emits `EVT_LOCK_CHANGED` events. We persist every event to SQLite going forward. The Section 3 merge preview flow already detects conflicts; we persist those too.
+
+```typescript
+// electron/db/schema.sql additions
+CREATE TABLE IF NOT EXISTS lock_events (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  repo_path   TEXT    NOT NULL,
+  file_path   TEXT    NOT NULL,
+  user_id     TEXT    NOT NULL,
+  action      TEXT    NOT NULL,        -- 'lock' | 'unlock' | 'force-unlock'
+  occurred_at INTEGER NOT NULL,        -- unix ms
+  lock_duration_ms INTEGER             -- populated on unlock
+);
+CREATE INDEX idx_lock_events_path ON lock_events(repo_path, file_path, occurred_at);
+
+CREATE TABLE IF NOT EXISTS conflict_events (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  repo_path    TEXT    NOT NULL,
+  file_path    TEXT    NOT NULL,
+  detected_at  INTEGER NOT NULL,
+  branches     TEXT    NOT NULL,       -- JSON: ['feature/a', 'main']
+  conflict_type TEXT   NOT NULL,       -- 'content' | 'binary' | 'delete-modify'
+  resolved     INTEGER NOT NULL        -- 0/1
+);
+```
+
+**Implementation:**
+
+```typescript
+// electron/services/HeatmapService.ts
+
+interface HeatmapCell {
+  path: string
+  isDirectory: boolean
+  contentionScore: number           // 0–100
+  lockEvents: number
+  uniqueContributors: number
+  meanLockDurationMs: number
+  forceUnlocks: number
+  conflictEvents: number
+  topContributors: { user: string; events: number }[]
+}
+
+interface HeatmapRequest {
+  repoPath: string
+  windowDays: number                // default 30
+  pathScope?: string                // narrow to 'Content/Characters/' etc.
+  groupBy: 'file' | 'folder' | 'asset-type'
+}
+
+class HeatmapService {
+  async computeHeatmap(req: HeatmapRequest): Promise<HeatmapCell[]>
+  async getFileHistory(repoPath: string, filePath: string, windowDays: number): Promise<LockEvent[]>
+  async getTopContendedAssets(repoPath: string, windowDays: number, limit: number): Promise<HeatmapCell[]>
+}
+```
+
+**UI — `LockHeatmap` component:**
+
+- Treemap via recharts `Treemap` — rectangle size = file count (folder) or 1 (file), color = contention score mapped from `--bg-elevated` (cold) → `--warning` (warm) → `--error` (hot)
+- Toolbar: time-window selector (7d / 30d / 90d / All), group-by toggle (Folder | Asset Type)
+- Click a folder cell → drill in to that folder. Click a file cell → open event timeline drawer
+- Right sidebar: "Top 10 Contended" list with score bars and top contributor name
+- Export to PNG for sprint reviews
+- Accessible from sidebar nav and Settings → Team
+
+**What producers use this for:**
+- "Which asset is bottlenecked on one person?" → high lock duration, 1 unique contributor
+- "Where should we split a system?" → folders with high contention across many users
+- "Why do we keep conflicting here?" → conflict-event overlay answers directly
+
+#### 15.2 Conflict Forecasting (predictive)
+
+**What it warns about:**
+
+Before editing a file, Lucid Git checks whether a conflict is already brewing:
+- A teammate has it locked right now (Section 2 — already done)
+- A teammate has **commits touching it on a remote branch** that aren't in your branch yet (Path A — detectable, no opt-in)
+- A teammate is **actively working on it right now** (Path B — opt-in WIP sharing)
+
+**Path A — Remote branch divergence (default on, no opt-in):**
+
+Background `git fetch --all` every 5 min (configurable). After each fetch, diff remote branch tips vs HEAD per file. If `feature/alex-hero-rework` has commits touching `SK_Hero.uasset` that aren't merged into your branch yet — warn before you start editing.
+
+**Path B — Live WIP sharing (opt-in, default OFF):**
+
+Users optionally publish a list of file paths they're currently modifying — paths only, never contents. Published to a GitHub Gist, a dedicated `lucid-git-presence` branch (single-writer-per-user, force-pushed), or a Discord webhook channel. Default OFF with a plain-English privacy explanation shown before first enable.
+
+**Implementation:**
+
+```typescript
+// electron/services/ForecastService.ts
+
+interface ForecastWarning {
+  path: string
+  severity: 'info' | 'warning' | 'blocker'
+  reasons: ForecastReason[]
+}
+
+type ForecastReason =
+  | { type: 'locked-by-other'; user: string; since: Date }
+  | { type: 'unpushed-remote-commits'; branch: string; author: string; commitCount: number; lastCommit: Date }
+  | { type: 'teammate-has-uncommitted'; user: string; since: Date; source: 'gist' | 'presence-branch' | 'webhook' }
+  | { type: 'high-contention'; heatmapScore: number }
+  | { type: 'recently-conflicted'; lastConflict: Date; count: number }
+
+class ForecastService {
+  async forecastForFile(repoPath: string, filePath: string): Promise<ForecastWarning>
+  async forecastForWorkingTree(repoPath: string): Promise<ForecastWarning[]>
+
+  startRemotePoll(repoPath: string, intervalMs: number): void
+  stopRemotePoll(repoPath: string): void
+
+  async publishWIP(repoPath: string, filePaths: string[], destination: WIPDestination): Promise<void>
+  async fetchTeammateWIP(repoPath: string, source: WIPDestination): Promise<TeammateWIP[]>
+  // Paths only — no file contents ever transmitted
+}
+
+type WIPDestination =
+  | { kind: 'gist'; gistId: string; visibility: 'secret' | 'public' }
+  | { kind: 'presence-branch'; branch: string }
+  | { kind: 'webhook'; url: string }
+
+interface ForecastConfig {
+  enabled: boolean
+  remotePollIntervalMs: number        // default 300000 (5 min)
+  wipSharingEnabled: boolean          // default false
+  wipDestination?: WIPDestination
+  warnOnHighContention: boolean
+  contentionThreshold: number         // 0–100, default 60
+  quietHours?: { start: string; end: string }
+}
+```
+
+**UI:**
+
+- File tree rows: warning icon column, coloured by max severity. Hover tooltip lists reasons in plain English.
+- OS file watcher: when a file transitions to modified, call `forecastForFile()` and toast if severity ≥ warning. "⚠️ Alex has commits on feature/hero-rework touching this file."
+- Forecast Panel in sidebar: live list of modified files with active warnings, sorted by severity
+- Pre-commit check: when staging, re-run `forecastForWorkingTree()` on staged files. If any blockers, show confirmation dialog — never silently block.
+- Settings → Team → Forecasting: poll interval, WIP sharing toggle (privacy explanation shown inline before enable), destination picker, contention threshold, quiet hours
+
+**Honest limitations:**
+- Path B misses teammates who don't use Lucid Git or have WIP sharing off — Path A (post-push) still works for them
+- Remote poll costs bandwidth; 5-min interval on a 10-person team is negligible but configurable
+- WIP sharing is cooperative, not enforcement — a user who opts out is simply invisible to Path B
+
+---
+
+### 16. Role-Based Access Control
+
+Lucid Git maps GitHub repository collaborator permissions to two tiers that gate which features are available in the UI and enforced in the main process.
+
+**Why two tiers, not three:**
+
+GitHub exposes `admin`, `maintain`, `write`, `triage`, `read`. In practice, any user below `push` (write) is already blocked by GitHub from pushing commits, so Lucid Git only needs to distinguish admin from everyone-with-write-access. `maintain` is treated as `write` — it has some branch management powers on GitHub, but Lucid Git's admin gate is specifically about destructive and team-wide config operations.
+
+**Permission source:**
+
+```typescript
+// On repo open: GET https://api.github.com/repos/{owner}/{repo}
+// Response includes: { permissions: { admin, maintain, push, triage, pull } }
+// Mapping:
+//   permissions.admin === true  → 'admin'
+//   permissions.push  === true  → 'write'
+//   else                        → 'read'  (shouldn't reach Lucid Git, but handled)
+```
+
+For GitHub Enterprise repos: extract the API host from the git remote URL (e.g. `git@github.mycompany.com:...` → `https://github.mycompany.com/api/v3/repos/...`). User-configurable API host override in Settings → Accounts for edge cases.
+
+**Permission cache:**
+
+Stored in `electron-store` under `permissionCache`, keyed by `"{owner}/{repo}"`:
+```typescript
+interface PermissionCacheEntry {
+  permission: RepoPermission
+  fetchedAt: number   // unix ms
+}
+```
+TTL 5 minutes (configurable). Refreshed on repo open, after login, and on manual refresh (right-click permission badge in status bar). Cached value is used optimistically while a background refresh runs.
+
+**Fail-open behavior:**
+
+If the API call fails for any reason (network error, GHE without API configured, rate-limit), Lucid Git defaults to `write` — never locks users out. A warning badge appears in the top bar: "Permission check unavailable — operating in collaborator mode." Users can still access all write-access features.
+
+**Defense in depth:**
+
+Permission is checked at two layers:
+1. **Renderer** — UI elements are dimmed and disabled with a lock icon. Clicking shows a tooltip: "This action requires repository admin access."
+2. **Main process** — IPC handlers for admin-gated operations call `permissionService.isAdmin(repoPath)` before executing. If not admin: returns `{ code: 'PERMISSION_DENIED', title: 'Admin access required', ... }`. This prevents renderer bypass.
+
+**Admin-only operations:**
+
+| Operation | Service / Location |
+|---|---|
+| Force-unlock another user's file | `LockService.unlockFile(..., force=true)` |
+| Delete remote branch | `GitService.deleteRemoteBranch()` |
+| Delete local branch with `-D` (force) | `GitService.deleteBranch(name, force=true)` |
+| Hard reset (`--hard`) | `GitService.resetTo()` with `hard` mode |
+| LFS history migration (rewrites history) | `GitService.lfsMigrate()` |
+| Repo cleanup (gc, prune, shallow) | `CleanupService.*` — all methods |
+| Write `.gitattributes` team-wide | `UnrealService.writeGitattributes()` |
+| Write `.gitignore` | `UnrealService.writeGitignore()` |
+| Write UE editor/engine `.ini` config | `UnrealService.writeEditorConfig()`, `writeEngineConfig()` |
+| Set `lfs.locksverify` git config | `GitService.setGitConfig(repoPath, 'lfs.locksverify', ...)` |
+| Install/modify team hooks | `HookService` install actions |
+| Export / save `team-config.json` | Team Config panel write actions |
+| Configure team Discord webhooks | Webhook settings save |
+
+**Write-access operations (all authenticated collaborators):**
+
+Commit, push, pull, fetch, create/rename/checkout branches, stash, cherry-pick, revert, standard merge, lock/unlock own files, LFS track patterns (personal), view diffs/history/blame/heatmap/forecast, personal settings, link GitHub identity, view (not modify) admin-gated panels.
+
+**UI conventions:**
+
+- Never hide admin features from write-access users — dim and disable them. Hiding confuses users who don't know a feature exists.
+- For entirely admin-only panels (Cleanup, Team Config, Webhook settings): show a persistent read-only banner: "You are viewing as a Collaborator. Repository admin access is required to modify these settings."
+- Status bar: subtle "Admin" or "Collaborator" badge next to the repo name. Clicking shows a popover with a brief explanation of what each tier means. While fetching: "Checking permissions..." spinner.
+- Top bar: warning badge on permission fetch failure (network error, GHE misconfiguration). Clicking it opens a dialog explaining the fallback behavior.
+
+**Trigger points for permission refresh:**
+
+1. Repo open / repo switch
+2. After successful auth login
+3. Manual refresh (right-click status bar permission badge)
+4. After receiving `PERMISSION_DENIED` from main process (race condition guard)
+
+---
+
 ## Design System
 
 **Aesthetic:** Industrial/utilitarian dark theme. Heavy-duty tool for serious teams.
@@ -812,7 +1313,10 @@ jobs:
     "react-dom": "^18.3.0",
     "tailwind-merge": "^2.5.0",
     "clsx": "^2.1.0",
-    "cmdk": "^1.0.0"
+    "cmdk": "^1.0.0",
+    "sharp": "^0.33.0",
+    "d3-force": "^3.0.0",
+    "fluent-ffmpeg": "^2.1.3"
   },
   "devDependencies": {
     "electron": "^33.0.0",
@@ -828,6 +1332,8 @@ jobs:
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",
     "@types/better-sqlite3": "^7.6.0",
+    "@types/d3-force": "^3.0.0",
+    "@types/fluent-ffmpeg": "^2.1.26",
     "@playwright/test": "^1.48.0"
   }
 }
@@ -916,6 +1422,82 @@ Claude Code should confirm with you:
 
 ### Phase 15 — Settings, command palette, final polish
 
+### Phase 16 - using UEGitPlugin (GitSourceControl.uplugin)
+For UE5 integration, we're integrating with the ProjectBorealis UEGitPlugin
+(https://github.com/ProjectBorealis/UEGitPlugin), which is an open-source
+UE source control provider that uses the same Git LFS locks Lucid Git uses.
+
+1. UProjectDetector: detect if a .uproject exists in the repo root. If so,
+   enable all UE-related features.
+
+2. Plugin installer UI: check if Plugins/UEGitPlugin/GitSourceControl.uplugin
+   exists. If not, show a prominent banner:
+  "Please get the plugin folder"
+
+3. Auto-config writer (opt-in): offer to write the recommended settings
+   from the plugin README into the user's Config/ .ini files:
+   - DefaultEditorPerProjectUserSettings.ini: bSCCAutoAddNewFiles=False,
+     bAutomaticallyCheckoutOnAssetModification=True,
+     bPromptForCheckoutOnAssetModification=False,
+     bAutoloadCheckedOutPackages=True
+   - DefaultEngine.ini: r.Editor.SkipSourceControlCheckForEditablePackages=1
+   Write with clear comments explaining each setting; preserve existing
+   content in these files.
+
+4. .gitattributes: use the PB-style explicit per-extension format matching
+   https://github.com/ProjectBorealis/PBCore/blob/main/.gitattributes
+   (NOT a generic Content/** wildcard — the plugin README explicitly
+   requires explicit file attributes for *.umap and *.uasset).
+
+5. Identity linker: after GitHub auth, write the user's GitHub username
+   into the UE plugin's LFS name configuration so locks made in UE are
+   attributed correctly and match locks made in Lucid Git.
+
+6. Lock status reconciliation: Lucid Git's lock poller already reads all
+   LFS locks from the remote. No changes needed — both tools share the
+   same lock backend, so locks made in UE appear in Lucid Git's UI
+   automatically on the next poll.
+
+The built plugin will be placed within the "plugins" folder
+
+### Phase 17 — Binary Asset Diff Previews
+- `UEHeadlessService`: locate `UnrealEditor-Cmd` across Epic Launcher paths, Windows registry, macOS `~/Library` paths, and a user-configurable override in `electron-store`. Persistent-process pool for warm commandlet invocations after first cold start. `isEditorRunning()` guard to avoid spawning a second UE instance.
+- `AssetDiffService`: `classifyAsset()` by extension + UE header sniff; `git cat-file -p <ref>:<path>` extraction to temp dir for both blob sides (LFS pointer smudge for LFS-tracked files); per-type renderers — textures via `sharp`, Blueprints/Materials/Levels via `DiffAssets` commandlet, Data Tables via `DataTableCSVExporter`, audio waveforms via `fluent-ffmpeg` (optional — degrade gracefully if missing), video thumbnails via `fluent-ffmpeg`
+- LRU PNG + JSON cache at `~/.lucid-git/cache/asset-diffs/`, keyed by commit SHAs + engine version, 5GB cap
+- `AssetDiffViewer` component replacing `BinaryDiff.tsx` for recognised asset types — split view, structured delta list, "Open in Unreal" button, "Starting Unreal Engine..." loading state, explicit fallback banner when UE is unavailable
+- Add `sharp` to `asarUnpack` in `electron-builder.yml`
+
+### Phase 18 — Dependency-Aware Blame
+- `DependencyService`: graph building with three source priority — `AssetRegistry.bin` parser (primary), parallelised `.uasset` header scan via `worker_threads` (fallback), `DumpAssetRegistry` commandlet (last resort). SQLite adjacency list cache keyed by repo + HEAD sha + engine version. Incremental re-scan on pull (debounced).
+- `blameWithDependencies()`: standard `git blame` on the target + `git log -1` per dependency up to `maxHops` (default 2). Churn computed from commit count in `sinceDays` window.
+- `rankSuspects()`: recency 40% + hop-distance inverse 30% + churn 20% + hard-vs-soft 10%
+- `DependencyBlamePanel`: direct blame at top, expandable dependency tree with churn badges, suspect sidebar (click → `AssetDiffViewer`), Reference Viewer tab with `d3-force` neighborhood graph (cap 200 nodes)
+- Phase 10 commit graph "Dependency lens": highlights commits touching the selected asset or its dependencies (2-hop)
+
+### Phase 19 — Lock Heatmap & Conflict Forecasting
+- SQLite `lock_events` and `conflict_events` tables via `migrations.ts`. Backfill: wire Section 2 lock poller to write every future lock/unlock/force-unlock event; wire Section 3 merge preview to write every detected conflict.
+- `HeatmapService.computeHeatmap()`: contention score from lock frequency 35% + mean duration 25% + unique contributors 25% + conflict count 15%, normalised 0–100
+- `LockHeatmap` component: recharts `Treemap` with cold→warm→hot colour gradient, time-window selector (7d / 30d / 90d / All), group-by toggle (Folder | Asset Type), click-to-drill-down, event timeline drawer per file, "Top 10 Contended" sidebar, PNG export
+- `ForecastService` Path A (default on): background `git fetch --all` poller, per-file diff of remote branch tips vs HEAD, `EVT_FORECAST_CONFLICT` events for files you've modified that have remote branch activity
+- `ForecastService` Path B (opt-in, default OFF): `publishWIP()` / `fetchTeammateWIP()` to GitHub Gist / presence branch / webhook — file paths only, never contents. Privacy explanation shown inline before first enable.
+- File tree warning icons + hover tooltips, forecast toast on file-open, `ForecastPanel` sidebar, pre-commit re-check with confirmation dialog (never silent block)
+- Settings → Team → Forecasting page: poll interval, WIP sharing toggle + privacy copy, destination picker, contention threshold, quiet hours
+
+### Phase 20 — Role-Based Access Control
+
+- **`PermissionService`** (`electron/services/PermissionService.ts`): extract owner/repo from `git remote get-url origin`; call GitHub API `/repos/{owner}/{repo}`; map `permissions.admin` → `'admin'`, `permissions.push` → `'write'`; cache in `electron-store` with timestamp; detect GHE host from remote URL; fail-open to `'write'` on any network error
+- **New IPC channels** in `electron/ipc/channels.ts`: `AUTH_FETCH_REPO_PERMISSION`, `AUTH_GET_REPO_PERMISSION`
+- **Handler registration** in `electron/ipc/handlers.ts`: wire new channels to `PermissionService`; add `permissionService.isAdmin(repoPath)` guard before executing admin-gated handlers: `lock:unlock` (force), `git:branch-list` delete, `git:reset` hard, `lfs:migrate`, `cleanup:*`, `ue:write-*`, `webhook:save`, team config save, hook install
+- **`electron/types.ts`**: add `type RepoPermission = 'admin' | 'write' | 'read'` and `RepoPermissionCache` interface
+- **`src/stores/authStore.ts`**: add `repoPermissions: Record<string, RepoPermission>`, `fetchRepoPermission(repoPath)` action, `isAdmin(repoPath)` selector
+- **`src/ipc.ts`**: expose `fetchRepoPermission` and `getRepoPermission` typed wrappers
+- **`src/components/layout/StatusBar.tsx`**: permission tier badge ("Admin" / "Collaborator" / spinner); right-click context menu with "Refresh permissions"
+- **`src/components/layout/TopBar.tsx`**: warning badge when permission fetch failed; click to open explanation dialog
+- **`src/components/settings/SettingsPage.tsx`**: read-only collaborator banner on admin-only tabs (Cleanup, Team, Webhooks)
+- **`src/components/changes/FileRow.tsx`**: dim force-unlock option with lock icon for non-admins
+- All admin-gated action buttons across UI: wrap with an `AdminGate` pattern — renders button dimmed + lock icon when `!isAdmin(repoPath)`, shows tooltip on click
+- Fetch permission on repo open (`repoStore` repo change effect) and after login
+
 ---
 
 ## What Claude Code cannot do (manual steps you handle)
@@ -939,5 +1521,7 @@ Everything else — code, config, tests, CI workflows — Claude Code generates.
 
 ---
 
-*Lucid Git Specification v2.0 — Audited.*
-*Fixes from v1.1: Device Flow auth (PKCE doesn't work on desktop), dugite API correction (exec not git), removed Redis dep (bull → p-queue), removed redundant simple-git, current package versions verified April 2026, concrete IPC contract, git merge-tree for preview, serializable FixActions, electron-builder ASAR unpack for native modules, honest shallow-clone behavior, manual-steps callout.*
+*Lucid Git Specification v2.2 — Audited.*
+*v2.2: Added Role-Based Access Control (Section 16, Phase 20). Two-tier permission model (admin / write) sourced from GitHub API `GET /repos/{owner}/{repo}`. New `PermissionService` with GHE support and fail-open behavior. Admin-only gates on force-unlock, branch deletion, hard reset, LFS migration, cleanup, team config, webhooks, and UE config writes. Defense-in-depth: both UI (dim+disable with lock icon) and main process (IPC handler guard). New IPC channels `auth:fetch-repo-permission` and `auth:get-repo-permission`. Additions to `authStore`, `StatusBar` (permission badge), `TopBar` (warning on fetch failure), and admin-only panel banners.*
+*v2.1: Added three game-dev differentiators — Binary Asset Diff Previews (Section 13, Phase 17), Dependency-Aware Blame (Section 14, Phase 18), Lock Heatmap + Conflict Forecasting (Section 15, Phase 19). New IPC channels for asset/dep/heatmap/forecast services. New SQLite tables `lock_events` and `conflict_events`. Added `sharp`, `d3-force`, `fluent-ffmpeg` (optional) to dependencies. New services: `AssetDiffService`, `UEHeadlessService`, `DependencyService`, `HeatmapService`, `ForecastService`. New components: `AssetDiffViewer`, `DependencyBlamePanel`, `ReferenceViewer`, `LockHeatmap`, `ForecastPanel`.*
+*v2.0: Device Flow auth (PKCE doesn't work on desktop), dugite API correction (exec not git), removed Redis dep (bull → p-queue), removed redundant simple-git, current package versions verified April 2026, concrete IPC contract, git merge-tree for preview, serializable FixActions, electron-builder ASAR unpack for native modules, honest shallow-clone behavior, manual-steps callout.*

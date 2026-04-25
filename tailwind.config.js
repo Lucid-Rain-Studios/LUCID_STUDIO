@@ -39,20 +39,36 @@ module.exports = {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',
         },
-        // Lucid Git design tokens (lg- prefix avoids shadcn conflicts)
-        'lg-bg-primary':      '#0d0f14',
-        'lg-bg-secondary':    '#13161e',
-        'lg-bg-elevated':     '#1a1e2a',
-        'lg-accent':          '#e85d2f',
-        'lg-accent-blue':     '#4a9eff',
-        'lg-success':         '#2dbd6e',
-        'lg-warning':         '#f5a623',
-        'lg-error':           '#e84040',
-        'lg-text-primary':    '#e8eaf2',
-        'lg-text-secondary':  '#8892a4',
-        'lg-lock-mine':       '#2dbd6e',
-        'lg-lock-other':      '#e85d2f',
-        'lg-border':          '#252a38',
+        // ── Lucid Git design tokens ───────────────────────────────────────
+        // bg0 — canvas / outermost shell
+        'lg-bg-primary':    '#0b0d13',
+        // bg1 — sidebar, panels
+        'lg-bg-base':       '#10131c',
+        // bg2 — topbar, section headers
+        'lg-bg-secondary':  '#161a27',
+        // bg3 — elevated surfaces, dropdowns
+        'lg-bg-overlay':    '#1d2235',
+        // bg4 — hover targets, chips
+        'lg-bg-elevated':   '#242a3d',
+        // hover bg
+        'lg-bg-hover':      '#1e2436',
+        // borders
+        'lg-border':        '#252d42',
+        'lg-border-strong': '#2f3a54',
+        // text
+        'lg-text-primary':  '#dde1f0',
+        'lg-text-secondary':'#8b94b0',
+        'lg-text-muted':    '#4e5870',
+        // accent colours
+        'lg-accent':        '#e8622f',
+        'lg-accent-blue':   '#4d9dff',
+        'lg-success':       '#2ec573',
+        'lg-warning':       '#f5a832',
+        'lg-error':         '#e84545',
+        'lg-purple':        '#a27ef0',
+        // lock aliases
+        'lg-lock-mine':     '#2ec573',
+        'lg-lock-other':    '#e8622f',
       },
       borderRadius: {
         lg: 'var(--radius)',
@@ -61,7 +77,7 @@ module.exports = {
       },
       fontFamily: {
         sans: ['IBM Plex Sans', 'system-ui', 'sans-serif'],
-        mono: ['JetBrains Mono', 'Fira Code', 'Consolas', 'monospace'],
+        mono: ['JetBrains Mono', 'Cascadia Code', 'Consolas', 'monospace'],
       },
     },
   },

@@ -77,6 +77,7 @@ export const CHANNELS = {
   GIT_REBASE_ABORT:  'git:rebase-abort',
   GIT_SET_UPSTREAM:  'git:set-upstream',
   GIT_SET_CONFIG:    'git:set-config',
+  GIT_GET_CONFIG:    'git:get-config',
 
   // Hooks
   HOOK_LIST:            'hook:list',
@@ -87,12 +88,20 @@ export const CHANNELS = {
   HOOK_RUN_PRECOMMIT:   'hook:run-precommit',
 
   // Unreal
-  UE_DETECT:              'ue:detect',
-  UE_SETUP_STATUS:        'ue:setup-status',
-  UE_TEMPLATES:           'ue:templates',
-  UE_WRITE_GITATTRIBUTES: 'ue:write-gitattributes',
-  UE_WRITE_GITIGNORE:     'ue:write-gitignore',
-  UE_PAK_SIZE:            'ue:pak-size',
+  UE_DETECT:               'ue:detect',
+  UE_SETUP_STATUS:         'ue:setup-status',
+  UE_TEMPLATES:            'ue:templates',
+  UE_WRITE_GITATTRIBUTES:  'ue:write-gitattributes',
+  UE_WRITE_GITIGNORE:      'ue:write-gitignore',
+  UE_PAK_SIZE:             'ue:pak-size',
+  UE_PLUGIN_STATUS:        'ue:plugin-status',
+  UE_CONFIG_STATUS:        'ue:config-status',
+  UE_WRITE_EDITOR_CONFIG:  'ue:write-editor-config',
+  UE_WRITE_ENGINE_CONFIG:  'ue:write-engine-config',
+
+  // Git identity + locking config
+  GIT_GET_IDENTITY:        'git:get-identity',
+  GIT_LINK_IDENTITY:       'git:link-identity',
 
   // Settings
   SETTINGS_GET: 'settings:get',
@@ -102,17 +111,63 @@ export const CHANNELS = {
   TEAM_CONFIG_LOAD: 'team-config:load',
   TEAM_CONFIG_SAVE: 'team-config:save',
 
+  // Git tools
+  GIT_LS_FILES:        'git:ls-files',
+  GIT_RESTORE_FILE:    'git:restore-file',
+  GIT_REVERT:          'git:revert',
+  GIT_CHERRY_PICK:     'git:cherry-pick',
+  GIT_RESET_TO:        'git:reset-to',
+  GIT_FILE_LOG:        'git:file-log',
+  GIT_BRANCH_ACTIVITY: 'git:branch-activity',
+  GIT_DEFAULT_BRANCH:  'git:default-branch',
+
+  // Asset diff previews (Phase 17)
+  ASSET_DIFF_PREVIEW:      'asset:diff-preview',
+  ASSET_RENDER_THUMBNAIL:  'asset:render-thumbnail',
+  ASSET_EXTRACT_METADATA:  'asset:extract-metadata',
+
+  // Presence
+  PRESENCE_READ:   'presence:read',
+  PRESENCE_UPDATE: 'presence:update',
+
+  // Lock Heatmap & Conflict Forecasting — Phase 19
+  HEATMAP_COMPUTE:        'heatmap:compute',
+  HEATMAP_TIMELINE:       'heatmap:timeline',
+  HEATMAP_TOP:            'heatmap:top',
+  FORECAST_START:         'forecast:start',
+  FORECAST_STOP:          'forecast:stop',
+  FORECAST_STATUS:        'forecast:status',
+  EVT_FORECAST_CONFLICT:  'evt:forecast-conflict',
+
+  // Dependency-Aware Blame — Phase 18
+  DEP_BUILD_GRAPH:       'dep:build-graph',
+  DEP_GRAPH_STATUS:      'dep:graph-status',
+  DEP_BLAME_ASSET:       'dep:blame-asset',
+  DEP_LOOKUP_REFERENCES: 'dep:lookup-references',
+  DEP_REFRESH_CACHE:     'dep:refresh-cache',
+
   // OS dialogs + shell
   DIALOG_OPEN_DIRECTORY: 'dialog:open-directory',
+  DIALOG_OPEN_FILE:      'dialog:open-file',
   SHELL_OPEN_EXTERNAL:   'shell:open-external',
   SHELL_SHOW_IN_FOLDER:  'shell:show-in-folder',
   SHELL_OPEN_PATH:       'shell:open-path',
+  SHELL_OPEN_TERMINAL:   'shell:open-terminal',
+
+  // File-system watcher
+  GIT_WATCH_STATUS:   'git:watch-status',
+  GIT_UNWATCH_STATUS: 'git:unwatch-status',
+
+  // Permissions — Phase 20
+  AUTH_FETCH_REPO_PERMISSION: 'auth:fetch-repo-permission',
+  AUTH_GET_REPO_PERMISSION:   'auth:get-repo-permission',
 
   // Events: main → renderer (one-way via ipcRenderer.on)
   EVT_OPERATION_PROGRESS: 'evt:operation-progress',
   EVT_LOCK_CHANGED:       'evt:lock-changed',
   EVT_NOTIFICATION:       'evt:notification',
   EVT_UPDATE_AVAILABLE:   'evt:update-available',
+  EVT_STATUS_CHANGED:     'evt:status-changed',
 } as const
 
 export type Channel = typeof CHANNELS[keyof typeof CHANNELS]
