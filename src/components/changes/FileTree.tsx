@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { FileStatus, Lock, ipc } from '@/ipc'
 import { useOperationStore } from '@/stores/operationStore'
 import { FileRow } from './FileRow'
+import { useDialogStore } from '@/stores/dialogStore'
 
 // ── Content Browser tree types ────────────────────────────────────────────────
 
@@ -183,6 +184,7 @@ export function FileTree({
   const staged   = files.filter(f => f.staged)
   const unstaged = files.filter(f => !f.staged)
   const [busy, setBusy] = useState(false)
+  const dialog = useDialogStore()
   const [treeMode, setTreeMode] = useState(false)
   const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(new Set())
   const opRun = useOperationStore(s => s.run)
@@ -237,8 +239,9 @@ export function FileTree({
           label="Discard All"
           danger
           disabled={busy || unstaged.filter(f => f.workingStatus !== '?').length === 0}
-          onClick={() => {
-            if (!confirm('Discard all working-tree changes? This cannot be undone.')) return
+          onClick={async () => {
+            const ok = await dialog.confirm({ title: 'Discard all changes', message: 'This will discard all working-tree changes. This cannot be undone.', confirmLabel: 'Discard All', danger: true })
+            if (!ok) return
             run('Discarding changes…', () => ipc.discardAll(repoPath))
           }}
         />
@@ -246,7 +249,7 @@ export function FileTree({
           label="Stash…"
           disabled={busy}
           onClick={async () => {
-            const msg = window.prompt('Stash message (optional):') ?? ''
+            const msg = await dialog.prompt({ title: 'Stash changes', placeholder: 'Message (optional)' })
             if (msg === null) return
             run('Stashing…', () => ipc.stashSave(repoPath, msg || undefined))
           }}

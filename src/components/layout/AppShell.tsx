@@ -26,10 +26,12 @@ import { HooksManager } from '@/components/hooks/HooksManager'
 import { ToolsPanel } from '@/components/tools/ToolsPanel'
 import { PresencePanel } from '@/components/presence/PresencePanel'
 import { OverviewPanel } from '@/components/overview/OverviewPanel'
+import { DashboardPanel } from '@/components/dashboard/DashboardPanel'
 import { RepoMapPanel } from '@/components/map/RepoMapPanel'
 import { ContentBrowserPanel } from '@/components/map/ContentBrowserPanel'
 import { ErrorPanel } from '@/components/errors/ErrorPanel'
 import { CommandPalette } from '@/components/command-palette/CommandPalette'
+import { GlobalDialogs } from '@/components/ui/GlobalDialogs'
 import { TextDiff } from '@/components/diff/TextDiff'
 import { BinaryDiff } from '@/components/diff/BinaryDiff'
 import { AssetDiffViewer } from '@/components/diff/AssetDiffViewer'
@@ -38,7 +40,7 @@ import { LockHeatmap } from '@/components/heatmap/LockHeatmap'
 import { ForecastPanel } from '@/components/heatmap/ForecastPanel'
 import { useForecastStore } from '@/stores/forecastStore'
 
-type TabId = 'changes' | 'stash' | 'branches' | 'lfs' | 'cleanup' | 'unreal' | 'hooks' | 'settings' | 'history' | 'tools' | 'presence' | 'overview' | 'map' | 'content' | 'heatmap' | 'forecast'
+type TabId = 'changes' | 'stash' | 'branches' | 'lfs' | 'cleanup' | 'unreal' | 'hooks' | 'settings' | 'history' | 'tools' | 'presence' | 'overview' | 'map' | 'content' | 'heatmap' | 'forecast' | 'dashboard'
 
 const ASSET_EXTS = new Set([
   'uasset', 'umap', 'upk', 'udk',
@@ -151,7 +153,7 @@ export function AppShell() {
   const [filePanelWidth,   setFilePanelWidth]   = useState(280)
   const [showCloneDialog,  setShowCloneDialog]  = useState(false)
   const [showLoginDialog,  setShowLoginDialog]  = useState(false)
-  const [leftTab, setLeftTab] = useState<TabId>('overview')
+  const [leftTab, setLeftTab] = useState<TabId>('dashboard')
   const [mergeTarget, setMergeTarget] = useState<string | null>(null)
   const [cmdOpen, setCmdOpen] = useState(false)
 
@@ -417,8 +419,11 @@ export function AppShell() {
                 )}
               </div>
             </div>
+          ) : leftTab === 'dashboard' ? (
+            /* ── Member dashboard ── */
+            <DashboardPanel repoPath={repoPath} onNavigate={tab => setLeftTab(tab as TabId)} />
           ) : leftTab === 'overview' ? (
-            /* ── Overview dashboard ── */
+            /* ── Admin overview ── */
             <OverviewPanel repoPath={repoPath} onNavigate={tab => setLeftTab(tab as TabId)} onRefresh={handleRefresh} />
           ) : leftTab === 'history' ? (
             /* ── History — full width ── */
@@ -555,6 +560,7 @@ export function AppShell() {
         />
       )}
 
+      <GlobalDialogs />
       <ErrorPanel
         onReauth={() => setShowLoginDialog(true)}
         onNavigateTab={(tab) => setLeftTab(tab as TabId)}

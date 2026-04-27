@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react'
 import { BranchInfo, BranchDiffSummary, ipc } from '@/ipc'
 import { useRepoStore } from '@/stores/repoStore'
 import { useOperationStore } from '@/stores/operationStore'
+import { useDialogStore } from '@/stores/dialogStore'
 import { cn } from '@/lib/utils'
 
 interface BranchPanelProps {
@@ -39,7 +40,8 @@ function SectionHeader({ label, count }: { label: string; count: number }) {
 
 export function BranchPanel({ onMergePreview, onRefresh }: BranchPanelProps) {
   const { repoPath, branches, currentBranch, checkout, loadBranches, fileStatus } = useRepoStore()
-  const opRun = useOperationStore(s => s.run)
+  const opRun  = useOperationStore(s => s.run)
+  const dialog = useDialogStore()
 
   const [newName, setNewName]               = useState('')
   const [creating, setCreating]             = useState(false)
@@ -129,7 +131,8 @@ export function BranchPanel({ onMergePreview, onRefresh }: BranchPanelProps) {
 
   const doDeleteLocal = async (branch: BranchInfo) => {
     if (!repoPath) return
-    if (!confirm(`Delete local branch "${branch.name}"?`)) return
+    const ok = await dialog.confirm({ title: 'Delete local branch', message: `Delete "${branch.name}"?`, confirmLabel: 'Delete', danger: true })
+    if (!ok) return
     setBusy(branch.name)
     setError(null)
     try {
@@ -138,7 +141,8 @@ export function BranchPanel({ onMergePreview, onRefresh }: BranchPanelProps) {
     } catch (e) {
       const msg = String(e)
       if (msg.includes('not fully merged') || msg.includes('unmerged')) {
-        if (confirm(`"${branch.name}" is not fully merged. Force-delete anyway?`)) {
+        const force = await dialog.confirm({ title: 'Branch not fully merged', message: `"${branch.name}" has unmerged commits. Force-delete anyway?`, confirmLabel: 'Force Delete', danger: true })
+        if (force) {
           try { await ipc.deleteBranch(repoPath, branch.name, true); await loadBranches() }
           catch (e2) { setError(String(e2)) }
         }
@@ -162,7 +166,8 @@ export function BranchPanel({ onMergePreview, onRefresh }: BranchPanelProps) {
 
   const doDeleteRemote = async (branch: BranchInfo) => {
     if (!repoPath || !branch.remoteName) return
-    if (!confirm(`Delete remote branch "${branch.name}"?\nThis cannot be undone.`)) return
+    const ok = await dialog.confirm({ title: 'Delete remote branch', message: `Delete "${branch.name}" from remote?`, detail: 'This cannot be undone.', confirmLabel: 'Delete Remote', danger: true })
+    if (!ok) return
     await withBusy(branch.name, () =>
       opRun(`Deleting ${branch.name}…`, () =>
         ipc.deleteRemoteBranch(repoPath, branch.remoteName!, branch.displayName)

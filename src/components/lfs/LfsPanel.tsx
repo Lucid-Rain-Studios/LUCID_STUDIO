@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { ipc, LFSStatus } from '@/ipc'
 import { useOperationStore } from '@/stores/operationStore'
+import { useDialogStore } from '@/stores/dialogStore'
 import { cn } from '@/lib/utils'
 
 interface LfsPanelProps {
@@ -27,7 +28,8 @@ export function LfsPanel({ repoPath }: LfsPanelProps) {
   const [migrating, setMigrating]   = useState(false)
   const [migrateErr, setMigrateErr] = useState<string | null>(null)
   const [migrateOk, setMigrateOk]  = useState(false)
-  const opRun = useOperationStore(s => s.run)
+  const opRun  = useOperationStore(s => s.run)
+  const dialog = useDialogStore()
 
   const load = async () => {
     setLoading(true)
@@ -59,7 +61,8 @@ export function LfsPanel({ repoPath }: LfsPanelProps) {
   }
 
   const doUntrack = async (pattern: string) => {
-    if (!confirm(`Remove LFS tracking for "${pattern}"?\n\nExisting LFS objects are not affected.`)) return
+    const ok = await dialog.confirm({ title: 'Remove LFS tracking', message: `Remove tracking for "${pattern}"?`, detail: 'Existing LFS objects are not affected.', confirmLabel: 'Remove', danger: true })
+    if (!ok) return
     setError(null)
     try {
       await ipc.lfsUntrack(repoPath, pattern)
@@ -78,12 +81,14 @@ export function LfsPanel({ repoPath }: LfsPanelProps) {
 
   const doMigrate = async () => {
     if (selected.size === 0) return
-    if (!confirm(
-      `Migrate ${selected.size} pattern(s) to LFS?\n\n` +
-      `⚠ This rewrites Git history for ALL branches.\n` +
-      `You will need to force-push afterward.\n\n` +
-      `Only do this if you know what you are doing.`
-    )) return
+    const ok = await dialog.confirm({
+      title: `Migrate ${selected.size} pattern${selected.size !== 1 ? 's' : ''} to LFS`,
+      message: 'This will rewrite Git history for ALL branches.',
+      detail: 'You will need to force-push all branches afterward. Only proceed if you know what you are doing.',
+      confirmLabel: 'Migrate History',
+      danger: true,
+    })
+    if (!ok) return
 
     setMigrating(true)
     setMigrateErr(null)

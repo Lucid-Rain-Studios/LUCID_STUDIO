@@ -4,12 +4,14 @@ import { useOperationStore } from '@/stores/operationStore'
 import { ipc } from '@/ipc'
 import { cn } from '@/lib/utils'
 import { useErrorStore } from '@/stores/errorStore'
+import { useDialogStore } from '@/stores/dialogStore'
 
 type HookState = 'idle' | 'running' | 'passed' | 'failed'
 
 export function CommitBox() {
   const { repoPath, fileStatus, refreshStatus } = useRepoStore()
   const opRun = useOperationStore(s => s.run)
+  const dialog = useDialogStore()
 
   const [message, setMessage]         = useState('')
   const [isCommitting, setIsCommitting] = useState(false)
@@ -71,11 +73,13 @@ export function CommitBox() {
   }
 
   const handleBypass = async () => {
-    const confirmed = window.confirm(
-      'Bypass the pre-commit hook and commit anyway?\n\n' +
-      'The hook reported a failure. Bypassing means it will not run.\n\n' +
-      'Click OK to proceed.'
-    )
+    const confirmed = await dialog.confirm({
+      title: 'Bypass pre-commit hook',
+      message: 'The hook reported a failure. Bypassing means it will not run.',
+      detail: 'Only proceed if you know the hook failure is not blocking.',
+      confirmLabel: 'Bypass & Commit',
+      danger: true,
+    })
     if (!confirmed) return
     setHookState('idle')
     setHookOutput('')

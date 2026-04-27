@@ -3,6 +3,7 @@ import { FileStatus, Lock, ipc } from '@/ipc'
 import { useLockStore } from '@/stores/lockStore'
 import { useForecastStore } from '@/stores/forecastStore'
 import { useAuthStore } from '@/stores/authStore'
+import { useDialogStore } from '@/stores/dialogStore'
 
 interface FileRowProps {
   file: FileStatus
@@ -57,6 +58,7 @@ export function FileRow({
   const fileConflicts = forecastConflicts.filter(c => c.filePath === file.path || c.filePath.endsWith('/' + file.path))
   const { lockFile, unlockFile, watchFile } = useLockStore()
   const isAdmin = useAuthStore(s => s.isAdmin(repoPath))
+  const dialog  = useDialogStore()
 
   const effectiveStatus = file.staged ? file.indexStatus : file.workingStatus
   const statusColor     = STATUS_COLOR[effectiveStatus] ?? '#8b94b0'
@@ -99,21 +101,31 @@ export function FileRow({
   const close = () => setCtx(null)
   const doDiscard = async () => {
     close()
-    if (!confirm(`${isUntracked ? 'Delete' : 'Discard changes to'} "${file.path}"? This cannot be undone.`)) return
-    try { await ipc.discard(repoPath, [file.path], isUntracked); onRefresh() } catch (e) { alert(String(e)) }
+    const ok = await dialog.confirm({
+      title: isUntracked ? 'Delete file' : 'Discard changes',
+      message: `${isUntracked ? 'Delete' : 'Discard changes to'} "${file.path}"?`,
+      detail: 'This cannot be undone.',
+      confirmLabel: isUntracked ? 'Delete' : 'Discard',
+      danger: true,
+    })
+    if (!ok) return
+    try { await ipc.discard(repoPath, [file.path], isUntracked); onRefresh() } catch (e) { await dialog.alert({ title: 'Error', message: String(e) }) }
   }
-  const doIgnoreFile   = async () => { close(); try { await ipc.addToGitignore(repoPath, file.path); onRefresh() } catch (e) { alert(String(e)) } }
-  const doIgnoreFolder = async () => { close(); if (!dir) return; try { await ipc.addToGitignore(repoPath, dir + '/'); onRefresh() } catch (e) { alert(String(e)) } }
+  const doIgnoreFile   = async () => { close(); try { await ipc.addToGitignore(repoPath, file.path); onRefresh() } catch (e) { await dialog.alert({ title: 'Error', message: String(e) }) } }
+  const doIgnoreFolder = async () => { close(); if (!dir) return; try { await ipc.addToGitignore(repoPath, dir + '/'); onRefresh() } catch (e) { await dialog.alert({ title: 'Error', message: String(e) }) } }
   const doCopyFullPath = () => { close(); navigator.clipboard.writeText(fullPath.replace(/\//g, '\\')) }
   const doCopyRelPath  = () => { close(); navigator.clipboard.writeText(file.path.replace(/\//g, '\\')) }
   const doShowInExplorer = () => { close(); ipc.showInFolder(fullPath.replace(/\//g, '\\')) }
   const doOpenVSCode     = () => { close(); ipc.openExternal(`vscode://file/${fullPath}`) }
   const doOpenDefault    = () => { close(); ipc.openPath(fullPath.replace(/\//g, '\\')) }
-  const doLock    = async () => { close(); try { await lockFile(repoPath, file.path) } catch (e) { alert(String(e)) } }
+  const doLock    = async () => { close(); try { await lockFile(repoPath, file.path) } catch (e) { await dialog.alert({ title: 'Error', message: String(e) }) } }
   const doUnlock  = async (force = false) => {
     close()
-    if (force && !confirm(`Force-unlock "${file.path}"?`)) return
-    try { await unlockFile(repoPath, file.path, force) } catch (e) { alert(String(e)) }
+    if (force) {
+      const ok = await dialog.confirm({ title: 'Force unlock', message: `Force-unlock "${file.path}"?`, detail: 'The current lock owner will lose their lock.', confirmLabel: 'Force Unlock', danger: true })
+      if (!ok) return
+    }
+    try { await unlockFile(repoPath, file.path, force) } catch (e) { await dialog.alert({ title: 'Error', message: String(e) }) }
   }
   const doWatch = async () => { close(); await watchFile(repoPath, file.path) }
 

@@ -1254,6 +1254,150 @@ Commit, push, pull, fetch, create/rename/checkout branches, stash, cherry-pick, 
 
 ---
 
+### 17. Dashboard Panel
+
+Every user's default landing panel when the app opens. Replaces the raw Overview screen as the home for day-to-day use. Overview is relocated to the Admin group in the sidebar.
+
+**Header:**
+- Personalized greeting: "Good morning / afternoon / evening, {firstName}" derived from system clock and the user's GitHub login
+- Branch name + repository name shown below the greeting in monospace
+- Refresh button top-right to manually re-fetch sync status and activity
+
+**Stale-pull warning banner (conditional):**
+Shown when `behind > 0` AND the last recorded pull was more than 2 days ago (or has never happened). Displays commit count, last-pulled time, and a "Sync Now" button. Timestamp persisted to `localStorage` keyed `lucid-git:last-pull:{repoPath}`.
+
+**Daily Flow Strip:**
+A horizontal 3-step guide spanning the full width. Each step has a numbered/check badge, label, status sub-text, and an optional action button. Steps and their states:
+
+| Step | Label | State logic | Button |
+|---|---|---|---|
+| 1 | Sync | warn if behind; action if ahead; done if clean | "Sync" — chains fetch → pull (if behind) → push (if ahead) in one operation |
+| 2 | Work & Commit | action if staged/modified files exist; done if clean | "View Changes" — navigates to the Changes panel |
+| 3 | Open PR | neutral always | "Open PR ↗" — opens GitHub compare URL in browser; disabled if no GitHub remote detected |
+
+Step sub-text wraps freely; no text is truncated with ellipsis. Sync timestamp is recorded to both `lucid-git:last-fetch:{repoPath}` and `lucid-git:last-pull:{repoPath}` in localStorage on completion.
+
+**3-column status grid:**
+Three cards displayed side-by-side below the flow strip:
+- *Sync Status* — upstream tracking ref, ahead/behind counters, single "Sync" button (color-coded: amber if behind, green if ahead)
+- *Current Changes* — staged/modified counts, preview of up to 6 changed files with status badges, "View All" link
+- *Active Locks* — per-lock avatar + filename + owner + time held; "YOU" badge for own locks; overflow count
+
+**Suggestions card (full width):**
+A time-aware advice panel. Each suggestion is a colored card with a dot indicator and plain-prose text (no truncation). Urgency tiers and their trigger conditions:
+
+| Urgency | Color | Trigger |
+|---|---|---|
+| ok (green) | Synced within last 4 hours | — |
+| tip (blue) | Synced 4–8 hours ago, or time-of-day tip | No action button |
+| warn (amber) | Synced 8–24 hours ago | Sync button shown |
+| high (orange) | Never synced this session | Sync button shown |
+| critical (red) | Last sync ≥ 2 days ago | Sync button shown |
+
+Time-of-day tips: morning (5am–12pm) suggests fetching and pulling if last sync > 1 hour ago; evening (5pm–10pm) suggests committing + pushing if there are unpushed commits or uncommitted changes.
+
+**Activity card (full width):**
+Shows the 12 most recent entries from `gitBranchActivity`. Each entry displays: author avatar (colored initials), commit message (full text, wraps naturally — no ellipsis), branch pill (colored by author), author name, and time-ago. "Full History →" navigates to the History panel.
+
+---
+
+### 18. Admin Role Preview
+
+An extension to the RBAC system (Section 16) that lets admins temporarily simulate how the app looks and behaves for lower-permission roles — useful for verifying that access gates and banners work correctly before distributing to the team.
+
+**State:**
+`viewAsRole: RepoPermission | null` added to `authStore`. When `null`, the real permission applies. When set to `'write'` or `'read'`, `isAdmin(repoPath)` returns `false` even for a real admin.
+
+```typescript
+// authStore — updated isAdmin selector
+isAdmin: (repoPath: string) => {
+  if (get().repoPermissions[repoPath] !== 'admin') return false
+  const override = get().viewAsRole
+  return override === null || override === 'admin'
+}
+```
+
+**Activation:**
+In StatusBar, the "Admin" badge is clickable for real admins. Clicking opens a dropdown above the status bar labeled "PREVIEW AS ROLE" with three options: Admin (default), Collaborator (`write`), Read-only (`read`). Selecting a non-admin role sets `viewAsRole`.
+
+**Indication:**
+A purple banner is injected in TopBar when `viewAsRole` is set:
+> "Previewing as Collaborator — admin features are restricted. [Switch back to Admin]"
+
+The "Switch back to Admin" button clears `viewAsRole`. The status bar badge turns purple and shows the active preview role name.
+
+**Reactivity:**
+Because all components gate on `useAuthStore(s => s.isAdmin(repoPath))`, switching preview role instantly updates the entire UI — admin buttons dim, admin banners appear — without any reload.
+
+**Scope:**
+Preview mode is session-only and stored only in memory. It does not persist across app restarts. Main-process IPC guards are not affected by `viewAsRole`; only the UI layer reflects the preview.
+
+---
+
+### 19. Custom Dialog System
+
+All native OS dialogs (`window.confirm`, `window.alert`, `window.prompt`, and direct `confirm()` calls) are replaced by a theme-consistent in-app modal system. This eliminates the jarring mismatch between the app's dark UI and the operating system's default dialog chrome.
+
+**Architecture:**
+- `src/stores/dialogStore.ts` — Zustand store with Promise-based imperative API. Any component can `await dialog.confirm(opts)` without rendering its own modal.
+- `src/components/ui/GlobalDialogs.tsx` — top-level renderer mounted in AppShell that reads `dialogStore.pending` and renders the appropriate modal. Mounted once; always visible.
+
+**Store API:**
+```typescript
+dialog.confirm(opts: ConfirmOpts): Promise<boolean>
+dialog.prompt(opts: PromptOpts): Promise<string | null>
+dialog.alert(opts: AlertOpts): Promise<void>
+dialog.settle(value): void   // called by modal buttons to resolve the pending promise
+```
+
+If a dialog is already shown when a new request arrives, the new request is immediately resolved with `false` / `null` to prevent stacking.
+
+**Modal anatomy:**
+- Fixed full-screen backdrop: `rgba(0,0,0,0.6)` with `backdrop-filter: blur(3px)`, z-index 600
+- Panel: `var(--lg-bg-elevated)` background, 12px border-radius, `var(--lg-border)` border, drop shadow, `slide-down` entrance animation (reuses the keyframe already defined in `index.css`)
+- Title, optional message, optional detail text
+- Cancel button (transparent, border on hover) + Confirm button (filled with danger=red / normal=accent color)
+- Keyboard: Escape = cancel/close; Enter = confirm (via autoFocus on confirm button)
+- PromptModal: autofocused text input with accent-colored focus ring; Enter in input = confirm
+
+**Danger mode:**
+`ConfirmOpts.danger: true` colors the confirm button red and prepends a warning triangle icon.
+
+**Usage across the codebase:**
+Replaces native dialogs in: `CommitBox` (bypass pre-commit hook), `FileTree` (discard all, stash), `FileRow` (discard, force unlock, ignore), `LfsPanel` (untrack, migrate history), `BranchPanel` (delete local branch, delete remote branch).
+
+---
+
+### 20. Navigation & Sidebar Redesign
+
+The left sidebar is rebuilt around three collapsible navigation groups and a persistent bottom toolbar.
+
+**Navigation groups:**
+
+| Group | Items | Visibility |
+|---|---|---|
+| Workspace | Dashboard, Changes, History, Branches | Always visible |
+| Tools | Tools, Team, File Map, Heatmap, Forecast | Always visible |
+| Admin | LFS, Cleanup, Unreal, Hooks, Overview | Only when `isAdmin(repoPath)` is true and a repo is open |
+
+Each group header is a clickable button with a chevron icon that rotates 90° when collapsed. Collapsed state is persisted to `localStorage` under the key `lucid-git:sidebar-groups` as a JSON object keyed by group key. In icon-only (narrow) sidebar mode, all items are always shown regardless of collapse state.
+
+When no repository is open, nav items render at 30% opacity with `cursor: default` — they are visible but not interactive.
+
+**Bottom toolbar:**
+Four permanent action buttons pinned to the bottom of the sidebar, outside any scroll container:
+
+| Button | Action | Accent |
+|---|---|---|
+| Settings | Navigate to settings panel; highlights when active | Default |
+| View in Explorer | `ipc.showInFolder(repoPath)` | Default |
+| Open Terminal | `ipc.openTerminal(repoPath)` | Default |
+| Switch Repository | Opens the repository picker | Accent orange on hover |
+
+The Switch Repository button uses a custom `SwitchRepoIcon` (folder-with-arrow SVG) and is the primary affordance for multi-repo workflows.
+
+---
+
 ## Design System
 
 **Aesthetic:** Industrial/utilitarian dark theme. Heavy-duty tool for serious teams.
@@ -1521,7 +1665,8 @@ Everything else — code, config, tests, CI workflows — Claude Code generates.
 
 ---
 
-*Lucid Git Specification v2.2 — Audited.*
+*Lucid Git Specification v2.3 — Audited.*
+*v2.3: Added Dashboard Panel (Section 17), Admin Role Preview (Section 18), Custom Dialog System (Section 19), and Navigation & Sidebar Redesign (Section 20). Dashboard is now the default landing panel for all users; Overview moved to the Admin sidebar group. Dashboard includes a personalized greeting, 3-step Daily Flow Strip (Sync/Work & Commit/Open PR), 3-column status grid, time-aware Suggestions card, and Activity feed showing recent commits. Admin Role Preview lets admins simulate Collaborator or Read-only access via a StatusBar dropdown, with a purple TopBar banner and "Switch back to Admin" affordance; `isAdmin()` respects `viewAsRole` override. Custom Dialog System replaces all native OS dialogs (`confirm`/`alert`/`prompt`) with themed in-app modals backed by a Promise-based Zustand store (`dialogStore`) and a global renderer (`GlobalDialogs`); Escape/Enter keyboard handling, danger mode, stacking prevention. Sidebar rebuilt with three collapsible groups (Workspace, Tools, Admin-only) persisted to localStorage, and a fixed bottom toolbar (Settings, View in Explorer, Open Terminal, Switch Repository).*
 *v2.2: Added Role-Based Access Control (Section 16, Phase 20). Two-tier permission model (admin / write) sourced from GitHub API `GET /repos/{owner}/{repo}`. New `PermissionService` with GHE support and fail-open behavior. Admin-only gates on force-unlock, branch deletion, hard reset, LFS migration, cleanup, team config, webhooks, and UE config writes. Defense-in-depth: both UI (dim+disable with lock icon) and main process (IPC handler guard). New IPC channels `auth:fetch-repo-permission` and `auth:get-repo-permission`. Additions to `authStore`, `StatusBar` (permission badge), `TopBar` (warning on fetch failure), and admin-only panel banners.*
 *v2.1: Added three game-dev differentiators — Binary Asset Diff Previews (Section 13, Phase 17), Dependency-Aware Blame (Section 14, Phase 18), Lock Heatmap + Conflict Forecasting (Section 15, Phase 19). New IPC channels for asset/dep/heatmap/forecast services. New SQLite tables `lock_events` and `conflict_events`. Added `sharp`, `d3-force`, `fluent-ffmpeg` (optional) to dependencies. New services: `AssetDiffService`, `UEHeadlessService`, `DependencyService`, `HeatmapService`, `ForecastService`. New components: `AssetDiffViewer`, `DependencyBlamePanel`, `ReferenceViewer`, `LockHeatmap`, `ForecastPanel`.*
 *v2.0: Device Flow auth (PKCE doesn't work on desktop), dugite API correction (exec not git), removed Redis dep (bull → p-queue), removed redundant simple-git, current package versions verified April 2026, concrete IPC contract, git merge-tree for preview, serializable FixActions, electron-builder ASAR unpack for native modules, honest shallow-clone behavior, manual-steps callout.*
