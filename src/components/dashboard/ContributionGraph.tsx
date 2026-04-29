@@ -58,7 +58,7 @@ export function ContributionGraph({ repoPath }: ContributionGraphProps) {
     return () => { mounted = false }
   }, [repoPath])
 
-  // Compute activity data for the last 365 days
+  // Compute activity data for the last 730 days
   const activity = useMemo(() => {
     const act = computeActivity(commits, 730)
     console.log('[ContributionGraph] Activity map size:', act.size, 'entries')
