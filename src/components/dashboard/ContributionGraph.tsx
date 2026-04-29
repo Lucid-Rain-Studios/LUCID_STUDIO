@@ -58,7 +58,7 @@ export function ContributionGraph({ repoPath }: ContributionGraphProps) {
   const goToNextYear     = useCallback(() => setCurrentYear(y => y + 1), [])
   const goToThisYear     = useCallback(() => setCurrentYear(new Date().getFullYear()), [])
 
-  const todayKey = useMemo(() => toDateKey(Date.now()), [])
+  const todayKey = toDateKey(Date.now())
 
   const yearActivity = useMemo(() => {
     const prefix = `${currentYear}-`
