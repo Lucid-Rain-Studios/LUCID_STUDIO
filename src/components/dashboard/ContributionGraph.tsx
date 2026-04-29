@@ -7,6 +7,7 @@ import {
   getContributionColor,
   getContributionLevel,
   calculateStats,
+  toDateKey,
   type DayActivity,
 } from '@/lib/activityUtils'
 
@@ -39,7 +40,7 @@ export function ContributionGraph({ repoPath }: ContributionGraphProps) {
     let mounted = true
     setLoading(true)
 
-    ipc.log(repoPath, { all: true, limit: 5000 })
+    ipc.log(repoPath, { all: true, limit: 10000 })
       .then(data => {
         if (mounted) {
           console.log('[ContributionGraph] Loaded', data.length, 'commits')
@@ -59,7 +60,7 @@ export function ContributionGraph({ repoPath }: ContributionGraphProps) {
 
   // Compute activity data for the last 365 days
   const activity = useMemo(() => {
-    const act = computeActivity(commits, 365)
+    const act = computeActivity(commits, 730)
     console.log('[ContributionGraph] Activity map size:', act.size, 'entries')
     // Log some sample data
     const sampleDays = Array.from(act.values()).filter(d => d.count > 0).slice(0, 3)
@@ -97,20 +98,17 @@ export function ContributionGraph({ repoPath }: ContributionGraphProps) {
 
   // Calculate visible weeks for current month view
   const visibleWeeks = useMemo(() => {
-    const currentMonthStart = new Date(currentMonth.year, currentMonth.month, 1)
-    const currentMonthEnd = new Date(currentMonth.year, currentMonth.month + 1, 0)
+    // Use Date.UTC so grid keys always match the UTC-keyed activity map
+    const currentMonthStart = new Date(Date.UTC(currentMonth.year, currentMonth.month, 1))
+    const currentMonthEnd   = new Date(Date.UTC(currentMonth.year, currentMonth.month + 1, 0))
 
-    console.log('[ContributionGraph] Rendering month:', currentMonth.year, currentMonth.month)
-
-    // Find the Sunday before the first of the month
+    // Find the Sunday on or before the first of the month (UTC)
     const startDate = new Date(currentMonthStart)
-    const dayOfWeek = startDate.getDay()
-    startDate.setDate(startDate.getDate() - dayOfWeek)
+    startDate.setUTCDate(startDate.getUTCDate() - startDate.getUTCDay())
 
-    // Find the Saturday after the last of the month
+    // Find the Saturday on or after the last of the month (UTC)
     const endDate = new Date(currentMonthEnd)
-    const endDayOfWeek = endDate.getDay()
-    endDate.setDate(endDate.getDate() + (6 - endDayOfWeek))
+    endDate.setUTCDate(endDate.getUTCDate() + (6 - endDate.getUTCDay()))
 
     const result: DayActivity[][] = []
     const currentDate = new Date(startDate)
@@ -119,24 +117,18 @@ export function ContributionGraph({ repoPath }: ContributionGraphProps) {
       const week: DayActivity[] = []
       for (let i = 0; i < 7; i++) {
         const key = toDateKey(currentDate.getTime())
-        const dayActivity = activity.get(key)
-        if (dayActivity) {
-          week.push(dayActivity)
-        } else {
-          week.push({
-            date: key,
-            count: 0,
-            commits: [],
-            authors: new Set(),
-            filesChanged: 0,
-          })
-        }
-        currentDate.setDate(currentDate.getDate() + 1)
+        week.push(activity.get(key) ?? {
+          date: key,
+          count: 0,
+          commits: [],
+          authors: new Set(),
+          filesChanged: 0,
+        })
+        currentDate.setUTCDate(currentDate.getUTCDate() + 1)
       }
       result.push(week)
     }
 
-    console.log('[ContributionGraph] Visible weeks:', result.length, 'Total days:', result.length * 7)
     return result
   }, [activity, currentMonth])
 
@@ -411,14 +403,6 @@ function GraphIcon() {
 }
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
-
-function toDateKey(timestamp: number): string {
-  const d = new Date(timestamp)
-  const year = d.getUTCFullYear()
-  const month = String(d.getUTCMonth() + 1).padStart(2, '0')
-  const day = String(d.getUTCDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
 
 function truncate(str: string, len: number): string {
   if (str.length <= len) return str
