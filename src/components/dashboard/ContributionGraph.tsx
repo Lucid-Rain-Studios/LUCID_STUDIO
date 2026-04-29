@@ -43,7 +43,6 @@ export function ContributionGraph({ repoPath }: ContributionGraphProps) {
     ipc.log(repoPath, { all: true, limit: 10000 })
       .then(data => {
         if (mounted) {
-          console.log('[ContributionGraph] Loaded', data.length, 'commits')
           setCommits(data)
         }
       })
@@ -60,14 +59,7 @@ export function ContributionGraph({ repoPath }: ContributionGraphProps) {
 
   // Compute activity data for the last 730 days
   const activity = useMemo(() => {
-    const act = computeActivity(commits, 730)
-    console.log('[ContributionGraph] Activity map size:', act.size, 'entries')
-    // Log some sample data
-    const sampleDays = Array.from(act.values()).filter(d => d.count > 0).slice(0, 3)
-    sampleDays.forEach(d => {
-      console.log('[ContributionGraph] Sample day:', d.date, 'commits:', d.count)
-    })
-    return act
+    return computeActivity(commits, 730)
   }, [commits])
 
   const stats = useMemo(() => calculateStats(activity), [activity])
@@ -174,7 +166,7 @@ export function ContributionGraph({ repoPath }: ContributionGraphProps) {
         </div>
 
         {/* Graph container */}
-        <div style={{ overflowX: 'auto', paddingBottom: 8, background: '#0d1117', borderRadius: 6, padding: 8 }}>
+        <div style={{ overflowX: 'auto', paddingTop: 4 }}>
           <svg
             width={svgWidth}
             height={svgHeight}
@@ -191,22 +183,25 @@ export function ContributionGraph({ repoPath }: ContributionGraphProps) {
               {MONTH_NAMES[currentMonth.month]}
             </text>
 
-            {/* Day of week labels */}
+            {/* Day of week labels — Mon / Wed / Fri only (indices 1, 3, 5) */}
             <g>
-              {WEEKDAY_LABELS.map((label, idx) => (
-                <text
-                  key={label}
-                  x={WEEKDAY_LABEL_WIDTH - 4}
-                  y={MONTH_LABEL_HEIGHT + (idx * (DAY_SIZE + DAY_GAP)) + DAY_SIZE + 3}
-                  fill="#344057"
-                  fontSize={8.5}
-                  fontFamily="'IBM Plex Sans', system-ui"
-                  textAnchor="end"
-                  dominantBaseline="middle"
-                >
-                  {label}
-                </text>
-              ))}
+              {WEEKDAY_LABELS.map((label, idx) => {
+                if (idx !== 1 && idx !== 3 && idx !== 5) return null
+                return (
+                  <text
+                    key={label}
+                    x={WEEKDAY_LABEL_WIDTH - 4}
+                    y={MONTH_LABEL_HEIGHT + (idx * (DAY_SIZE + DAY_GAP)) + DAY_SIZE + 3}
+                    fill="#344057"
+                    fontSize={8.5}
+                    fontFamily="'IBM Plex Sans', system-ui"
+                    textAnchor="end"
+                    dominantBaseline="middle"
+                  >
+                    {label}
+                  </text>
+                )
+              })}
             </g>
 
             {/* Contribution squares */}
@@ -222,8 +217,9 @@ export function ContributionGraph({ repoPath }: ContributionGraphProps) {
                     <Tooltip
                       key={`${day.date}-${weekIdx}-${dayIdx}`}
                       content={<ContributionTooltip day={day} />}
-                      side="top"
                       asSvgGroup
+                      side="top"
+                      delay={150}
                     >
                       <rect
                         x={x}
@@ -232,10 +228,7 @@ export function ContributionGraph({ repoPath }: ContributionGraphProps) {
                         height={DAY_SIZE}
                         fill={color}
                         rx={2}
-                        style={{
-                          cursor: day.count > 0 ? 'pointer' : 'default',
-                          transition: 'opacity 0.1s',
-                        }}
+                        style={{ cursor: day.count > 0 ? 'pointer' : 'default' }}
                       />
                     </Tooltip>
                   )
@@ -269,32 +262,49 @@ export function ContributionGraph({ repoPath }: ContributionGraphProps) {
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 function ContributionTooltip({ day }: { day: DayActivity }) {
+  const level = getContributionLevel(day.count)
+  const color = getContributionColor(level, 'dark')
+
   return (
-    <div style={{ padding: 4 }}>
-      <div style={{ fontSize: 11, fontWeight: 600, color: '#c8d0e8', marginBottom: 6 }}>
-        {formatDateForTooltip(day.date)}
-      </div>
-      <div style={{ fontSize: 10, color: '#5a6880', marginBottom: 2 }}>
-        {day.count} commit{day.count !== 1 ? 's' : ''}
-      </div>
-      {day.authors.size > 0 && (
-        <div style={{ fontSize: 10, color: '#5a6880', marginBottom: 2 }}>
-          {day.authors.size} contributor{day.authors.size !== 1 ? 's' : ''}
+    <div style={{ padding: '2px 4px', maxWidth: 220 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+        <div style={{ width: 9, height: 9, borderRadius: 2, background: color, flexShrink: 0, border: '1px solid rgba(255,255,255,0.08)' }} />
+        <div style={{ fontSize: 11, fontWeight: 600, color: '#c8d0e8' }}>
+          {formatDateForTooltip(day.date)}
         </div>
-      )}
-      {day.commits.length > 0 && (
-        <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 3, maxWidth: 200 }}>
-          {day.commits.slice(0, 5).map((commit, idx) => (
-            <div key={commit.hash} style={{ fontSize: 9, color: '#8a94a8', fontFamily: "'JetBrains Mono', monospace" }}>
-              • {truncate(commit.message, 50)}
-            </div>
-          ))}
-          {day.commits.length > 5 && (
-            <div style={{ fontSize: 9, color: '#344057', fontStyle: 'italic' }}>
-              +{day.commits.length - 5} more commit{day.commits.length - 5 !== 1 ? 's' : ''}
+      </div>
+      {day.count === 0 ? (
+        <div style={{ fontSize: 10, color: '#344057' }}>No activity</div>
+      ) : (
+        <>
+          <div style={{ fontSize: 10, color: '#5a6880', marginBottom: 2 }}>
+            {day.count} commit{day.count !== 1 ? 's' : ''}
+          </div>
+          {day.authors.size > 0 && (
+            <div style={{ fontSize: 10, color: '#5a6880', marginBottom: 2 }}>
+              {day.authors.size} contributor{day.authors.size !== 1 ? 's' : ''}
             </div>
           )}
-        </div>
+          {day.filesChanged > 0 && (
+            <div style={{ fontSize: 10, color: '#5a6880', marginBottom: 2 }}>
+              ~{day.filesChanged} file{day.filesChanged !== 1 ? 's' : ''} changed
+            </div>
+          )}
+          {day.commits.length > 0 && (
+            <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 3 }}>
+              {day.commits.slice(0, 5).map((commit) => (
+                <div key={commit.hash} style={{ fontSize: 9, color: '#8a94a8', fontFamily: "'JetBrains Mono', monospace", wordBreak: 'break-word' }}>
+                  • {truncate(commit.message, 50)}
+                </div>
+              ))}
+              {day.commits.length > 5 && (
+                <div style={{ fontSize: 9, color: '#344057', fontStyle: 'italic' }}>
+                  +{day.commits.length - 5} more commit{day.commits.length - 5 !== 1 ? 's' : ''}
+                </div>
+              )}
+            </div>
+          )}
+        </>
       )}
     </div>
   )
