@@ -65,12 +65,28 @@ class LockService {
 
   async unlockFile(repoPath: string, filePath: string, force = false, lockId?: string, actorLogin = '', actorName = ''): Promise<void> {
     const normalized = filePath.replace(/\\/g, '/')
+    const fullPath = path.join(repoPath, normalized)
     const token = await authService.getCurrentToken()
-    // Prefer --id when available: works even when the file no longer exists on disk (ghost file)
-    const pathArgs = lockId ? ['--id', lockId] : [normalized]
-    const args = [...gitAuthArgs(token), 'lfs', 'unlock', ...pathArgs]
-    if (force) args.push('--force')
-    await exec(args, repoPath)
+    // Prefer --id when available: works even when the file no longer exists on disk (ghost file).
+    // If the caller did not provide a lockId, resolve one from current LFS locks.
+    let resolvedLockId = lockId
+    if (!resolvedLockId) {
+      const locks = await this.listLocks(repoPath)
+      resolvedLockId = locks.find(l => l.path === normalized)?.id
+    }
+    const pathArgs = resolvedLockId ? ['--id', resolvedLockId] : [normalized]
+    const unlockOpts: string[] = []
+    // Deleted (ghost) files can still be locked in LFS; force-unlock avoids local path checks.
+    if (force || !fs.existsSync(fullPath)) unlockOpts.push('--force')
+    const args = [...gitAuthArgs(token), 'lfs', 'unlock', ...unlockOpts, ...pathArgs]
+    try {
+      await exec(args, repoPath)
+    } catch (error) {
+      const msg = String(error)
+      // Treat stale lock records as already unlocked; Git LFS can return
+      // "Lock not found" when another client has already released it.
+      if (!/Lock not found/i.test(msg)) throw error
+    }
     const now = Date.now()
     const lockedAt = this.lockTimestamps.get(`${repoPath}::${normalized}`) ?? now
     this.lockTimestamps.delete(`${repoPath}::${normalized}`)
