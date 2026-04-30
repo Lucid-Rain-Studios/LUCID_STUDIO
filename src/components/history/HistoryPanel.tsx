@@ -181,6 +181,7 @@ function CommitRow({ node, selected, isPrimary, repoPath, remoteUrl, onRefresh, 
   const ghSlug  = remoteUrl ? parseGitHubSlug(remoteUrl) : null
   const shortHash = commit.hash.slice(0, 7)
   const tipBranches = branchTips.get(commit.hash) ?? []
+  const isHeadTip = tipBranches.some(b => b.current)
 
   useEffect(() => {
     if (!ctx) return
@@ -362,6 +363,16 @@ function CommitRow({ node, selected, isPrimary, repoPath, remoteUrl, onRefresh, 
                 </span>
               )
             })}
+            {isHeadTip && (
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4, flexShrink: 0,
+                background: 'rgba(245,168,50,0.14)', color: '#f5a832',
+                border: '1px solid rgba(245,168,50,0.4)', borderRadius: 4, padding: '1px 6px',
+                fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
+              }} title="Working tree is attached to this commit on HEAD">
+                ⌂ WT
+              </span>
+            )}
             <span style={{
               fontFamily: "'IBM Plex Sans', system-ui", fontSize: 13,
               fontWeight: isPrimary ? 600 : 400, color: selected ? '#dde1f0' : '#b0b8cc',
@@ -929,7 +940,7 @@ function BranchDropdownRow({ branch, checked, locked, bCol, onToggle }: {
         )}
       </span>
       {/* Lane color bar */}
-      <span style={{ width: 3, height: 16, borderRadius: 2, background: bCol, flexShrink: 0 }} />
+      <span title={`Branch lane: ${branch.name}`} style={{ width: 3, height: 16, borderRadius: 2, background: bCol, flexShrink: 0, boxShadow: hover ? `0 0 8px ${bCol}` : 'none' }} />
       {/* Branch name */}
       <span style={{
         fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: '#dde1f0',
@@ -944,6 +955,20 @@ function BranchDropdownRow({ branch, checked, locked, bCol, onToggle }: {
             borderRadius: 3, padding: '0 5px',
             fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 700,
           }}>default</span>
+        )}
+        {branch.isRemote && (
+          <span style={{
+            background: 'rgba(162,126,240,0.14)', color: '#a27ef0',
+            border: '1px solid rgba(162,126,240,0.35)', borderRadius: 3, padding: '0 5px',
+            fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 700,
+          }}>remote</span>
+        )}
+        {!branch.isRemote && (
+          <span style={{
+            background: 'rgba(46,197,115,0.14)', color: '#2ec573',
+            border: '1px solid rgba(46,197,115,0.35)', borderRadius: 3, padding: '0 5px',
+            fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 700,
+          }}>local</span>
         )}
         {branch.current && (
           <span style={{
@@ -1467,6 +1492,10 @@ export function HistoryPanel({ repoPath }: HistoryPanelProps) {
               ↑{syncStatus.ahead} ↓{syncStatus.behind}
             </span>
           )}
+
+          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, color: '#4e5870' }}>
+            Legend: ★ default · ◉ head · • branch · ⌂ working tree
+          </span>
 
           <div style={{ flex: 1 }} />
 
