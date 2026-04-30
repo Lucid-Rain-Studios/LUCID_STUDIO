@@ -1405,7 +1405,7 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
       } catch {}
     }))
     setBranchTips(new Map(tips))
-  }, [repoPath, fetchBranchTips, getRecentBranchSelection, loadHistory])
+  }, [repoPath])
   const [stashOpen,   setStashOpen]   = useState(() => {
     try { return localStorage.getItem(STASH_KEY) === '1' } catch { return false }
   })
