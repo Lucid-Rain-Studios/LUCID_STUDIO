@@ -7,7 +7,7 @@ import { logService } from './LogService'
 
 const CLIENT_ID    = 'Ov23licKyg1mhOAj2nRc'
 const KEYTAR_SVC   = 'lucid-git'
-const SCOPES       = 'repo read:user'
+const SCOPES       = 'repo write:lfs read:user'
 const EXPIRY_SKEW_MS = 5 * 60 * 1000
 
 // ── Tiny JSON store for non-secret account metadata ───────────────────────────
@@ -45,6 +45,16 @@ function tokenKey(userId: string): string {
 
 function refreshKey(userId: string): string {
   return `github-refresh:${userId}`
+}
+
+
+function parseScopes(scopeHeader: string | null): Set<string> {
+  if (!scopeHeader) return new Set()
+  return new Set(scopeHeader.split(',').map(s => s.trim()).filter(Boolean))
+}
+
+function hasRequiredScopes(scopes: Set<string>): boolean {
+  return scopes.has('repo') && scopes.has('write:lfs')
 }
 
 class AuthService {
@@ -128,6 +138,13 @@ class AuthService {
       throw new Error('Failed to fetch GitHub user profile')
     }
 
+    const grantedScopes = parseScopes(userRes.headers.get('x-oauth-scopes'))
+    if (!hasRequiredScopes(grantedScopes)) {
+      const scopesText = [...grantedScopes].join(', ') || 'none'
+      logService.error('auth.deviceFlow', `GitHub token missing required scopes. Granted: ${scopesText}`)
+      throw new Error('GitHub token missing required scopes (repo, write:lfs). Please sign in again.')
+    }
+
     const u = await userRes.json() as {
       id: number; login: string; name: string | null; avatar_url: string
     }
@@ -193,7 +210,12 @@ class AuthService {
     if (!token) return null
 
     const expiresAt = data.tokenMetaByUserId?.[userId]?.expiresAt ?? null
-    if (!expiresAt || (expiresAt - Date.now()) > EXPIRY_SKEW_MS) return token
+    if (!expiresAt) {
+      const validScopes = await this.validateTokenScopes(token)
+      if (!validScopes) return null
+      return token
+    }
+    if ((expiresAt - Date.now()) > EXPIRY_SKEW_MS) return token
 
     const refreshToken = await keytar.getPassword(KEYTAR_SVC, refreshKey(userId))
     if (!refreshToken) return token
@@ -214,6 +236,21 @@ class AuthService {
 
     logService.info('auth.token', `Refreshed GitHub token for userId: ${userId}`)
     return refreshed.accessToken
+  }
+
+
+  private async validateTokenScopes(accessToken: string): Promise<boolean> {
+    const userRes = await fetch('https://api.github.com/user', {
+      headers: {
+        Authorization:          `Bearer ${accessToken}`,
+        Accept:                 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28',
+      },
+    })
+    if (!userRes.ok) return false
+
+    const grantedScopes = parseScopes(userRes.headers.get('x-oauth-scopes'))
+    return hasRequiredScopes(grantedScopes)
   }
 
   private async refreshAccessToken(refreshToken: string): Promise<{ accessToken: string; refreshToken?: string; expiresIn?: number } | null> {
