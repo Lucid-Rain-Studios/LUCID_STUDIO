@@ -425,19 +425,33 @@ function TLBranchDropdownRow({ branch, checked, locked, bCol, onToggle }: {
         transition: 'opacity 0.12s, background 0.1s',
       }}
     >
-      <span style={{
-        width: 13, height: 13, borderRadius: 3, flexShrink: 0,
-        background: checked ? bCol : 'transparent',
-        border: `1.5px solid ${checked ? bCol : '#2f3a54'}`,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        transition: 'all 0.12s',
-      }}>
+      <label
+        onClick={e => e.stopPropagation()}
+        style={{ width: 13, height: 13, position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: locked ? 'default' : 'pointer' }}
+      >
+        <input
+          type="checkbox"
+          checked={checked}
+          disabled={locked}
+          onChange={() => onToggle()}
+          style={{
+            appearance: 'none',
+            margin: 0,
+            width: 13,
+            height: 13,
+            borderRadius: 3,
+            border: `1.5px solid ${checked ? bCol : '#2f3a54'}`,
+            background: checked ? bCol : 'transparent',
+            transition: 'all 0.12s',
+            cursor: locked ? 'default' : 'pointer',
+          }}
+        />
         {checked && (
-          <svg width="8" height="6" viewBox="0 0 8 6" fill="none">
+          <svg width="8" height="6" viewBox="0 0 8 6" fill="none" style={{ position: 'absolute', pointerEvents: 'none' }}>
             <path d="M1 3L3 5L7 1" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         )}
-      </span>
+      </label>
       <span style={{ width: 3, height: 14, borderRadius: 2, background: bCol, flexShrink: 0 }} />
       <span style={{
         fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: '#c8cdd8',
@@ -464,13 +478,14 @@ function TLBranchDropdownRow({ branch, checked, locked, bCol, onToggle }: {
   )
 }
 
-function TLBranchDropdown({ open, onToggleOpen, branches, selectedBranches, defaultBranch, branchColors, onToggleBranch, onShowAll }: {
+function TLBranchDropdown({ open, onToggleOpen, branches, selectedBranches, defaultBranch, branchColors, onToggleBranch, onShowAll, onHideAll }: {
   open: boolean; onToggleOpen: () => void
   branches: BranchInfo[]; selectedBranches: Set<string>; defaultBranch: string
-  branchColors: Map<string, string>; onToggleBranch: (name: string) => void; onShowAll: () => void
+  branchColors: Map<string, string>; onToggleBranch: (name: string) => void; onShowAll: () => void; onHideAll: () => void
 }) {
-  const allShown = selectedBranches.size === 0
-  const visibleCount = allShown ? branches.length : branches.filter(b => b.name === defaultBranch || selectedBranches.has(b.name)).length
+  const localBranches = branches.filter(b => !b.isRemote)
+  const allShown = localBranches.length > 0 && localBranches.every(b => selectedBranches.has(b.name))
+  const visibleCount = branches.filter(b => b.name === defaultBranch || selectedBranches.has(b.name)).length
   const sorted = [
     ...branches.filter(b => b.name === defaultBranch),
     ...branches.filter(b => b.name !== defaultBranch),
@@ -514,16 +529,23 @@ function TLBranchDropdown({ open, onToggleOpen, branches, selectedBranches, defa
                 fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 700,
                 color: '#3a4260', letterSpacing: '0.1em', textTransform: 'uppercase',
               }}>Filter branches</span>
-              <button onClick={onShowAll} style={{
-                fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10, color: '#e8622f',
-                background: 'none', border: 'none', cursor: 'pointer', padding: 0,
-                whiteSpace: 'nowrap',
-              }}>Show all</button>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button onClick={onHideAll} style={{
+                  fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10, color: '#8f99b3',
+                  background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+                  whiteSpace: 'nowrap',
+                }}>Hide all</button>
+                <button onClick={onShowAll} style={{
+                  fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10, color: '#e8622f',
+                  background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+                  whiteSpace: 'nowrap',
+                }}>Show all</button>
+              </div>
             </div>
             {sorted.map(b => {
               const bCol = branchColors.get(b.name) ?? '#4d9dff'
-              const isLocked = b.name === defaultBranch
-              const isChecked = allShown || isLocked || selectedBranches.has(b.name)
+              const isLocked = b.name === defaultBranch || !!b.current
+              const isChecked = isLocked || selectedBranches.has(b.name)
               return (
                 <TLBranchDropdownRow key={b.name} branch={b} checked={isChecked} locked={isLocked}
                   bCol={bCol} onToggle={() => onToggleBranch(b.name)} />
@@ -1370,7 +1392,15 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
     return GRAPH_PAD + (maxLane + 1) * LANE_W + GRAPH_PAD
   }, [nodes])
 
-  const isCollapsed = selBranches.size > 0
+  const localBranchNames = React.useMemo(
+    () => branches.filter(b => !b.isRemote).map(b => b.name),
+    [branches]
+  )
+  const areAllBranchesSelected = React.useMemo(
+    () => localBranchNames.length > 0 && localBranchNames.every(name => selBranches.has(name)),
+    [localBranchNames, selBranches]
+  )
+  const isCollapsed = !areAllBranchesSelected
 
   const getRecentBranchSelection = useCallback(async (branchList: BranchInfo[], fallbackDefault: string) => {
     const locals = branchList.filter(b => !b.isRemote)
@@ -1405,7 +1435,7 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
       } catch {}
     }))
     setBranchTips(new Map(tips))
-  }, [repoPath, fetchBranchTips, getRecentBranchSelection, loadHistory])
+  }, [repoPath])
   const [stashOpen,   setStashOpen]   = useState(() => {
     try { return localStorage.getItem(STASH_KEY) === '1' } catch { return false }
   })
@@ -1457,14 +1487,15 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
     setHistLoading(true)
     try {
       const active = branches ?? selBranches
-      const refs = active.size > 0 ? [...new Set([defaultBranch, ...active])] : undefined
+      const hasAllSelected = localBranchNames.length > 0 && localBranchNames.every(name => active.has(name))
+      const refs = hasAllSelected ? undefined : [...new Set([defaultBranch, ...active])]
       const commits = await opRun('Loading history…', () => ipc.log(repoPath, { limit, all: !refs, refs }))
       setNodes(computeGraph(commits))
       setTotalLoaded(commits.length)
     } finally {
       setHistLoading(false)
     }
-  }, [repoPath, opRun, selBranches, defaultBranch])
+  }, [repoPath, opRun, selBranches, defaultBranch, localBranchNames])
 
   // ── Initial load ───────────────────────────────────────────────────────────
   useEffect(() => {
@@ -1476,7 +1507,7 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
       setBranches(bl)
       setDefaultBranch(def)
       fetchBranchTips(bl)
-      const nextSel = await getRecentBranchSelection(bl, def)
+      const nextSel = new Set(bl.filter(b => !b.isRemote).map(b => b.name))
       setSelBranches(nextSel)
       limitRef.current = INITIAL_LIMIT
       loadHistory(INITIAL_LIMIT, nextSel)
@@ -1547,7 +1578,8 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
   }
 
   const toggleBranch = (name: string) => {
-    if (name === defaultBranch) return
+    const branch = branches.find(b => b.name === name)
+    if (!branch || branch.name === defaultBranch || branch.current) return
     const next = new Set(selBranches)
     next.has(name) ? next.delete(name) : next.add(name)
     setSelBranches(next)
@@ -1557,7 +1589,7 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
 
   const toggleCollapse = () => {
     if (isCollapsed) {
-      const next = new Set<string>()
+      const next = new Set(localBranchNames)
       setSelBranches(next)
       limitRef.current = INITIAL_LIMIT
       loadHistory(INITIAL_LIMIT, next)
@@ -1573,7 +1605,16 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
   }
 
   const showAllBranches = () => {
-    const next = new Set<string>()
+    const next = new Set(localBranchNames)
+    setSelBranches(next)
+    setFilterOpen(false)
+    limitRef.current = INITIAL_LIMIT
+    loadHistory(INITIAL_LIMIT, next)
+  }
+
+  const hideAllBranches = () => {
+    const currentBranch = branches.find(b => b.current)?.name
+    const next = new Set<string>(currentBranch ? [currentBranch] : [])
     setSelBranches(next)
     setFilterOpen(false)
     limitRef.current = INITIAL_LIMIT
@@ -1625,6 +1666,7 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
             branchColors={branchColors}
             onToggleBranch={toggleBranch}
             onShowAll={showAllBranches}
+            onHideAll={hideAllBranches}
           />
           <button
             onClick={() => loadHistory(limitRef.current)}
