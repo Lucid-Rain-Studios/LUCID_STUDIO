@@ -1595,9 +1595,8 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
       loadHistory(INITIAL_LIMIT, next)
     } else {
       const currentBranch = branches.find(b => b.current)?.name
-      const core = currentBranch && currentBranch !== defaultBranch
-        ? new Set([currentBranch])
-        : new Set<string>()
+      const core = new Set<string>([defaultBranch])
+      if (currentBranch) core.add(currentBranch)
       setSelBranches(core)
       limitRef.current = INITIAL_LIMIT
       loadHistory(INITIAL_LIMIT, core)
@@ -1614,7 +1613,8 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
 
   const hideAllBranches = () => {
     const currentBranch = branches.find(b => b.current)?.name
-    const next = new Set<string>(currentBranch ? [currentBranch] : [])
+    const next = new Set<string>([defaultBranch])
+    if (currentBranch) next.add(currentBranch)
     setSelBranches(next)
     setFilterOpen(false)
     limitRef.current = INITIAL_LIMIT
