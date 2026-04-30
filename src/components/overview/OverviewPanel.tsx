@@ -448,7 +448,7 @@ function ResolveDialog({
   ghSlug: string
   repoPath: string
   onClose: () => void
-  onDone: () => void
+  onDone: (result: { prNumber: number; action: 'accept' | 'decline' }) => void
 }) {
   const opRun         = useOperationStore(s => s.run)
   const bumpHistoryTick = useRepoStore(s => s.bumpHistoryTick)
@@ -485,7 +485,7 @@ function ResolveDialog({
         await opRun(`Closing PR #${pr.number}…`, () => ipc.githubClosePR({ owner, repo, prNumber: pr.number }))
         bumpPrTick()
       }
-      onDone()
+      onDone({ prNumber: pr.number, action: choice })
       onClose()
     } catch { /* surfaced via operationStore */ }
     finally { setBusy(false) }
@@ -685,6 +685,23 @@ function AdminPRsCard({ prs, ghSlug, repoPath, loading, error, onRefresh }: {
   onRefresh: () => void
 }) {
   const [resolving, setResolving] = useState<PullRequest | null>(null)
+  const [pendingPRs, setPendingPRs] = useState<Record<number, 'accept' | 'decline'>>({})
+
+  const visiblePRs = React.useMemo(
+    () => prs.filter(pr => !pendingPRs[pr.number]),
+    [prs, pendingPRs],
+  )
+
+  useEffect(() => {
+    setPendingPRs(prev => {
+      const active = new Set(prs.map(pr => pr.number))
+      const next: Record<number, 'accept' | 'decline'> = {}
+      Object.entries(prev).forEach(([prNumber, action]) => {
+        if (active.has(Number(prNumber))) next[Number(prNumber)] = action
+      })
+      return next
+    })
+  }, [prs])
 
   return (
     <>
@@ -694,7 +711,10 @@ function AdminPRsCard({ prs, ghSlug, repoPath, loading, error, onRefresh }: {
           ghSlug={ghSlug}
           repoPath={repoPath}
           onClose={() => setResolving(null)}
-          onDone={onRefresh}
+          onDone={({ prNumber, action }) => {
+            setPendingPRs(prev => ({ ...prev, [prNumber]: action }))
+            onRefresh()
+          }}
         />
       )}
       <Card
@@ -713,17 +733,19 @@ function AdminPRsCard({ prs, ghSlug, repoPath, loading, error, onRefresh }: {
             <div style={{ padding: '14px 14px', fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12, color: '#e84545' }}>
               {error}
             </div>
-          ) : loading && prs.length === 0 ? (
+          ) : loading && visiblePRs.length === 0 ? (
             <div style={{ padding: '14px 14px', fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12, color: '#344057' }}>
               Loading pull requests…
             </div>
-          ) : prs.length === 0 ? (
+          ) : visiblePRs.length === 0 ? (
             <div style={{ padding: '14px 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ color: '#2dbd6e', fontSize: 14 }}>✓</span>
-              <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12, color: '#344057' }}>No open pull requests</span>
+              <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12, color: '#344057' }}>
+                {Object.keys(pendingPRs).length > 0 ? 'Updating pull requests…' : 'No open pull requests'}
+              </span>
             </div>
           ) : (
-            prs.map(pr => (
+            visiblePRs.map(pr => (
               <div
                 key={pr.number}
                 style={{
