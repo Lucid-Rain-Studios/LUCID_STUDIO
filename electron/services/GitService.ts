@@ -220,6 +220,9 @@ class GitService {
   async deleteRemoteBranch(repoPath: string, remoteName: string, branch: string): Promise<void> {
     const token = await authService.getCurrentToken()
     await exec([...gitAuthArgs(token), 'push', remoteName, '--delete', branch], repoPath)
+    // Ensure local remote-tracking refs are pruned immediately so branch lists
+    // reflect the deletion without requiring a manual fetch.
+    await execSafe([...gitAuthArgs(token), 'fetch', remoteName, '--prune'], repoPath)
   }
 
   /** Create a new branch (and optionally check it out). */
