@@ -134,10 +134,20 @@ function GraphCell({ node, graphColW, lineColorLabels }: { node: GraphNode; grap
       )}
       {hoveredSeg && (
         <g style={{ pointerEvents: 'none' }}>
-          <rect x={Math.max(2, hoveredSeg.x - 48)} y={3} width={96} height={16} rx={4} fill="#0f1420f0" stroke="#33405d" />
-          <text x={hoveredSeg.x} y={14} textAnchor="middle" fill="#d8def0" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9.5 }}>
-            {hoveredSeg.label}
-          </text>
+          {(() => {
+            const padX = 8
+            const charW = 6.2
+            const tooltipW = Math.max(92, hoveredSeg.label.length * charW + padX * 2)
+            const tooltipX = Math.max(2, hoveredSeg.x - tooltipW / 2)
+            return (
+              <>
+                <rect x={tooltipX} y={2} width={tooltipW} height={20} rx={5} fill="#0f1420f5" stroke="#3b4b6d" />
+                <text x={tooltipX + tooltipW / 2} y={15} textAnchor="middle" fill="#e7ecfa" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10 }}>
+                  {hoveredSeg.label}
+                </text>
+              </>
+            )
+          })()}
         </g>
       )}
     </svg>
@@ -480,20 +490,6 @@ function TLBranchDropdown({ open, onToggleOpen, branches, selectedBranches, defa
           whiteSpace: 'nowrap',
         }}
       >
-        <span style={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-          {sorted.map(b => {
-            const bCol = branchColors.get(b.name) ?? '#4d9dff'
-            const shown = allShown || b.name === defaultBranch || selectedBranches.has(b.name)
-            return (
-              <span key={b.name} style={{
-                width: 4, height: 11, borderRadius: 2,
-                background: shown ? bCol : '#252d42',
-                opacity: shown ? 0.85 : 0.35,
-                transition: 'background 0.15s, opacity 0.15s',
-              }} />
-            )
-          })}
-        </span>
         <span>{visibleCount} branch{visibleCount !== 1 ? 'es' : ''}</span>
         <svg width="7" height="4" viewBox="0 0 8 5" fill="none"
           style={{ transition: 'transform 0.15s', transform: open ? 'rotate(180deg)' : 'none' }}>
