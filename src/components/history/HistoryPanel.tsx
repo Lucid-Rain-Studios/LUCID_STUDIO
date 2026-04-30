@@ -61,7 +61,9 @@ function linePath(seg: LineSegment, isTop: boolean): string {
   return `M ${x1} ${y1} C ${x1} ${y2} ${x2} ${y1} ${x2} ${y2}`
 }
 
-function GraphCell({ node, graphColW, emphasize }: { node: GraphNode; graphColW: number; emphasize?: boolean }) {
+function GraphCell({ node, graphColW, emphasize, branchNamesByColor }: {
+  node: GraphNode; graphColW: number; emphasize?: boolean; branchNamesByColor: Map<string, string[]>
+}) {
   const isMain  = node.lane === 0
   const isMerge = node.commit.parentHashes.length > 1
   const cx = GRAPH_PAD + node.lane * LANE_W + LANE_W / 2
@@ -74,17 +76,23 @@ function GraphCell({ node, graphColW, emphasize }: { node: GraphNode; graphColW:
       {node.topLines.map((seg, i) => (
         <path key={`t${i}`} d={linePath(seg, true)}
           stroke={seg.color} fill="none"
-          strokeWidth={seg.from === 0 ? 2.2 : 1.6}
-          strokeOpacity={emphasize ? (seg.from === 0 ? 1 : 0.82) : (seg.from === 0 ? 0.88 : 0.52)}
-        />
+          strokeWidth={emphasize ? (seg.from === 0 ? 2.8 : 2.3) : (seg.from === 0 ? 2.2 : 1.6)}
+          strokeOpacity={emphasize ? 1 : (seg.from === 0 ? 0.88 : 0.52)}
+          filter={emphasize ? 'url(#gc-glow-main)' : undefined}
+        >
+          <title>{`Branch lane: ${(branchNamesByColor.get(seg.color) ?? ['unlabeled lane']).join(', ')}`}</title>
+        </path>
       ))}
       {/* Lines — bottom half */}
       {node.bottomLines.map((seg, i) => (
         <path key={`b${i}`} d={linePath(seg, false)}
           stroke={seg.color} fill="none"
-          strokeWidth={seg.from === 0 ? 2.2 : 1.6}
-          strokeOpacity={emphasize ? (seg.from === 0 ? 1 : 0.82) : (seg.from === 0 ? 0.88 : 0.52)}
-        />
+          strokeWidth={emphasize ? (seg.from === 0 ? 2.8 : 2.3) : (seg.from === 0 ? 2.2 : 1.6)}
+          strokeOpacity={emphasize ? 1 : (seg.from === 0 ? 0.88 : 0.52)}
+          filter={emphasize ? 'url(#gc-glow-main)' : undefined}
+        >
+          <title>{`Branch lane: ${(branchNamesByColor.get(seg.color) ?? ['unlabeled lane']).join(', ')}`}</title>
+        </path>
       ))}
       {/* Main-lane halo */}
       {isMain && (
@@ -166,6 +174,7 @@ function CommitRow({ node, selected, isPrimary, repoPath, remoteUrl, onRefresh, 
   graphColW: number
   branchTips: Map<string, BranchInfo[]>
   branchColors: Map<string, string>
+  branchNamesByColor: Map<string, string[]>
   defaultBranch: string
 }) {
   const { commit } = node
@@ -330,7 +339,12 @@ function CommitRow({ node, selected, isPrimary, repoPath, remoteUrl, onRefresh, 
       >
         {/* Graph */}
         <div style={{ width: graphColW, height: ROW_H, flexShrink: 0, overflow: 'hidden' }}>
-          <GraphCell node={node} graphColW={graphColW} emphasize={hover || selected || isPrimary} />
+          <GraphCell
+            node={node}
+            graphColW={graphColW}
+            emphasize={hover || selected || isPrimary}
+            branchNamesByColor={branchNamesByColor}
+          />
         </div>
 
         {/* Content */}
@@ -1092,6 +1106,10 @@ function LegendItem({ symbol, label, color }: { symbol: string; label: string; c
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 4,
         color: hover ? '#dde1f0' : '#8b94b0',
+        background: hover ? 'rgba(77,157,255,0.12)' : 'transparent',
+        border: `1px solid ${hover ? '#3a4a70' : 'transparent'}`,
+        borderRadius: 4,
+        padding: '1px 5px',
         transition: 'color 0.1s',
       }}
     >
@@ -1168,6 +1186,17 @@ export function HistoryPanel({ repoPath }: HistoryPanelProps) {
     sorted.forEach((b, i) => map.set(b.name, BRANCH_COLORS[i % BRANCH_COLORS.length]))
     return map
   }, [branches, defaultBranch])
+  const branchNamesByColor = React.useMemo(() => {
+    const next = new Map<string, string[]>()
+    for (const b of branches) {
+      const c = branchColors.get(b.name)
+      if (!c) continue
+      const names = next.get(c) ?? []
+      if (!names.includes(b.name)) names.push(b.name)
+      next.set(c, names)
+    }
+    return next
+  }, [branches, branchColors])
 
   // Dynamic graph column width — fits the widest lane across all nodes
   const graphColW = React.useMemo(() => {
@@ -1511,43 +1540,46 @@ export function HistoryPanel({ repoPath }: HistoryPanelProps) {
             </span>
           )}
 
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, color: '#4e5870', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+          <span style={{
+            fontFamily: "'JetBrains Mono', monospace", fontSize: 9, color: '#4e5870',
+            display: 'inline-flex', alignItems: 'center', gap: 8,
+            minWidth: 0, flex: '1 1 auto', overflow: 'hidden', whiteSpace: 'nowrap',
+          }}>
             <span>Legend:</span>
             <LegendItem symbol="★" label="default" color="#4d9dff" />
             <LegendItem symbol="◉" label="head" color="#e8622f" />
             <LegendItem symbol="•" label="branch" color="#2ec573" />
             <LegendItem symbol="⌂" label="working tree" color="#f5a832" />
           </span>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+            <CollapseBtn isCollapsed={isCollapsed} onClick={toggleCollapse} />
 
-          <div style={{ flex: 1 }} />
+            <BranchDropdown
+              open={filterOpen}
+              onToggleOpen={() => setFilterOpen(o => !o)}
+              branches={branches}
+              selectedBranches={selectedBranches}
+              defaultBranch={defaultBranch}
+              branchColors={branchColors}
+              onToggleBranch={toggleBranch}
+              onShowAll={showAllBranches}
+            />
 
-          <CollapseBtn isCollapsed={isCollapsed} onClick={toggleCollapse} />
-
-          <BranchDropdown
-            open={filterOpen}
-            onToggleOpen={() => setFilterOpen(o => !o)}
-            branches={branches}
-            selectedBranches={selectedBranches}
-            defaultBranch={defaultBranch}
-            branchColors={branchColors}
-            onToggleBranch={toggleBranch}
-            onShowAll={showAllBranches}
-          />
-
-          <button
-            onClick={() => loadHistory(limitRef.current)}
-            disabled={loading}
-            style={{
-              fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12,
-              color: loading ? '#4e5870' : '#8b94b0',
-              background: 'none', border: 'none', cursor: loading ? 'default' : 'pointer',
-              opacity: loading ? 0.5 : 1, flexShrink: 0,
-            }}
-            onMouseEnter={e => { if (!loading) e.currentTarget.style.color = '#e8622f' }}
-            onMouseLeave={e => { if (!loading) e.currentTarget.style.color = '#8b94b0' }}
-          >
-            {loading ? '…' : '↺'}
-          </button>
+            <button
+              onClick={() => loadHistory(limitRef.current)}
+              disabled={loading}
+              style={{
+                fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12,
+                color: loading ? '#4e5870' : '#8b94b0',
+                background: 'none', border: 'none', cursor: loading ? 'default' : 'pointer',
+                opacity: loading ? 0.5 : 1, flexShrink: 0,
+              }}
+              onMouseEnter={e => { if (!loading) e.currentTarget.style.color = '#e8622f' }}
+              onMouseLeave={e => { if (!loading) e.currentTarget.style.color = '#8b94b0' }}
+            >
+              {loading ? '…' : '↺'}
+            </button>
+          </div>
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto' }}>
@@ -1573,6 +1605,7 @@ export function HistoryPanel({ repoPath }: HistoryPanelProps) {
               graphColW={graphColW}
               branchTips={branchTips}
               branchColors={branchColors}
+              branchNamesByColor={branchNamesByColor}
               defaultBranch={defaultBranch}
             />
           ))}
