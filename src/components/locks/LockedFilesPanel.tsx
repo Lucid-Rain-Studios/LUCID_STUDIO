@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react'
+import React, { useState, useCallback, useRef, useEffect } from 'react'
 import { ipc, Lock } from '@/ipc'
 import { useLockStore } from '@/stores/lockStore'
 import { useAuthStore } from '@/stores/authStore'
@@ -78,6 +78,22 @@ export function LockedFilesPanel({ repoPath }: LockedFilesPanelProps) {
       seen.get(l.owner.login)!.locks.push(l)
     }
   }
+
+  useEffect(() => {
+    if (tab !== 'team') return
+    setCollapsedOwners(prev => {
+      const next = new Set(prev)
+      let changed = false
+      for (const group of ownerGroups) next.add(group.login)
+      for (const group of ownerGroups) {
+        if (!prev.has(group.login)) {
+          changed = true
+          break
+        }
+      }
+      return changed ? next : prev
+    })
+  }, [tab, ownerGroups])
 
   const toggleOwner = (login: string) => {
     setCollapsedOwners(prev => {
