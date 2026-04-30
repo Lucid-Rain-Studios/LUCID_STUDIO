@@ -88,6 +88,7 @@ function linePath(seg: LineSegment, isTop: boolean): string {
 }
 
 function GraphCell({ node, graphColW, lineColorLabels }: { node: GraphNode; graphColW: number; lineColorLabels: Map<string, string> }) {
+  const [hoveredSeg, setHoveredSeg] = useState<{ x: number; label: string; color: string } | null>(null)
   const isMain  = node.lane === 0
   const isMerge = node.commit.parentHashes.length > 1
   const cx = GRAPH_PAD + node.lane * LANE_W + LANE_W / 2
@@ -98,17 +99,21 @@ function GraphCell({ node, graphColW, lineColorLabels }: { node: GraphNode; grap
       {node.topLines.map((seg, i) => (
         <path key={`t${i}`} d={linePath(seg, true)}
           stroke={seg.color} fill="none"
-          strokeWidth={seg.from === 0 ? 2.2 : 1.6}
-          strokeOpacity={seg.from === 0 ? 0.88 : 0.52}
-          title={lineColorLabels.get(seg.color.toLowerCase()) ?? 'Branch lane'}
+          strokeWidth={seg.from === 0 ? 2.2 : 1.9}
+          strokeOpacity={hoveredSeg?.color === seg.color ? 0.95 : seg.from === 0 ? 0.88 : 0.52}
+          style={{ cursor: 'help', transition: 'stroke-opacity 120ms ease, stroke-width 120ms ease', filter: hoveredSeg?.color === seg.color ? 'drop-shadow(0 0 3px rgba(255,255,255,0.28))' : 'none' }}
+          onMouseEnter={() => setHoveredSeg({ x: GRAPH_PAD + ((seg.from + seg.to) / 2) * LANE_W + LANE_W / 2, label: lineColorLabels.get(seg.color.toLowerCase()) ?? 'Branch lane', color: seg.color })}
+          onMouseLeave={() => setHoveredSeg(null)}
         />
       ))}
       {node.bottomLines.map((seg, i) => (
         <path key={`b${i}`} d={linePath(seg, false)}
           stroke={seg.color} fill="none"
-          strokeWidth={seg.from === 0 ? 2.2 : 1.6}
-          strokeOpacity={seg.from === 0 ? 0.88 : 0.52}
-          title={lineColorLabels.get(seg.color.toLowerCase()) ?? 'Branch lane'}
+          strokeWidth={seg.from === 0 ? 2.2 : 1.9}
+          strokeOpacity={hoveredSeg?.color === seg.color ? 0.95 : seg.from === 0 ? 0.88 : 0.52}
+          style={{ cursor: 'help', transition: 'stroke-opacity 120ms ease, stroke-width 120ms ease', filter: hoveredSeg?.color === seg.color ? 'drop-shadow(0 0 3px rgba(255,255,255,0.28))' : 'none' }}
+          onMouseEnter={() => setHoveredSeg({ x: GRAPH_PAD + ((seg.from + seg.to) / 2) * LANE_W + LANE_W / 2, label: lineColorLabels.get(seg.color.toLowerCase()) ?? 'Branch lane', color: seg.color })}
+          onMouseLeave={() => setHoveredSeg(null)}
         />
       ))}
       {isMain && <circle cx={cx} cy={cy} r={dotR + 5} fill={`${node.color}14`} stroke="none" />}
@@ -126,6 +131,14 @@ function GraphCell({ node, graphColW, lineColorLabels }: { node: GraphNode; grap
           strokeWidth={isMain ? 2.5 : 2}
           filter={isMain ? 'url(#tl-glow-main)' : undefined}
         />
+      )}
+      {hoveredSeg && (
+        <g style={{ pointerEvents: 'none' }}>
+          <rect x={Math.max(2, hoveredSeg.x - 48)} y={3} width={96} height={16} rx={4} fill="#0f1420f0" stroke="#33405d" />
+          <text x={hoveredSeg.x} y={14} textAnchor="middle" fill="#d8def0" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9.5 }}>
+            {hoveredSeg.label}
+          </text>
+        </g>
       )}
     </svg>
   )
@@ -281,13 +294,13 @@ function BlameModal({ filePath, commitHash, repoPath, onClose }: {
 
 const WT_ROW_H = 58
 
-function WorkingTreeGraphRow({ selected, changeCount, graphColW, onClick }: {
-  selected: boolean; changeCount: number; graphColW: number; onClick: () => void
+function WorkingTreeGraphRow({ selected, changeCount, graphColW, lane = 0, onClick }: {
+  selected: boolean; changeCount: number; graphColW: number; lane?: number; onClick: () => void
 }) {
   const [hover, setHover] = useState(false)
   const hasChanges = changeCount > 0
   const accent = hasChanges ? '#e8622f' : '#2ec573'
-  const cx = GRAPH_PAD + LANE_W / 2  // lane 0 center x with padding
+  const cx = GRAPH_PAD + lane * LANE_W + LANE_W / 2
   const cy = Math.round(WT_ROW_H * 0.40)
 
   return (
@@ -710,10 +723,10 @@ function LeftCommitRow({ node, selected, repoPath, remoteUrl, onRefresh, onClick
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <span style={{
-              width: 18, height: 18, borderRadius: '50%', flexShrink: 0,
+              width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
               background: `${col}22`, border: `1px solid ${col}44`,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontFamily: "'JetBrains Mono', monospace", fontSize: 8, fontWeight: 700, color: col,
+              fontFamily: "'JetBrains Mono', monospace", fontSize: 9.5, fontWeight: 700, color: col,
             }}>{ini}</span>
             <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10, color: '#4e5870' }}>
               {timeAgo(commit.timestamp)}
@@ -1557,6 +1570,15 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
   }
 
   const selectedCommit = leftSel.kind === 'commit' ? leftSel.commit : null
+  const currentHeadLane = React.useMemo(() => {
+    const currentBranch = branches.find(b => b.current)?.name
+    if (!currentBranch) return 0
+    for (const node of nodes) {
+      const tips = branchTips.get(node.commit.hash) ?? []
+      if (tips.some(t => t.name === currentBranch)) return node.lane
+    }
+    return nodes[0]?.lane ?? 0
+  }, [nodes, branches, branchTips])
   return (
     <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
 
@@ -1574,13 +1596,6 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
         }}>
           <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10, fontWeight: 700, color: '#2a3040', letterSpacing: '0.1em', textTransform: 'uppercase', flexShrink: 0 }}>
             {totalLoaded > 0 ? `${totalLoaded} Commits` : 'Commits'}
-          </span>
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, color: '#4e5870', display: 'inline-flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap' }}>
-            <span>Legend:</span>
-            <span style={{ color: '#4d9dff' }}>★ default</span>
-            <span style={{ color: '#e8622f' }}>◉ head</span>
-            <span style={{ color: '#2ec573' }}>• branch</span>
-            <span style={{ color: '#f5a832' }}>⌂ working tree</span>
           </span>
           <div style={{ flex: 1 }} />
           <CollapseBtn isCollapsed={isCollapsed} onClick={toggleCollapse} />
@@ -1608,6 +1623,7 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
           selected={leftSel.kind === 'working-tree'}
           changeCount={fileStatus.length}
           graphColW={graphColW}
+          lane={currentHeadLane}
           onClick={selectWorkingTree}
         />
 
@@ -1645,6 +1661,17 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
               >Load more…</button>
             </div>
           )}
+        </div>
+        <div style={{
+          height: 24, flexShrink: 0, borderTop: '1px solid #1e2436', background: '#0d0f15',
+          display: 'flex', alignItems: 'center', gap: 8, padding: '0 12px',
+          fontFamily: "'JetBrains Mono', monospace", fontSize: 9, color: '#4e5870',
+        }}>
+          <span>Legend:</span>
+          <span style={{ color: '#4d9dff' }}>★ default</span>
+          <span style={{ color: '#e8622f' }}>◉ head</span>
+          <span style={{ color: '#2ec573' }}>• branch</span>
+          <span style={{ color: '#f5a832' }}>⌂ working tree</span>
         </div>
       </div>
 
