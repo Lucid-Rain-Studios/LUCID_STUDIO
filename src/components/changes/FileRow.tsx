@@ -12,9 +12,11 @@ interface FileRowProps {
   selected: boolean
   lock: Lock | null
   currentUserName: string | null
-  onSelect: () => void
+  isMultiSelected?: boolean
+  onSelect: (e: React.MouseEvent) => void
   onRefresh: () => void
   onBlameDeps?: (file: FileStatus) => void
+  onMultiContextMenu?: (e: React.MouseEvent) => void
 }
 
 const STATUS_COLOR: Record<string, string> = {
@@ -52,7 +54,7 @@ function Checkbox({ checked, color }: { checked: boolean; color: string }) {
 }
 
 export function FileRow({
-  file, repoPath, selected, lock, currentUserName, onSelect, onRefresh, onBlameDeps,
+  file, repoPath, selected, lock, currentUserName, isMultiSelected, onSelect, onRefresh, onBlameDeps, onMultiContextMenu,
 }: FileRowProps) {
   const isUEAsset = /\.(uasset|umap|udk|upk)$/i.test(file.path)
   const isImgAsset = /\.(png|jpg|jpeg|tga|bmp|tiff|tif|dds|exr|hdr)$/i.test(file.path)
@@ -153,18 +155,22 @@ export function FileRow({
     <div style={{ position: 'relative' }}>
       <div
         onClick={onSelect}
-        onContextMenu={e => { e.preventDefault(); setCtx({ x: e.clientX, y: e.clientY }) }}
+        onContextMenu={e => {
+          e.preventDefault()
+          if (isMultiSelected && onMultiContextMenu) onMultiContextMenu(e)
+          else setCtx({ x: e.clientX, y: e.clientY })
+        }}
         style={{
           display: 'flex', alignItems: 'center', gap: 8,
           height: 36, paddingLeft: 10, paddingRight: 10,
-          background: selected ? '#242a3d' : 'transparent',
-          borderLeft: `2px solid ${selected ? '#e8622f' : 'transparent'}`,
+          background: selected ? '#242a3d' : isMultiSelected ? '#1b2035' : 'transparent',
+          borderLeft: `2px solid ${selected ? '#e8622f' : isMultiSelected ? 'rgba(232,98,47,0.4)' : 'transparent'}`,
           borderBottom: '1px solid #252d42',
           cursor: 'pointer', transition: 'background 0.1s',
           opacity: isLockedByOther ? 0.75 : 1,
         }}
-        onMouseEnter={e => { if (!selected) e.currentTarget.style.background = '#1e2436' }}
-        onMouseLeave={e => { if (!selected) e.currentTarget.style.background = 'transparent' }}
+        onMouseEnter={e => { if (!selected && !isMultiSelected) e.currentTarget.style.background = '#1e2436' }}
+        onMouseLeave={e => { if (!selected && !isMultiSelected) e.currentTarget.style.background = 'transparent' }}
       >
         <button onClick={toggleStage} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
           <Checkbox checked={file.staged} color={checkColor} />

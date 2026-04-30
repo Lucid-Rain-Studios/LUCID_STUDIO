@@ -496,7 +496,7 @@ export interface LucidGitAPI {
   discardAll:     (repoPath: string) => Promise<void>
   addToGitignore: (repoPath: string, pattern: string) => Promise<void>
   stashList:      (repoPath: string) => Promise<StashEntry[]>
-  stashSave:      (repoPath: string, message?: string) => Promise<void>
+  stashSave:      (repoPath: string, message?: string, paths?: string[]) => Promise<void>
   stashPop:       (repoPath: string, ref: string) => Promise<void>
   stashApply:     (repoPath: string, ref: string) => Promise<void>
   stashDrop:      (repoPath: string, ref: string) => Promise<void>

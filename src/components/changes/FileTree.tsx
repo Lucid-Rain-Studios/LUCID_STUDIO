@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { FileStatus, Lock, ipc } from '@/ipc'
 import { useOperationStore } from '@/stores/operationStore'
 import { FileRow } from './FileRow'
@@ -194,6 +194,60 @@ export function FileTree({
   const { accounts, currentAccountId } = useAuthStore()
   const currentLogin = accounts.find(a => a.userId === currentAccountId)?.login ?? null
 
+  // ── Multi-select state ─────────────────────────────────────────────────────
+  const [multiPaths, setMultiPaths]         = useState<Set<string>>(new Set())
+  const [lastClickedKey, setLastClickedKey] = useState<string | null>(null)
+  const [multiCtx, setMultiCtx]             = useState<{ x: number; y: number } | null>(null)
+  const multiCtxRef                          = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!multiCtx) return
+    const handler = (e: MouseEvent) => {
+      if (multiCtxRef.current && !multiCtxRef.current.contains(e.target as Node)) setMultiCtx(null)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [multiCtx])
+
+  useEffect(() => {
+    if (multiPaths.size === 0) return
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') setMultiPaths(new Set()) }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [multiPaths.size])
+
+  // Stable key per file row (staged and unstaged can have the same path)
+  const pathKey = (file: FileStatus) => `${file.staged ? 's' : 'u'}:${file.path}`
+
+  // Flat ordered list for range selection (staged first, then unstaged)
+  const allFlatFiles = useCallback(() => [...staged, ...unstaged], [staged, unstaged])
+
+  const handleFileClick = useCallback((file: FileStatus, e: React.MouseEvent) => {
+    const key = pathKey(file)
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault()
+      const next = new Set(multiPaths)
+      next.has(key) ? next.delete(key) : next.add(key)
+      setMultiPaths(next)
+      setLastClickedKey(key)
+    } else if (e.shiftKey && lastClickedKey) {
+      e.preventDefault()
+      const flat = allFlatFiles()
+      const keys = flat.map(pathKey)
+      const i1 = keys.indexOf(lastClickedKey)
+      const i2 = keys.indexOf(key)
+      if (i1 >= 0 && i2 >= 0) {
+        const [lo, hi] = i1 < i2 ? [i1, i2] : [i2, i1]
+        setMultiPaths(new Set(keys.slice(lo, hi + 1)))
+      }
+      setLastClickedKey(key)
+    } else {
+      setMultiPaths(new Set())
+      setLastClickedKey(key)
+      onSelect(file)
+    }
+  }, [multiPaths, lastClickedKey, allFlatFiles, onSelect])
+
   const lockFor = (file: FileStatus): Lock | null =>
     locks.find(l => l.path.replace(/\\/g, '/') === file.path.replace(/\\/g, '/')) ?? null
 
@@ -208,6 +262,65 @@ export function FileTree({
     setBusy(true)
     try { await opRun(label, fn) } catch (e) { alert(String(e)) } finally { setBusy(false) }
     onRefresh()
+  }
+
+  // Bulk action helpers
+  const multiSelected = allFlatFiles().filter(f => multiPaths.has(pathKey(f)))
+  const multiUnstaged = multiSelected.filter(f => !f.staged)
+  const multiStaged   = multiSelected.filter(f => f.staged)
+  const multiUntrackedPaths = multiUnstaged.filter(f => f.workingStatus === '?').map(f => f.path)
+  const multiTrackedUnstagedPaths = multiUnstaged.filter(f => f.workingStatus !== '?').map(f => f.path)
+
+  const handleMultiBulkStage = async () => {
+    setMultiCtx(null)
+    if (multiUnstaged.length === 0) return
+    await run(`Staging ${multiUnstaged.length} files…`, () => ipc.stage(repoPath, multiUnstaged.map(f => f.path)))
+    setMultiPaths(new Set())
+  }
+
+  const handleMultiBulkUnstage = async () => {
+    setMultiCtx(null)
+    if (multiStaged.length === 0) return
+    await run(`Unstaging ${multiStaged.length} files…`, () => ipc.unstage(repoPath, multiStaged.map(f => f.path)))
+    setMultiPaths(new Set())
+  }
+
+  const handleMultiBulkDiscard = async () => {
+    setMultiCtx(null)
+    if (multiUnstaged.length === 0) return
+    const ok = await dialog.confirm({
+      title: `Discard ${multiUnstaged.length} files`,
+      message: `Discard changes to ${multiUnstaged.length} selected file${multiUnstaged.length !== 1 ? 's' : ''}?`,
+      detail: 'This cannot be undone.',
+      confirmLabel: 'Discard', danger: true,
+    })
+    if (!ok) return
+    await run(`Discarding ${multiUnstaged.length} files…`, async () => {
+      const trackedPaths = multiTrackedUnstagedPaths
+      const untrackedPaths = multiUntrackedPaths
+      if (trackedPaths.length > 0) await ipc.discard(repoPath, trackedPaths, false)
+      if (untrackedPaths.length > 0) await ipc.discard(repoPath, untrackedPaths, true)
+      // Release locks we own
+      if (currentLogin) {
+        for (const f of multiUnstaged) {
+          const lk = lockFor(f)
+          if (lk && lk.owner.login === currentLogin) unlockFile(repoPath, f.path).catch(() => {})
+        }
+      }
+    })
+    setMultiPaths(new Set())
+  }
+
+  const handleMultiBulkStash = async () => {
+    setMultiCtx(null)
+    const stashablePaths = multiTrackedUnstagedPaths
+    if (stashablePaths.length === 0) return
+    const msg = await dialog.prompt({ title: 'Stash selected files', placeholder: 'Message (optional)' })
+    if (msg === null) return
+    await run(`Stashing ${stashablePaths.length} files…`, () =>
+      ipc.stashSave(repoPath, msg || undefined, stashablePaths)
+    )
+    setMultiPaths(new Set())
   }
 
   if (files.length === 0) {
@@ -309,9 +422,13 @@ export function FileTree({
                   <FileRow
                     file={row.file} repoPath={repoPath}
                     selected={selectedPath === row.file.path}
+                    isMultiSelected={multiPaths.has(pathKey(row.file))}
                     lock={lockFor(row.file)} currentUserName={currentUserName}
-                    onSelect={() => onSelect(row.file)} onRefresh={onRefresh}
+                    onSelect={(e) => handleFileClick(row.file, e)} onRefresh={onRefresh}
                     onBlameDeps={onBlameDeps}
+                    onMultiContextMenu={multiPaths.size >= 2 && multiPaths.has(pathKey(row.file))
+                      ? (e) => setMultiCtx({ x: e.clientX, y: e.clientY })
+                      : undefined}
                   />
                 </div>
           )
@@ -331,9 +448,13 @@ export function FileTree({
                   key={`staged-${file.path}`}
                   file={file} repoPath={repoPath}
                   selected={selectedPath === file.path && file.staged}
+                  isMultiSelected={multiPaths.has(pathKey(file))}
                   lock={lockFor(file)} currentUserName={currentUserName}
-                  onSelect={() => onSelect(file)} onRefresh={onRefresh}
+                  onSelect={(e) => handleFileClick(file, e)} onRefresh={onRefresh}
                   onBlameDeps={onBlameDeps}
+                  onMultiContextMenu={multiPaths.size >= 2 && multiPaths.has(pathKey(file))
+                    ? (e) => setMultiCtx({ x: e.clientX, y: e.clientY })
+                    : undefined}
                 />
               ))}
             </section>
@@ -351,9 +472,13 @@ export function FileTree({
                   key={`unstaged-${file.path}`}
                   file={file} repoPath={repoPath}
                   selected={selectedPath === file.path && !file.staged}
+                  isMultiSelected={multiPaths.has(pathKey(file))}
                   lock={lockFor(file)} currentUserName={currentUserName}
-                  onSelect={() => onSelect(file)} onRefresh={onRefresh}
+                  onSelect={(e) => handleFileClick(file, e)} onRefresh={onRefresh}
                   onBlameDeps={onBlameDeps}
+                  onMultiContextMenu={multiPaths.size >= 2 && multiPaths.has(pathKey(file))
+                    ? (e) => setMultiCtx({ x: e.clientX, y: e.clientY })
+                    : undefined}
                 />
               ))}
             </section>
@@ -361,8 +486,88 @@ export function FileTree({
         </>}
 
       </div>
+
+      {/* Multi-select status bar */}
+      {multiPaths.size >= 2 && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          height: 30, paddingLeft: 10, paddingRight: 10, flexShrink: 0,
+          borderTop: '1px solid #252d42', background: '#0f1220',
+        }}>
+          <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 11, color: '#8b94b0', flex: 1 }}>
+            {multiPaths.size} files selected
+          </span>
+          <button
+            onClick={() => setMultiPaths(new Set())}
+            style={{ background: 'none', border: 'none', color: '#4e5870', fontSize: 11, cursor: 'pointer', fontFamily: "'IBM Plex Sans', system-ui", padding: '0 2px' }}
+            onMouseEnter={e => (e.currentTarget.style.color = '#dde1f0')}
+            onMouseLeave={e => (e.currentTarget.style.color = '#4e5870')}
+          >Clear</button>
+        </div>
+      )}
+
+      {/* Bulk context menu */}
+      {multiCtx && (
+        <div ref={multiCtxRef} style={{
+          position: 'fixed', top: multiCtx.y, left: multiCtx.x, zIndex: 200,
+          background: '#1d2235', border: '1px solid #2f3a54',
+          borderRadius: 6, boxShadow: '0 8px 32px rgba(0,0,0,0.55)',
+          padding: '4px 0', minWidth: 230,
+        }}>
+          <div style={{ padding: '3px 12px 5px', fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10, fontWeight: 700, color: '#3a4260', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+            {multiPaths.size} files selected
+          </div>
+          {multiUnstaged.length > 0 && (
+            <BulkCtxItem
+              label={`Stage ${multiUnstaged.length} file${multiUnstaged.length !== 1 ? 's' : ''}`}
+              onClick={handleMultiBulkStage}
+            />
+          )}
+          {multiStaged.length > 0 && (
+            <BulkCtxItem
+              label={`Unstage ${multiStaged.length} file${multiStaged.length !== 1 ? 's' : ''}`}
+              onClick={handleMultiBulkUnstage}
+            />
+          )}
+          {multiUnstaged.length > 0 && <BulkCtxSep />}
+          {multiUnstaged.length > 0 && (
+            <BulkCtxItem
+              label={`Discard ${multiUnstaged.length} file${multiUnstaged.length !== 1 ? 's' : ''}…`}
+              onClick={handleMultiBulkDiscard}
+              danger
+            />
+          )}
+          {multiTrackedUnstagedPaths.length > 0 && (
+            <BulkCtxItem
+              label={`Stash ${multiTrackedUnstagedPaths.length} file${multiTrackedUnstagedPaths.length !== 1 ? 's' : ''}…`}
+              onClick={handleMultiBulkStash}
+            />
+          )}
+        </div>
+      )}
     </div>
   )
+}
+
+function BulkCtxItem({ label, onClick, danger }: { label: string; onClick: () => void; danger?: boolean }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        width: '100%', textAlign: 'left', padding: '5px 12px',
+        fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12,
+        background: 'transparent', border: 'none',
+        color: danger ? '#e84545' : '#dde1f0',
+        cursor: 'pointer',
+      }}
+      onMouseEnter={e => { e.currentTarget.style.background = '#242a3d' }}
+      onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+    >{label}</button>
+  )
+}
+
+function BulkCtxSep() {
+  return <div style={{ margin: '4px 0', borderTop: '1px solid #252d42' }} />
 }
 
 function ViewToggleBtn({ active, title, onClick, children }: {

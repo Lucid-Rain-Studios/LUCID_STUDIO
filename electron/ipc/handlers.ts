@@ -199,8 +199,8 @@ export function registerHandlers(): void {
     return gitService.stashList(repoPath)
   })
 
-  ipcMain.handle(CHANNELS.GIT_STASH_SAVE, async (_event, repoPath: string, message?: string) => {
-    return gitService.stashSave(repoPath, message)
+  ipcMain.handle(CHANNELS.GIT_STASH_SAVE, async (_event, repoPath: string, message?: string, paths?: string[]) => {
+    return gitService.stashSave(repoPath, message, paths)
   })
 
   ipcMain.handle(CHANNELS.GIT_STASH_POP, async (_event, repoPath: string, ref: string) => {

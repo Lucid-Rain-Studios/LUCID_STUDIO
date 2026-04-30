@@ -79,8 +79,8 @@ const api = {
     ipcRenderer.invoke(CHANNELS.GIT_ADD_GITIGNORE, repoPath, pattern),
   stashList: (repoPath: string) =>
     ipcRenderer.invoke(CHANNELS.GIT_STASH_LIST, repoPath),
-  stashSave: (repoPath: string, message?: string) =>
-    ipcRenderer.invoke(CHANNELS.GIT_STASH_SAVE, repoPath, message),
+  stashSave: (repoPath: string, message?: string, paths?: string[]) =>
+    ipcRenderer.invoke(CHANNELS.GIT_STASH_SAVE, repoPath, message, paths),
   stashPop: (repoPath: string, ref: string) =>
     ipcRenderer.invoke(CHANNELS.GIT_STASH_POP, repoPath, ref),
   stashApply: (repoPath: string, ref: string) =>

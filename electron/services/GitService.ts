@@ -470,9 +470,10 @@ class GitService {
       })
   }
 
-  async stashSave(repoPath: string, message?: string): Promise<void> {
+  async stashSave(repoPath: string, message?: string, paths?: string[]): Promise<void> {
     const args = ['stash', 'push']
     if (message?.trim()) args.push('-m', message.trim())
+    if (paths && paths.length > 0) args.push('--', ...paths)
     await exec(args, repoPath)
   }
 
