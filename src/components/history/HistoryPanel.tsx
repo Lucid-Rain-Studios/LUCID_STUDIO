@@ -61,7 +61,7 @@ function linePath(seg: LineSegment, isTop: boolean): string {
   return `M ${x1} ${y1} C ${x1} ${y2} ${x2} ${y1} ${x2} ${y2}`
 }
 
-function GraphCell({ node, graphColW }: { node: GraphNode; graphColW: number }) {
+function GraphCell({ node, graphColW, emphasize }: { node: GraphNode; graphColW: number; emphasize?: boolean }) {
   const isMain  = node.lane === 0
   const isMerge = node.commit.parentHashes.length > 1
   const cx = GRAPH_PAD + node.lane * LANE_W + LANE_W / 2
@@ -75,7 +75,7 @@ function GraphCell({ node, graphColW }: { node: GraphNode; graphColW: number }) 
         <path key={`t${i}`} d={linePath(seg, true)}
           stroke={seg.color} fill="none"
           strokeWidth={seg.from === 0 ? 2.2 : 1.6}
-          strokeOpacity={seg.from === 0 ? 0.88 : 0.52}
+          strokeOpacity={emphasize ? (seg.from === 0 ? 1 : 0.82) : (seg.from === 0 ? 0.88 : 0.52)}
         />
       ))}
       {/* Lines — bottom half */}
@@ -83,7 +83,7 @@ function GraphCell({ node, graphColW }: { node: GraphNode; graphColW: number }) 
         <path key={`b${i}`} d={linePath(seg, false)}
           stroke={seg.color} fill="none"
           strokeWidth={seg.from === 0 ? 2.2 : 1.6}
-          strokeOpacity={seg.from === 0 ? 0.88 : 0.52}
+          strokeOpacity={emphasize ? (seg.from === 0 ? 1 : 0.82) : (seg.from === 0 ? 0.88 : 0.52)}
         />
       ))}
       {/* Main-lane halo */}
@@ -330,7 +330,7 @@ function CommitRow({ node, selected, isPrimary, repoPath, remoteUrl, onRefresh, 
       >
         {/* Graph */}
         <div style={{ width: graphColW, height: ROW_H, flexShrink: 0, overflow: 'hidden' }}>
-          <GraphCell node={node} graphColW={graphColW} />
+          <GraphCell node={node} graphColW={graphColW} emphasize={hover || selected || isPrimary} />
         </div>
 
         {/* Content */}
@@ -1083,6 +1083,24 @@ function BranchDropdown({ open, onToggleOpen, branches, selectedBranches, defaul
   )
 }
 
+function LegendItem({ symbol, label, color }: { symbol: string; label: string; color: string }) {
+  const [hover, setHover] = useState(false)
+  return (
+    <span
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 4,
+        color: hover ? '#dde1f0' : '#8b94b0',
+        transition: 'color 0.1s',
+      }}
+    >
+      <span style={{ color }}>{symbol}</span>
+      <span>{label}</span>
+    </span>
+  )
+}
+
 // ── Main panel ─────────────────────────────────────────────────────────────────
 
 const INITIAL_LIMIT  = 300
@@ -1493,8 +1511,12 @@ export function HistoryPanel({ repoPath }: HistoryPanelProps) {
             </span>
           )}
 
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, color: '#4e5870' }}>
-            Legend: ★ default · ◉ head · • branch · ⌂ working tree
+          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, color: '#4e5870', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+            <span>Legend:</span>
+            <LegendItem symbol="★" label="default" color="#4d9dff" />
+            <LegendItem symbol="◉" label="head" color="#e8622f" />
+            <LegendItem symbol="•" label="branch" color="#2ec573" />
+            <LegendItem symbol="⌂" label="working tree" color="#f5a832" />
           </span>
 
           <div style={{ flex: 1 }} />
