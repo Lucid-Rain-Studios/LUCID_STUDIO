@@ -46,6 +46,7 @@ export function LockedFilesPanel({ repoPath }: LockedFilesPanelProps) {
   const [collapsedOwners, setCollapsedOwners] = useState<Set<string>>(new Set())
   const [selectedLockIds, setSelectedLockIds] = useState<Set<string>>(new Set())
   const lastSelectedIndexRef = useRef<number | null>(null)
+  const initializedCollapsedOwnersRef = useRef<Set<string>>(new Set())
 
   const myLocks   = locks.filter(l => currentLogin && l.owner.login === currentLogin)
   const teamLocks = locks.filter(l => !currentLogin || l.owner.login !== currentLogin)
@@ -84,11 +85,11 @@ export function LockedFilesPanel({ repoPath }: LockedFilesPanelProps) {
     setCollapsedOwners(prev => {
       const next = new Set(prev)
       let changed = false
-      for (const group of ownerGroups) next.add(group.login)
       for (const group of ownerGroups) {
-        if (!prev.has(group.login)) {
+        if (!initializedCollapsedOwnersRef.current.has(group.login)) {
+          initializedCollapsedOwnersRef.current.add(group.login)
+          next.add(group.login)
           changed = true
-          break
         }
       }
       return changed ? next : prev
