@@ -103,8 +103,8 @@ const api = {
     ipcRenderer.invoke(CHANNELS.LOCK_LIST, repoPath),
   lockFile: (repoPath: string, filePath: string) =>
     ipcRenderer.invoke(CHANNELS.LOCK_FILE, repoPath, filePath),
-  unlockFile: (repoPath: string, filePath: string, force?: boolean) =>
-    ipcRenderer.invoke(CHANNELS.LOCK_UNLOCK, repoPath, filePath, force),
+  unlockFile: (repoPath: string, filePath: string, force?: boolean, lockId?: string) =>
+    ipcRenderer.invoke(CHANNELS.LOCK_UNLOCK, repoPath, filePath, force, lockId),
   watchLock: (repoPath: string, filePath: string) =>
     ipcRenderer.invoke(CHANNELS.LOCK_WATCH, repoPath, filePath),
   startLockPolling: (repoPath: string) =>
@@ -304,7 +304,7 @@ const api = {
     ipcRenderer.invoke(CHANNELS.GITHUB_CREATE_PR, args),
   githubListPRs: (args: { owner: string; repo: string }) =>
     ipcRenderer.invoke(CHANNELS.GITHUB_LIST_PRS, args),
-  githubMergePR: (args: { owner: string; repo: string; prNumber: number }) =>
+  githubMergePR: (args: { owner: string; repo: string; prNumber: number; repoPath: string }) =>
     ipcRenderer.invoke(CHANNELS.GITHUB_MERGE_PR, args),
   githubClosePR: (args: { owner: string; repo: string; prNumber: number }) =>
     ipcRenderer.invoke(CHANNELS.GITHUB_CLOSE_PR, args),

@@ -231,6 +231,9 @@ export function LockedFilesPanel({ repoPath }: LockedFilesPanelProps) {
         <StatChip label="Total" value={locks.length} color="#5a6880" />
         <StatChip label="Mine" value={myLocks.length} color="#4a9eff" />
         <StatChip label="Team" value={teamLocks.length} color="#a27ef0" />
+        {locks.some(l => l.isGhost) && (
+          <StatChip label="Deleted" value={locks.filter(l => l.isGhost).length} color="#e8622f" />
+        )}
       </div>
 
       {/* ── Divider ── */}
@@ -407,8 +410,9 @@ function LockRow({
         <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
           <span style={{
             fontFamily: "'JetBrains Mono', monospace", fontSize: 12.5, fontWeight: 500,
-            color: isOwn ? '#c8d0e8' : '#8a94aa',
+            color: lock.isGhost ? '#5a6880' : isOwn ? '#c8d0e8' : '#8a94aa',
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            textDecoration: lock.isGhost ? 'line-through' : 'none',
           }} title={lock.path}>
             {filename}
           </span>
@@ -420,7 +424,15 @@ function LockRow({
               padding: '0 4px', lineHeight: '14px', flexShrink: 0,
             }}>{ext}</span>
           )}
-          {isOwn && (
+          {lock.isGhost && (
+            <span style={{
+              fontFamily: "'IBM Plex Sans', system-ui", fontSize: 9.5, fontWeight: 600,
+              background: 'rgba(232,98,47,0.1)', color: '#e8622f',
+              border: '1px solid rgba(232,98,47,0.25)', borderRadius: 4,
+              padding: '1px 6px', flexShrink: 0,
+            }} title="File no longer exists on disk">Deleted</span>
+          )}
+          {isOwn && !lock.isGhost && (
             <span style={{
               fontFamily: "'IBM Plex Sans', system-ui", fontSize: 9.5, fontWeight: 600,
               background: 'rgba(74,158,255,0.12)', color: '#4a9eff',
@@ -459,11 +471,13 @@ function LockRow({
               onClick={() => onCopyPath(lock)}
               icon={<CopyIcon />}
             />
-            <ActionBtn
-              title="Show in Explorer"
-              onClick={() => onShowInExplorer(lock)}
-              icon={<ExplorerIcon />}
-            />
+            {!lock.isGhost && (
+              <ActionBtn
+                title="Show in Explorer"
+                onClick={() => onShowInExplorer(lock)}
+                icon={<ExplorerIcon />}
+              />
+            )}
           </>
         )}
 

@@ -277,9 +277,9 @@ export function registerHandlers(): void {
     return lockService.lockFile(repoPath, filePath)
   })
 
-  ipcMain.handle(CHANNELS.LOCK_UNLOCK, async (_event, repoPath: string, filePath: string, force?: boolean) => {
+  ipcMain.handle(CHANNELS.LOCK_UNLOCK, async (_event, repoPath: string, filePath: string, force?: boolean, lockId?: string) => {
     if (force) await requireAdmin(repoPath)
-    return lockService.unlockFile(repoPath, filePath, force)
+    return lockService.unlockFile(repoPath, filePath, force, lockId)
   })
 
   ipcMain.handle(CHANNELS.LOCK_WATCH, async (_event, repoPath: string, filePath: string) => {
@@ -661,10 +661,27 @@ export function registerHandlers(): void {
     return gitHubService.listPRs(token, args)
   })
 
-  ipcMain.handle(CHANNELS.GITHUB_MERGE_PR, async (_event, args: PRActionArgs) => {
+  ipcMain.handle(CHANNELS.GITHUB_MERGE_PR, async (_event, args: PRActionArgs & { repoPath: string }) => {
     const token = await authService.getCurrentToken()
     if (!token) throw new Error('Not authenticated with GitHub')
-    return gitHubService.mergePR(token, args)
+    await gitHubService.mergePR(token, args)
+    // Auto-unlock LFS locks for all files that were part of this PR
+    if (args.repoPath) {
+      try {
+        const [prFiles, currentLocks] = await Promise.all([
+          gitHubService.getPRFiles(token, args),
+          lockService.listLocks(args.repoPath),
+        ])
+        const prFileSet = new Set(prFiles)
+        await Promise.allSettled(
+          currentLocks
+            .filter(lock => prFileSet.has(lock.path))
+            .map(lock => lockService.unlockFile(args.repoPath, lock.path, true, lock.id))
+        )
+      } catch {
+        // Best-effort — don't fail the merge if lock cleanup errors
+      }
+    }
   })
 
   ipcMain.handle(CHANNELS.GITHUB_CLOSE_PR, async (_event, args: PRActionArgs) => {

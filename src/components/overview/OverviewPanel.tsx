@@ -476,7 +476,7 @@ function ResolveDialog({
     setBusy(true)
     try {
       if (choice === 'accept') {
-        await opRun(`Merging PR #${pr.number}…`, () => ipc.githubMergePR({ owner, repo, prNumber: pr.number }))
+        await opRun(`Merging PR #${pr.number}…`, () => ipc.githubMergePR({ owner, repo, prNumber: pr.number, repoPath }))
       } else {
         await opRun(`Closing PR #${pr.number}…`, () => ipc.githubClosePR({ owner, repo, prNumber: pr.number }))
       }

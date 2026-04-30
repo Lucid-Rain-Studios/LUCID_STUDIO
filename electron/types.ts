@@ -66,6 +66,7 @@ export interface Lock {
   path: string
   owner: { name: string; login: string }
   lockedAt: string  // ISO date string
+  isGhost?: boolean  // true when the file no longer exists on disk
 }
 
 export interface StashEntry {

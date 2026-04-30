@@ -81,6 +81,7 @@ export interface Lock {
   path: string
   owner: { name: string; login: string }
   lockedAt: string   // ISO date string
+  isGhost?: boolean  // true when the file no longer exists on disk
 }
 
 export interface LFSStatus {
@@ -507,7 +508,7 @@ export interface LucidGitAPI {
   // Locks
   listLocks: (repoPath: string) => Promise<Lock[]>
   lockFile: (repoPath: string, filePath: string) => Promise<Lock>
-  unlockFile: (repoPath: string, filePath: string, force?: boolean) => Promise<void>
+  unlockFile: (repoPath: string, filePath: string, force?: boolean, lockId?: string) => Promise<void>
   watchLock: (repoPath: string, filePath: string) => Promise<void>
   startLockPolling: (repoPath: string) => Promise<void>
   stopLockPolling: (repoPath: string) => Promise<void>
@@ -622,7 +623,7 @@ export interface LucidGitAPI {
   // GitHub API
   githubCreatePR: (args: { owner: string; repo: string; head: string; base: string; title: string; body: string; draft: boolean }) => Promise<{ number: number; htmlUrl: string; title: string }>
   githubListPRs:  (args: { owner: string; repo: string }) => Promise<PullRequest[]>
-  githubMergePR:  (args: { owner: string; repo: string; prNumber: number }) => Promise<void>
+  githubMergePR:  (args: { owner: string; repo: string; prNumber: number; repoPath: string }) => Promise<void>
   githubClosePR:  (args: { owner: string; repo: string; prNumber: number }) => Promise<void>
 
   // Bug logs

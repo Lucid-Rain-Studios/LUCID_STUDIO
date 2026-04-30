@@ -1,3 +1,5 @@
+import fs from 'node:fs'
+import path from 'node:path'
 import { BrowserWindow } from 'electron'
 import { execSafe, exec, gitAuthArgs } from '../util/dugite-exec'
 import { authService } from './AuthService'
@@ -27,12 +29,17 @@ class LockService {
         owner: { name: string }
         locked_at: string
       }>
-      return raw.map(l => ({
-        id:       l.id,
-        path:     l.path.replace(/\\/g, '/'),   // always forward slashes for consistent matching
-        owner:    { name: l.owner.name, login: l.owner.name },
-        lockedAt: l.locked_at,
-      }))
+      return raw.map(l => {
+        const normalizedPath = l.path.replace(/\\/g, '/')
+        const fullPath = path.join(repoPath, normalizedPath)
+        return {
+          id:       l.id,
+          path:     normalizedPath,
+          owner:    { name: l.owner.name, login: l.owner.name },
+          lockedAt: l.locked_at,
+          isGhost:  !fs.existsSync(fullPath),
+        }
+      })
     } catch {
       return []
     }
@@ -56,10 +63,12 @@ class LockService {
     return lock
   }
 
-  async unlockFile(repoPath: string, filePath: string, force = false, actorLogin = '', actorName = ''): Promise<void> {
+  async unlockFile(repoPath: string, filePath: string, force = false, lockId?: string, actorLogin = '', actorName = ''): Promise<void> {
     const normalized = filePath.replace(/\\/g, '/')
     const token = await authService.getCurrentToken()
-    const args = [...gitAuthArgs(token), 'lfs', 'unlock', normalized]
+    // Prefer --id when available: works even when the file no longer exists on disk (ghost file)
+    const pathArgs = lockId ? ['--id', lockId] : [normalized]
+    const args = [...gitAuthArgs(token), 'lfs', 'unlock', ...pathArgs]
     if (force) args.push('--force')
     await exec(args, repoPath)
     const now = Date.now()

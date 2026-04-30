@@ -45,11 +45,12 @@ export const useLockStore = create<LockState>((set, get) => ({
   },
 
   unlockFile: async (repoPath, filePath, force) => {
+    const lockId = get().locks.find(l => l.path === filePath)?.id
     set({ error: null })
     // Optimistic remove — badge disappears before the network call returns
     set(state => ({ locks: state.locks.filter(l => l.path !== filePath) }))
     try {
-      await ipc.unlockFile(repoPath, filePath, force)
+      await ipc.unlockFile(repoPath, filePath, force, lockId)
     } catch (e) {
       // Roll back on failure by reloading authoritative list
       const locks = await ipc.listLocks(repoPath).catch(() => [])

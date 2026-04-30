@@ -101,6 +101,11 @@ class GitHubService {
       state: 'closed',
     })
   }
+
+  async getPRFiles(token: string, args: PRActionArgs): Promise<string[]> {
+    const data = await ghFetch(token, `/repos/${args.owner}/${args.repo}/pulls/${args.prNumber}/files?per_page=100`) as Array<{ filename: string }>
+    return data.map(f => f.filename.replace(/\\/g, '/'))
+  }
 }
 
 export const gitHubService = new GitHubService()
