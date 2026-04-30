@@ -5,7 +5,7 @@ import { useRepoStore } from '@/stores/repoStore'
 import { useLockStore } from '@/stores/lockStore'
 import { useAuthStore } from '@/stores/authStore'
 import { useDialogStore } from '@/stores/dialogStore'
-import { computeGraph, GraphNode, LANE_W, ROW_H, DOT_R, LineSegment } from '@/components/history/graphLayout'
+import { computeGraph, GraphNode, LANE_W, ROW_H, DOT_R, GRAPH_PAD, LineSegment } from '@/components/history/graphLayout'
 import { TextDiff } from '@/components/diff/TextDiff'
 import { FileTree } from '@/components/changes/FileTree'
 import { CommitBox } from '@/components/changes/CommitBox'
@@ -23,7 +23,6 @@ type CenterFile =
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const GRAPH_COL_W = 96
 const INITIAL_LIMIT = 300
 const MORE_INC = 300
 
@@ -65,27 +64,67 @@ function initials(author: string): string {
   return author.slice(0, 2).toUpperCase()
 }
 
+// Shared SVG filter defs; placed once above the list.
+function GraphDefs() {
+  return (
+    <svg width="0" height="0" style={{ position: 'absolute', overflow: 'hidden' }}>
+      <defs>
+        <filter id="tl-glow-main" x="-60%" y="-60%" width="220%" height="220%">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="1.8" result="blur" />
+          <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+        </filter>
+      </defs>
+    </svg>
+  )
+}
+
 function linePath(seg: LineSegment, isTop: boolean): string {
-  const x1 = seg.from * LANE_W + LANE_W / 2
-  const x2 = seg.to   * LANE_W + LANE_W / 2
+  const x1 = GRAPH_PAD + seg.from * LANE_W + LANE_W / 2
+  const x2 = GRAPH_PAD + seg.to   * LANE_W + LANE_W / 2
   const y1 = isTop ? 0         : ROW_H / 2
   const y2 = isTop ? ROW_H / 2 : ROW_H
   if (x1 === x2) return `M ${x1} ${y1} L ${x2} ${y2}`
   return `M ${x1} ${y1} C ${x1} ${y2} ${x2} ${y1} ${x2} ${y2}`
 }
 
-function GraphCell({ node }: { node: GraphNode }) {
-  const cx = node.lane * LANE_W + LANE_W / 2
+function GraphCell({ node, graphColW }: { node: GraphNode; graphColW: number }) {
+  const isMain  = node.lane === 0
+  const isMerge = node.commit.parentHashes.length > 1
+  const cx = GRAPH_PAD + node.lane * LANE_W + LANE_W / 2
   const cy = ROW_H / 2
+  const dotR = DOT_R + 0.5
   return (
-    <svg width={GRAPH_COL_W} height={ROW_H} style={{ flexShrink: 0, overflow: 'visible' }}>
+    <svg width={graphColW} height={ROW_H} style={{ flexShrink: 0, overflow: 'visible', display: 'block' }}>
       {node.topLines.map((seg, i) => (
-        <path key={`t${i}`} d={linePath(seg, true)}  stroke={seg.color} strokeWidth={1.75} fill="none" strokeOpacity={0.7} />
+        <path key={`t${i}`} d={linePath(seg, true)}
+          stroke={seg.color} fill="none"
+          strokeWidth={seg.from === 0 ? 2.2 : 1.6}
+          strokeOpacity={seg.from === 0 ? 0.88 : 0.52}
+        />
       ))}
       {node.bottomLines.map((seg, i) => (
-        <path key={`b${i}`} d={linePath(seg, false)} stroke={seg.color} strokeWidth={1.75} fill="none" strokeOpacity={0.7} />
+        <path key={`b${i}`} d={linePath(seg, false)}
+          stroke={seg.color} fill="none"
+          strokeWidth={seg.from === 0 ? 2.2 : 1.6}
+          strokeOpacity={seg.from === 0 ? 0.88 : 0.52}
+        />
       ))}
-      <circle cx={cx} cy={cy} r={DOT_R} fill={node.color} />
+      {isMain && <circle cx={cx} cy={cy} r={dotR + 5} fill={`${node.color}14`} stroke="none" />}
+      {isMerge ? (
+        <g filter={isMain ? 'url(#tl-glow-main)' : undefined}>
+          <polygon
+            points={`${cx},${cy - dotR - 1} ${cx + dotR + 1},${cy} ${cx},${cy + dotR + 1} ${cx - dotR - 1},${cy}`}
+            fill="#10131c" stroke={node.color} strokeWidth={isMain ? 2 : 1.8}
+          />
+          <circle cx={cx} cy={cy} r={2} fill={node.color} />
+        </g>
+      ) : (
+        <circle cx={cx} cy={cy} r={dotR}
+          fill="#10131c" stroke={node.color}
+          strokeWidth={isMain ? 2.5 : 2}
+          filter={isMain ? 'url(#tl-glow-main)' : undefined}
+        />
+      )}
     </svg>
   )
 }
@@ -239,14 +278,14 @@ function BlameModal({ filePath, commitHash, repoPath, onClose }: {
 
 const WT_ROW_H = 58
 
-function WorkingTreeGraphRow({ selected, changeCount, onClick }: {
-  selected: boolean; changeCount: number; onClick: () => void
+function WorkingTreeGraphRow({ selected, changeCount, graphColW, onClick }: {
+  selected: boolean; changeCount: number; graphColW: number; onClick: () => void
 }) {
   const [hover, setHover] = useState(false)
   const hasChanges = changeCount > 0
   const accent = hasChanges ? '#e8622f' : '#2ec573'
-  const cx = LANE_W / 2   // lane 0 center x = 8
-  const cy = Math.round(WT_ROW_H * 0.40)  // diamond y-center
+  const cx = GRAPH_PAD + LANE_W / 2  // lane 0 center x with padding
+  const cy = Math.round(WT_ROW_H * 0.40)
 
   return (
     <div
@@ -262,13 +301,11 @@ function WorkingTreeGraphRow({ selected, changeCount, onClick }: {
       }}
     >
       {/* Graph column — diamond + connecting line down to first commit */}
-      <svg width={GRAPH_COL_W} height={WT_ROW_H} style={{ flexShrink: 0, overflow: 'visible' }}>
-        {/* Line from diamond center down to bottom, connects to first commit's top line */}
+      <svg width={graphColW} height={WT_ROW_H} style={{ flexShrink: 0, overflow: 'visible', display: 'block' }}>
         <line
           x1={cx} y1={cy + 6} x2={cx} y2={WT_ROW_H}
           stroke={accent} strokeWidth={1.75} strokeOpacity={0.45}
         />
-        {/* Diamond */}
         <polygon
           points={`${cx},${cy - 6} ${cx + 5.5},${cy} ${cx},${cy + 6} ${cx - 5.5},${cy}`}
           fill={accent} fillOpacity={selected ? 0.9 : 0.65}
@@ -305,39 +342,198 @@ function WorkingTreeGraphRow({ selected, changeCount, onClick }: {
   )
 }
 
-// ── Branch filter ─────────────────────────────────────────────────────────────
+// ── Branch filter components ──────────────────────────────────────────────────
 
-function BranchFilterBtn({ active, count, onClick }: { active: boolean; count: number; onClick: () => void }) {
+const TL_BRANCH_COLORS = ['#4d9dff', '#e8622f', '#2ec573', '#a27ef0', '#f5a832', '#1abc9c', '#e91e63', '#00bcd4']
+
+function tlBranchShortName(name: string): string {
+  const last = name.split('/').pop() ?? name
+  return last.length > 10 ? last.slice(0, 10) + '…' : last
+}
+
+function CollapseBtn({ isCollapsed, onClick }: { isCollapsed: boolean; onClick: () => void }) {
+  const [hover, setHover] = useState(false)
   return (
     <button
       onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      title={isCollapsed ? 'Show all branches' : 'Collapse to main + HEAD'}
       style={{
-        display: 'flex', alignItems: 'center', gap: 4,
-        height: 22, paddingLeft: 7, paddingRight: 7, borderRadius: 4,
-        background: active ? 'rgba(232,98,47,0.12)' : 'transparent',
-        border: `1px solid ${active ? 'rgba(232,98,47,0.35)' : '#252d42'}`,
-        color: active ? '#e8622f' : '#4e5870',
-        fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10.5, cursor: 'pointer',
+        display: 'inline-flex', alignItems: 'center', gap: 4,
+        height: 22, paddingLeft: 6, paddingRight: 6, borderRadius: 4,
+        background: isCollapsed ? 'rgba(232,98,47,0.15)' : hover ? '#1e2436' : 'transparent',
+        border: `1px solid ${isCollapsed ? 'rgba(232,98,47,0.55)' : '#252d42'}`,
+        color: isCollapsed ? '#e8622f' : '#4e5870',
+        fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10.5,
+        cursor: 'pointer', transition: 'all 0.15s', flexShrink: 0,
       }}
     >
-      <svg width="10" height="10" viewBox="0 0 16 16" fill="none">
-        <circle cx="5" cy="4" r="1.75" stroke="currentColor" strokeWidth="1.5" />
-        <circle cx="11" cy="4" r="1.75" stroke="currentColor" strokeWidth="1.5" />
-        <circle cx="5" cy="12" r="1.75" stroke="currentColor" strokeWidth="1.5" />
-        <line x1="5" y1="5.75" x2="5" y2="10.25" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-        <path d="M11 5.75 C11 8.5 5 8.5 5 10.25" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" fill="none" />
+      <svg width="11" height="12" viewBox="0 0 12 13" fill="none">
+        <circle cx="2.5" cy="2.5" r="2" stroke="currentColor" strokeWidth="1.3" />
+        <circle cx="2.5" cy="10.5" r="2" stroke="currentColor" strokeWidth="1.3" />
+        <circle cx="9.5" cy="6.5" r="2" stroke="currentColor" strokeWidth="1.3" opacity={isCollapsed ? 0.35 : 1} />
+        <line x1="2.5" y1="4.5" x2="2.5" y2="8.5" stroke="currentColor" strokeWidth="1.3" />
+        <path d="M2.5 4.5 Q2.5 6.5 9.5 6.5" stroke="currentColor" strokeWidth="1.3" fill="none" opacity={isCollapsed ? 0.35 : 1} />
       </svg>
-      {active ? `${count + 1} branches` : 'Branches'}
+      {isCollapsed ? 'Core' : 'All'}
     </button>
+  )
+}
+
+function TLBranchDropdownRow({ branch, checked, locked, bCol, onToggle }: {
+  branch: BranchInfo; checked: boolean; locked?: boolean; bCol: string; onToggle: () => void
+}) {
+  const [hover, setHover] = useState(false)
+  return (
+    <div
+      onClick={locked ? undefined : onToggle}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 9,
+        padding: '6px 12px', borderBottom: '1px solid #1a1f2e',
+        cursor: locked ? 'default' : 'pointer',
+        background: hover && !locked ? '#1e2436' : 'transparent',
+        opacity: !checked && !locked ? 0.5 : 1,
+        transition: 'opacity 0.12s, background 0.1s',
+      }}
+    >
+      <span style={{
+        width: 13, height: 13, borderRadius: 3, flexShrink: 0,
+        background: checked ? bCol : 'transparent',
+        border: `1.5px solid ${checked ? bCol : '#2f3a54'}`,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        transition: 'all 0.12s',
+      }}>
+        {checked && (
+          <svg width="8" height="6" viewBox="0 0 8 6" fill="none">
+            <path d="M1 3L3 5L7 1" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        )}
+      </span>
+      <span style={{ width: 3, height: 14, borderRadius: 2, background: bCol, flexShrink: 0 }} />
+      <span style={{
+        fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: '#c8cdd8',
+        flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+      }}>{branch.name}</span>
+      <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+        {locked && (
+          <span style={{
+            background: 'rgba(77,157,255,0.14)', color: '#4d9dff',
+            border: '1px solid rgba(77,157,255,0.35)',
+            borderRadius: 3, padding: '0 4px',
+            fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 700,
+          }}>default</span>
+        )}
+        {branch.current && (
+          <span style={{
+            background: `${bCol}22`, color: bCol, border: `1px solid ${bCol}45`,
+            borderRadius: 3, padding: '0 4px',
+            fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 700,
+          }}>HEAD</span>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function TLBranchDropdown({ open, onToggleOpen, branches, selectedBranches, defaultBranch, branchColors, onToggleBranch, onShowAll }: {
+  open: boolean; onToggleOpen: () => void
+  branches: BranchInfo[]; selectedBranches: Set<string>; defaultBranch: string
+  branchColors: Map<string, string>; onToggleBranch: (name: string) => void; onShowAll: () => void
+}) {
+  const allShown = selectedBranches.size === 0
+  const visibleCount = allShown ? branches.length : branches.filter(b => b.name === defaultBranch || selectedBranches.has(b.name)).length
+  const sorted = [
+    ...branches.filter(b => b.name === defaultBranch),
+    ...branches.filter(b => b.name !== defaultBranch),
+  ]
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <button
+        onClick={onToggleOpen}
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 4,
+          height: 22, paddingLeft: 8, paddingRight: 6, borderRadius: 4,
+          background: open ? '#1e2436' : 'transparent',
+          border: `1px solid ${open ? '#2f3a54' : '#252d42'}`,
+          color: '#4e5870',
+          fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10.5, fontWeight: 500,
+          cursor: 'pointer', transition: 'all 0.12s', flexShrink: 0,
+        }}
+      >
+        <span style={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+          {sorted.map(b => {
+            const bCol = branchColors.get(b.name) ?? '#4d9dff'
+            const shown = allShown || b.name === defaultBranch || selectedBranches.has(b.name)
+            return (
+              <span key={b.name} style={{
+                width: 4, height: 11, borderRadius: 2,
+                background: shown ? bCol : '#252d42',
+                opacity: shown ? 0.85 : 0.35,
+                transition: 'background 0.15s, opacity 0.15s',
+              }} />
+            )
+          })}
+        </span>
+        <span>{visibleCount} branch{visibleCount !== 1 ? 'es' : ''}</span>
+        <svg width="7" height="4" viewBox="0 0 8 5" fill="none"
+          style={{ transition: 'transform 0.15s', transform: open ? 'rotate(180deg)' : 'none' }}>
+          <path d="M1 1L4 4L7 1" stroke="#3a4260" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+
+      {open && (
+        <>
+          <div onClick={onToggleOpen} style={{ position: 'fixed', inset: 0, zIndex: 90 }} />
+          <div style={{
+            position: 'absolute', top: 'calc(100% + 4px)', right: 0, zIndex: 91,
+            background: '#1d2235', border: '1px solid #2f3a54',
+            borderRadius: 6, boxShadow: '0 8px 32px rgba(0,0,0,0.55)',
+            minWidth: 230, overflow: 'hidden',
+          }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '7px 12px 5px', borderBottom: '1px solid #1e2436',
+            }}>
+              <span style={{
+                fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 700,
+                color: '#3a4260', letterSpacing: '0.1em', textTransform: 'uppercase',
+              }}>Filter branches</span>
+              <button onClick={onShowAll} style={{
+                fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10, color: '#e8622f',
+                background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+              }}>Show all</button>
+            </div>
+            {sorted.map(b => {
+              const bCol = branchColors.get(b.name) ?? '#4d9dff'
+              const isLocked = b.name === defaultBranch
+              const isChecked = allShown || isLocked || selectedBranches.has(b.name)
+              return (
+                <TLBranchDropdownRow key={b.name} branch={b} checked={isChecked} locked={isLocked}
+                  bCol={bCol} onToggle={() => onToggleBranch(b.name)} />
+              )
+            })}
+          </div>
+        </>
+      )}
+    </div>
   )
 }
 
 // ── Left commit row ───────────────────────────────────────────────────────────
 
-function LeftCommitRow({ node, selected, repoPath, remoteUrl, onRefresh, onClick }: {
+function LeftCommitRow({ node, selected, repoPath, remoteUrl, onRefresh, onClick,
+  graphColW, branchTips, branchColors, defaultBranch }: {
   node: GraphNode; selected: boolean
   repoPath: string; remoteUrl: string | null
   onRefresh: () => void; onClick: () => void
+  graphColW: number
+  branchTips: Map<string, BranchInfo[]>
+  branchColors: Map<string, string>
+  defaultBranch: string
 }) {
   const [hover, setHover] = useState(false)
   const [ctx, setCtx]     = useState<{ x: number; y: number } | null>(null)
@@ -347,11 +543,12 @@ function LeftCommitRow({ node, selected, repoPath, remoteUrl, onRefresh, onClick
   const bumpSyncTick = useRepoStore(s => s.bumpSyncTick)
 
   const { commit } = node
-  const col       = authorColor(commit.author)
-  const ini       = initials(commit.author)
-  const isMerge   = commit.parentHashes.length > 1
-  const shortHash = commit.hash.slice(0, 7)
-  const ghSlug    = remoteUrl ? parseGHSlug(remoteUrl) : null
+  const col        = authorColor(commit.author)
+  const ini        = initials(commit.author)
+  const isMerge    = commit.parentHashes.length > 1
+  const shortHash  = commit.hash.slice(0, 7)
+  const ghSlug     = remoteUrl ? parseGHSlug(remoteUrl) : null
+  const tipBranches = branchTips.get(commit.hash) ?? []
 
   useEffect(() => {
     if (!ctx) return
@@ -469,11 +666,28 @@ function LeftCommitRow({ node, selected, repoPath, remoteUrl, onRefresh, onClick
           cursor: 'pointer', transition: 'background 0.1s',
         }}
       >
-        <div style={{ width: GRAPH_COL_W, height: ROW_H, flexShrink: 0, overflow: 'hidden' }}>
-          <GraphCell node={node} />
+        <div style={{ width: graphColW, height: ROW_H, flexShrink: 0, overflow: 'hidden' }}>
+          <GraphCell node={node} graphColW={graphColW} />
         </div>
         <div style={{ flex: 1, minWidth: 0, paddingLeft: 5, paddingRight: 8 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 2 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2, overflow: 'hidden' }}>
+            {/* Branch tip pills */}
+            {tipBranches.map(b => {
+              const bCol = branchColors.get(b.name) ?? '#4d9dff'
+              const icon = b.name === defaultBranch ? '★' : b.current ? '◉' : '•'
+              return (
+                <span key={b.name} style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 2, flexShrink: 0,
+                  background: `${bCol}16`, color: bCol,
+                  border: `1px solid ${bCol}40`,
+                  borderRadius: 3, padding: '0 5px',
+                  fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 500,
+                }}>
+                  <span style={{ fontSize: 8 }}>{icon}</span>
+                  {tlBranchShortName(b.name)}
+                </span>
+              )
+            })}
             <span style={{
               fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12,
               fontWeight: selected ? 600 : 400, color: '#c8cdd8',
@@ -491,8 +705,7 @@ function LeftCommitRow({ node, selected, repoPath, remoteUrl, onRefresh, onClick
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <span style={{
               width: 14, height: 14, borderRadius: '50%', flexShrink: 0,
-              background: `linear-gradient(135deg, ${col}88, ${col}44)`,
-              border: `1px solid ${col}55`,
+              background: `${col}22`, border: `1px solid ${col}44`,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontFamily: "'JetBrains Mono', monospace", fontSize: 7, fontWeight: 700, color: col,
             }}>{ini}</span>
@@ -1111,11 +1324,45 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
   const [histLoading, setHistLoading] = useState(false)
   const [limitRef]                    = useState({ current: INITIAL_LIMIT })
   const [remoteUrl,   setRemoteUrl]   = useState<string | null>(null)
-  const [branches,    setBranches]    = useState<BranchInfo[]>([])
+  const [branches,     setBranches]     = useState<BranchInfo[]>([])
   const [defaultBranch, setDefaultBranch] = useState('main')
-  const [selBranches, setSelBranches] = useState<Set<string>>(new Set())
-  const [filterOpen,  setFilterOpen]  = useState(false)
-  const filterRef = useRef<HTMLDivElement>(null)
+  const [selBranches,  setSelBranches]  = useState<Set<string>>(new Set())
+  const [filterOpen,   setFilterOpen]   = useState(false)
+  const [branchTips,   setBranchTips]   = useState<Map<string, BranchInfo[]>>(new Map())
+
+  const branchColors = React.useMemo(() => {
+    const sorted = [
+      ...branches.filter(b => b.name === defaultBranch),
+      ...branches.filter(b => b.name !== defaultBranch),
+    ]
+    const map = new Map<string, string>()
+    sorted.forEach((b, i) => map.set(b.name, TL_BRANCH_COLORS[i % TL_BRANCH_COLORS.length]))
+    return map
+  }, [branches, defaultBranch])
+
+  const graphColW = React.useMemo(() => {
+    if (nodes.length === 0) return GRAPH_PAD * 2 + LANE_W
+    const maxLane = nodes.reduce((m, n) => Math.max(m, n.maxLane), 0)
+    return GRAPH_PAD + (maxLane + 1) * LANE_W + GRAPH_PAD
+  }, [nodes])
+
+  const isCollapsed = selBranches.size > 0
+
+  const fetchBranchTips = useCallback(async (branchList: BranchInfo[]) => {
+    const tips = new Map<string, BranchInfo[]>()
+    const locals = branchList.filter(b => !b.isRemote)
+    await Promise.all(locals.map(async b => {
+      try {
+        const [tip] = await ipc.log(repoPath, { limit: 1, refs: [b.name] })
+        if (tip) {
+          const arr = tips.get(tip.hash) ?? []
+          arr.push(b)
+          tips.set(tip.hash, arr)
+        }
+      } catch {}
+    }))
+    setBranchTips(new Map(tips))
+  }, [repoPath])
   const [stashOpen,   setStashOpen]   = useState(() => {
     try { return localStorage.getItem(STASH_KEY) === '1' } catch { return false }
   })
@@ -1161,16 +1408,6 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
     window.addEventListener('mouseup', onUp)
   }, [])
 
-  // ── Filter dropdown close ──────────────────────────────────────────────────
-  useEffect(() => {
-    if (!filterOpen) return
-    const handler = (e: MouseEvent) => {
-      if (filterRef.current && !filterRef.current.contains(e.target as Node)) setFilterOpen(false)
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [filterOpen])
-
   // ── Load history ───────────────────────────────────────────────────────────
   const loadHistory = useCallback(async (limit: number, branches?: Set<string>) => {
     setHistLoading(true)
@@ -1192,8 +1429,10 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
     setLeftSel({ kind: 'working-tree' })
     ipc.getRemoteUrl(repoPath).then(setRemoteUrl).catch(() => {})
     Promise.all([ipc.branchList(repoPath), ipc.gitDefaultBranch(repoPath)]).then(([bl, def]) => {
-      setBranches(bl.filter(b => !b.isRemote))
+      const locals = bl.filter(b => !b.isRemote)
+      setBranches(locals)
       setDefaultBranch(def)
+      fetchBranchTips(locals)
     }).catch(() => {})
     loadHistory(INITIAL_LIMIT, new Set())
   }, [repoPath])
@@ -1259,63 +1498,83 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
     loadHistory(INITIAL_LIMIT, next)
   }
 
+  const toggleCollapse = () => {
+    if (isCollapsed) {
+      const next = new Set<string>()
+      setSelBranches(next)
+      limitRef.current = INITIAL_LIMIT
+      loadHistory(INITIAL_LIMIT, next)
+    } else {
+      const currentBranch = branches.find(b => b.current)?.name
+      const core = currentBranch && currentBranch !== defaultBranch
+        ? new Set([currentBranch])
+        : new Set<string>()
+      setSelBranches(core)
+      limitRef.current = INITIAL_LIMIT
+      loadHistory(INITIAL_LIMIT, core)
+    }
+  }
+
+  const showAllBranches = () => {
+    const next = new Set<string>()
+    setSelBranches(next)
+    setFilterOpen(false)
+    limitRef.current = INITIAL_LIMIT
+    loadHistory(INITIAL_LIMIT, next)
+  }
+
   const toggleStash = () => {
     const next = !stashOpen
     setStashOpen(next)
     try { localStorage.setItem(STASH_KEY, next ? '1' : '0') } catch {}
   }
 
-  const localBranches  = branches.filter(b => !b.isRemote)
-  const filterActive   = selBranches.size > 0
   const selectedCommit = leftSel.kind === 'commit' ? leftSel.commit : null
 
   return (
     <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
 
+      {/* Shared SVG filter defs */}
+      <GraphDefs />
+
       {/* ── Left column ──────────────────────────────────────────────────── */}
       <div style={{ width: leftWidth, flexShrink: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', borderRight: '1px solid #252d42' }}>
 
-        {/* Header: commit count + branch filter + refresh */}
+        {/* Header */}
         <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          display: 'flex', alignItems: 'center',
           height: 32, paddingLeft: 12, paddingRight: 8, flexShrink: 0,
-          borderBottom: '1px solid #1e2436', background: '#0d0f15',
+          borderBottom: '1px solid #1e2436', background: '#0d0f15', gap: 5,
         }}>
-          <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10, fontWeight: 700, color: '#2a3040', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+          <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10, fontWeight: 700, color: '#2a3040', letterSpacing: '0.1em', textTransform: 'uppercase', flexShrink: 0 }}>
             {totalLoaded > 0 ? `${totalLoaded} Commits` : 'Commits'}
           </span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5, position: 'relative' }} ref={filterRef}>
-            <BranchFilterBtn active={filterActive} count={selBranches.size} onClick={() => setFilterOpen(o => !o)} />
-            <button
-              onClick={() => loadHistory(limitRef.current)}
-              disabled={histLoading}
-              style={{ background: 'none', border: 'none', color: histLoading ? '#2a3040' : '#3a4260', cursor: histLoading ? 'default' : 'pointer', fontSize: 14, padding: '0 2px' }}
-              onMouseEnter={e => { if (!histLoading) e.currentTarget.style.color = '#e8622f' }}
-              onMouseLeave={e => { if (!histLoading) e.currentTarget.style.color = '#3a4260' }}
-            >{histLoading ? '…' : '↺'}</button>
-            {/* Branch filter dropdown */}
-            {filterOpen && (
-              <div style={{
-                position: 'absolute', top: 28, right: 0, zIndex: 50, minWidth: 210,
-                background: '#1d2235', border: '1px solid #2f3a54',
-                borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.55)', padding: '6px 0',
-              }}>
-                <div style={{ padding: '3px 12px 6px', fontFamily: "'IBM Plex Sans', system-ui", fontSize: 9.5, fontWeight: 700, color: '#3a4260', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-                  Branches
-                </div>
-                <BranchRow name={defaultBranch} checked locked isCurrent={branches.find(b => b.name === defaultBranch)?.current ?? false} onToggle={() => {}} />
-                {localBranches.filter(b => b.name !== defaultBranch).map(b => (
-                  <BranchRow key={b.name} name={b.name} checked={selBranches.has(b.name)} isCurrent={b.current} onToggle={() => toggleBranch(b.name)} />
-                ))}
-              </div>
-            )}
-          </div>
+          <div style={{ flex: 1 }} />
+          <CollapseBtn isCollapsed={isCollapsed} onClick={toggleCollapse} />
+          <TLBranchDropdown
+            open={filterOpen}
+            onToggleOpen={() => setFilterOpen(o => !o)}
+            branches={branches}
+            selectedBranches={selBranches}
+            defaultBranch={defaultBranch}
+            branchColors={branchColors}
+            onToggleBranch={toggleBranch}
+            onShowAll={showAllBranches}
+          />
+          <button
+            onClick={() => loadHistory(limitRef.current)}
+            disabled={histLoading}
+            style={{ background: 'none', border: 'none', color: histLoading ? '#2a3040' : '#3a4260', cursor: histLoading ? 'default' : 'pointer', fontSize: 14, padding: '0 2px', flexShrink: 0 }}
+            onMouseEnter={e => { if (!histLoading) e.currentTarget.style.color = '#e8622f' }}
+            onMouseLeave={e => { if (!histLoading) e.currentTarget.style.color = '#3a4260' }}
+          >{histLoading ? '…' : '↺'}</button>
         </div>
 
-        {/* Working tree — pinned above commit list, as topmost git tree node */}
+        {/* Working tree — pinned above commit list */}
         <WorkingTreeGraphRow
           selected={leftSel.kind === 'working-tree'}
           changeCount={fileStatus.length}
+          graphColW={graphColW}
           onClick={selectWorkingTree}
         />
 
@@ -1333,6 +1592,10 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
               remoteUrl={remoteUrl}
               onRefresh={() => loadHistory(limitRef.current)}
               onClick={() => selectCommit(node.commit)}
+              graphColW={graphColW}
+              branchTips={branchTips}
+              branchColors={branchColors}
+              defaultBranch={defaultBranch}
             />
           ))}
           {!histLoading && totalLoaded >= limitRef.current && (
@@ -1456,37 +1719,3 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
 
 // ── Branch filter row ─────────────────────────────────────────────────────────
 
-function BranchRow({ name, checked, locked, isCurrent, onToggle }: {
-  name: string; checked: boolean; locked?: boolean; isCurrent?: boolean; onToggle: () => void
-}) {
-  const [hover, setHover] = useState(false)
-  return (
-    <div
-      onClick={locked ? undefined : onToggle}
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-      style={{
-        display: 'flex', alignItems: 'center', gap: 8,
-        height: 30, paddingLeft: 12, paddingRight: 12,
-        background: hover && !locked ? '#242a3d' : 'transparent',
-        cursor: locked ? 'default' : 'pointer', transition: 'background 0.1s',
-      }}
-    >
-      <div style={{
-        width: 13, height: 13, borderRadius: 3, flexShrink: 0,
-        background: checked ? '#e8622f' : 'transparent',
-        border: `1.5px solid ${checked ? '#e8622f' : '#2f3a54'}`,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-      }}>
-        {checked && (
-          <svg width="8" height="7" viewBox="0 0 8 7" fill="none">
-            <path d="M1 3.5L3 6L7 1" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        )}
-      </div>
-      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: locked ? '#3a4260' : '#c8cdd8', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
-      {isCurrent && <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 9, fontWeight: 600, background: 'rgba(46,197,115,0.12)', color: '#2ec573', border: '1px solid rgba(46,197,115,0.25)', borderRadius: 3, padding: '1px 5px' }}>HEAD</span>}
-      {locked  && <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 9, fontWeight: 600, background: 'rgba(77,157,255,0.1)', color: '#4d9dff', border: '1px solid rgba(77,157,255,0.2)', borderRadius: 3, padding: '1px 5px' }}>always</span>}
-    </div>
-  )
-}

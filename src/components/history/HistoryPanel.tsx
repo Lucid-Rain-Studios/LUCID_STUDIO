@@ -3,7 +3,7 @@ import { ipc, CommitEntry, CommitFileChange, BranchInfo, BlameEntry, StashEntry 
 import { useOperationStore } from '@/stores/operationStore'
 import { useDialogStore } from '@/stores/dialogStore'
 import { useRepoStore } from '@/stores/repoStore'
-import { computeGraph, GraphNode, LANE_W, ROW_H, DOT_R, LineSegment } from './graphLayout'
+import { computeGraph, GraphNode, LANE_W, ROW_H, DOT_R, GRAPH_PAD, LineSegment } from './graphLayout'
 
 function parseGitHubSlug(url: string): string | null {
   const m = url.match(/github\.com[/:]([\w.-]+\/[\w.-]+?)(?:\.git)?$/)
@@ -38,29 +38,74 @@ function initials(author: string): string {
 
 // ── Graph cell ─────────────────────────────────────────────────────────────────
 
-const GRAPH_COL_W = 96
+// Shared SVG filter defs rendered once; all GraphCell SVGs reference them.
+function GraphDefs() {
+  return (
+    <svg width="0" height="0" style={{ position: 'absolute', overflow: 'hidden' }}>
+      <defs>
+        <filter id="gc-glow-main" x="-60%" y="-60%" width="220%" height="220%">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="1.8" result="blur" />
+          <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+        </filter>
+      </defs>
+    </svg>
+  )
+}
 
 function linePath(seg: LineSegment, isTop: boolean): string {
-  const x1 = seg.from * LANE_W + LANE_W / 2
-  const x2 = seg.to   * LANE_W + LANE_W / 2
-  const y1 = isTop ? 0        : ROW_H / 2
+  const x1 = GRAPH_PAD + seg.from * LANE_W + LANE_W / 2
+  const x2 = GRAPH_PAD + seg.to   * LANE_W + LANE_W / 2
+  const y1 = isTop ? 0         : ROW_H / 2
   const y2 = isTop ? ROW_H / 2 : ROW_H
   if (x1 === x2) return `M ${x1} ${y1} L ${x2} ${y2}`
   return `M ${x1} ${y1} C ${x1} ${y2} ${x2} ${y1} ${x2} ${y2}`
 }
 
-function GraphCell({ node }: { node: GraphNode }) {
-  const cx = node.lane * LANE_W + LANE_W / 2
+function GraphCell({ node, graphColW }: { node: GraphNode; graphColW: number }) {
+  const isMain  = node.lane === 0
+  const isMerge = node.commit.parentHashes.length > 1
+  const cx = GRAPH_PAD + node.lane * LANE_W + LANE_W / 2
   const cy = ROW_H / 2
+  const dotR = DOT_R + 0.5
+
   return (
-    <svg width={GRAPH_COL_W} height={ROW_H} style={{ flexShrink: 0, overflow: 'visible' }}>
+    <svg width={graphColW} height={ROW_H} style={{ flexShrink: 0, overflow: 'visible', display: 'block' }}>
+      {/* Lines — top half */}
       {node.topLines.map((seg, i) => (
-        <path key={`t${i}`} d={linePath(seg, true)} stroke={seg.color} strokeWidth={1.75} fill="none" strokeOpacity={0.7} />
+        <path key={`t${i}`} d={linePath(seg, true)}
+          stroke={seg.color} fill="none"
+          strokeWidth={seg.from === 0 ? 2.2 : 1.6}
+          strokeOpacity={seg.from === 0 ? 0.88 : 0.52}
+        />
       ))}
+      {/* Lines — bottom half */}
       {node.bottomLines.map((seg, i) => (
-        <path key={`b${i}`} d={linePath(seg, false)} stroke={seg.color} strokeWidth={1.75} fill="none" strokeOpacity={0.7} />
+        <path key={`b${i}`} d={linePath(seg, false)}
+          stroke={seg.color} fill="none"
+          strokeWidth={seg.from === 0 ? 2.2 : 1.6}
+          strokeOpacity={seg.from === 0 ? 0.88 : 0.52}
+        />
       ))}
-      <circle cx={cx} cy={cy} r={DOT_R} fill={node.color} />
+      {/* Main-lane halo */}
+      {isMain && (
+        <circle cx={cx} cy={cy} r={dotR + 5} fill={`${node.color}14`} stroke="none" />
+      )}
+      {/* Commit node */}
+      {isMerge ? (
+        <g filter={isMain ? 'url(#gc-glow-main)' : undefined}>
+          <polygon
+            points={`${cx},${cy - dotR - 1} ${cx + dotR + 1},${cy} ${cx},${cy + dotR + 1} ${cx - dotR - 1},${cy}`}
+            fill="#10131c" stroke={node.color} strokeWidth={isMain ? 2 : 1.8}
+          />
+          <circle cx={cx} cy={cy} r={2} fill={node.color} />
+        </g>
+      ) : (
+        <circle cx={cx} cy={cy} r={dotR}
+          fill="#10131c" stroke={node.color}
+          strokeWidth={isMain ? 2.5 : 2}
+          filter={isMain ? 'url(#gc-glow-main)' : undefined}
+        />
+      )}
     </svg>
   )
 }
@@ -96,17 +141,32 @@ function CtxSep() {
   return <div style={{ margin: '4px 0', borderTop: '1px solid #252d42' }} />
 }
 
+// ── Branch tip helpers ─────────────────────────────────────────────────────────
+
+const BRANCH_COLORS = ['#4d9dff', '#e8622f', '#2ec573', '#a27ef0', '#f5a832', '#1abc9c', '#e91e63', '#00bcd4']
+
+function branchShortName(name: string): string {
+  const parts = name.split('/')
+  const last = parts[parts.length - 1]
+  return last.length > 10 ? last.slice(0, 10) + '…' : last
+}
+
 // ── Commit row ─────────────────────────────────────────────────────────────────
 
-function CommitRow({ node, selected, isPrimary, repoPath, remoteUrl, onRefresh, onClick, onMultiContextMenu }: {
+function CommitRow({ node, selected, isPrimary, repoPath, remoteUrl, onRefresh, onClick, onMultiContextMenu,
+  graphColW, branchTips, branchColors, defaultBranch }: {
   node: GraphNode
-  selected: boolean     // in the selected set (highlighted)
-  isPrimary: boolean    // the one commit whose details show on the right
+  selected: boolean
+  isPrimary: boolean
   repoPath: string
   remoteUrl: string | null
   onRefresh: () => void
   onClick: (e: React.MouseEvent) => void
   onMultiContextMenu?: (e: React.MouseEvent) => void
+  graphColW: number
+  branchTips: Map<string, BranchInfo[]>
+  branchColors: Map<string, string>
+  defaultBranch: string
 }) {
   const { commit } = node
   const [hover, setHover] = useState(false)
@@ -120,6 +180,7 @@ function CommitRow({ node, selected, isPrimary, repoPath, remoteUrl, onRefresh, 
   const isMerge = commit.parentHashes.length > 1
   const ghSlug  = remoteUrl ? parseGitHubSlug(remoteUrl) : null
   const shortHash = commit.hash.slice(0, 7)
+  const tipBranches = branchTips.get(commit.hash) ?? []
 
   useEffect(() => {
     if (!ctx) return
@@ -267,13 +328,40 @@ function CommitRow({ node, selected, isPrimary, repoPath, remoteUrl, onRefresh, 
         }}
       >
         {/* Graph */}
-        <div style={{ width: GRAPH_COL_W, height: ROW_H, flexShrink: 0, overflow: 'hidden' }}>
-          <GraphCell node={node} />
+        <div style={{ width: graphColW, height: ROW_H, flexShrink: 0, overflow: 'hidden' }}>
+          <GraphCell node={node} graphColW={graphColW} />
         </div>
 
         {/* Content */}
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', paddingLeft: 6, paddingRight: 10 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3, overflow: 'hidden' }}>
+            {/* Branch tip pills */}
+            {tipBranches.map(b => {
+              const bCol = branchColors.get(b.name) ?? '#4d9dff'
+              const isDefault = b.name === defaultBranch
+              const icon = isDefault ? '★' : b.current ? '◉' : '•'
+              return (
+                <span key={b.name} style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 3, flexShrink: 0,
+                  background: `${bCol}16`, color: bCol,
+                  border: `1px solid ${bCol}45`,
+                  borderRadius: 4, padding: '1px 6px',
+                  fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 500,
+                }}>
+                  <span style={{ fontSize: 9 }}>{icon}</span>
+                  {branchShortName(b.name)}
+                  {b.current && (
+                    <span style={{
+                      background: `${bCol}28`, color: bCol,
+                      border: `1px solid ${bCol}55`,
+                      borderRadius: 3, padding: '0 4px',
+                      fontFamily: "'JetBrains Mono', monospace", fontSize: 8, fontWeight: 700,
+                      letterSpacing: '0.04em',
+                    }}>HEAD</span>
+                  )}
+                </span>
+              )
+            })}
             <span style={{
               fontFamily: "'IBM Plex Sans', system-ui", fontSize: 13,
               fontWeight: isPrimary ? 600 : 400, color: selected ? '#dde1f0' : '#b0b8cc',
@@ -291,8 +379,7 @@ function CommitRow({ node, selected, isPrimary, repoPath, remoteUrl, onRefresh, 
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{
               width: 16, height: 16, borderRadius: '50%', flexShrink: 0,
-              background: `linear-gradient(135deg, ${col}88, ${col}44)`,
-              border: `1px solid ${col}55`,
+              background: `${col}22`, border: `1px solid ${col}44`,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontFamily: "'JetBrains Mono', monospace", fontSize: 8, fontWeight: 700, color: col,
             }}>{ini}</span>
@@ -778,74 +865,195 @@ function StashPanel({ repoPath }: { repoPath: string }) {
 
 // ── Branch filter helpers ──────────────────────────────────────────────────────
 
-function BranchFilterIcon() {
+function CollapseBtn({ isCollapsed, onClick }: { isCollapsed: boolean; onClick: () => void }) {
+  const [hover, setHover] = useState(false)
   return (
-    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0 }}>
-      <circle cx="5" cy="4" r="1.75" stroke="currentColor" strokeWidth="1.5" />
-      <circle cx="11" cy="4" r="1.75" stroke="currentColor" strokeWidth="1.5" />
-      <circle cx="5" cy="12" r="1.75" stroke="currentColor" strokeWidth="1.5" />
-      <line x1="5" y1="5.75" x2="5" y2="10.25" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      <path d="M11 5.75 C11 8.5 5 8.5 5 10.25" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" fill="none" />
-    </svg>
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      title={isCollapsed ? 'Show all branches' : 'Collapse to main + HEAD'}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 4,
+        height: 24, paddingLeft: 7, paddingRight: 7, borderRadius: 4,
+        background: isCollapsed ? 'rgba(232,98,47,0.15)' : hover ? '#242a3d' : 'transparent',
+        border: `1px solid ${isCollapsed ? 'rgba(232,98,47,0.55)' : '#252d42'}`,
+        color: isCollapsed ? '#e8622f' : '#8b94b0',
+        fontFamily: "'IBM Plex Sans', system-ui", fontSize: 11,
+        cursor: 'pointer', transition: 'all 0.15s', flexShrink: 0,
+      }}
+    >
+      <svg width="12" height="13" viewBox="0 0 12 13" fill="none">
+        <circle cx="2.5" cy="2.5" r="2" stroke="currentColor" strokeWidth="1.3" />
+        <circle cx="2.5" cy="10.5" r="2" stroke="currentColor" strokeWidth="1.3" />
+        <circle cx="9.5" cy="6.5" r="2" stroke="currentColor" strokeWidth="1.3" opacity={isCollapsed ? 0.35 : 1} />
+        <line x1="2.5" y1="4.5" x2="2.5" y2="8.5" stroke="currentColor" strokeWidth="1.3" />
+        <path d="M2.5 4.5 Q2.5 6.5 9.5 6.5" stroke="currentColor" strokeWidth="1.3" fill="none" opacity={isCollapsed ? 0.35 : 1} />
+      </svg>
+      {isCollapsed ? 'Core' : 'All'}
+    </button>
   )
 }
 
-function BranchFilterRow({
-  name, checked, locked, isCurrent, onToggle,
-}: {
-  name: string; checked: boolean; locked?: boolean; isCurrent?: boolean; onToggle: () => void
+function BranchDropdownRow({ branch, checked, locked, bCol, onToggle }: {
+  branch: BranchInfo; checked: boolean; locked?: boolean; bCol: string; onToggle: () => void
 }) {
   const [hover, setHover] = useState(false)
+  const isDefault = locked
   return (
     <div
       onClick={locked ? undefined : onToggle}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       style={{
-        display: 'flex', alignItems: 'center', gap: 8,
-        height: 32, paddingLeft: 12, paddingRight: 12,
-        background: hover && !locked ? '#242a3d' : 'transparent',
+        display: 'flex', alignItems: 'center', gap: 10,
+        padding: '7px 12px', borderBottom: '1px solid #1e2438',
         cursor: locked ? 'default' : 'pointer',
-        transition: 'background 0.1s',
+        background: hover && !locked ? '#1e2436' : 'transparent',
+        opacity: !checked && !locked ? 0.5 : 1,
+        transition: 'opacity 0.12s, background 0.1s',
       }}
     >
       {/* Checkbox */}
-      <div style={{
+      <span style={{
         width: 14, height: 14, borderRadius: 3, flexShrink: 0,
-        background: checked ? '#e8622f' : 'transparent',
-        border: `1.5px solid ${checked ? '#e8622f' : '#2f3a54'}`,
+        background: checked ? bCol : 'transparent',
+        border: `1.5px solid ${checked ? bCol : '#2f3a54'}`,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        transition: 'all 0.1s',
+        transition: 'all 0.12s',
       }}>
         {checked && (
-          <svg width="9" height="7" viewBox="0 0 9 7" fill="none">
-            <path d="M1 3.5L3.5 6L8 1" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          <svg width="8" height="6" viewBox="0 0 8 6" fill="none">
+            <path d="M1 3L3 5L7 1" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         )}
-      </div>
+      </span>
+      {/* Lane color bar */}
+      <span style={{ width: 3, height: 16, borderRadius: 2, background: bCol, flexShrink: 0 }} />
       {/* Branch name */}
       <span style={{
-        fontFamily: "'JetBrains Mono', monospace", fontSize: 12,
-        color: locked ? '#4e5870' : '#dde1f0',
-        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1,
-      }}>{name}</span>
+        fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: '#dde1f0',
+        flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+      }}>{branch.name}</span>
       {/* Badges */}
       <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-        {isCurrent && (
+        {isDefault && (
           <span style={{
-            fontFamily: "'IBM Plex Sans', system-ui", fontSize: 9, fontWeight: 600,
-            background: 'rgba(46,197,115,0.15)', color: '#2ec573',
-            border: '1px solid rgba(46,197,115,0.3)', borderRadius: 3, padding: '1px 5px',
+            background: 'rgba(77,157,255,0.14)', color: '#4d9dff',
+            border: '1px solid rgba(77,157,255,0.35)',
+            borderRadius: 3, padding: '0 5px',
+            fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 700,
+          }}>default</span>
+        )}
+        {branch.current && (
+          <span style={{
+            background: `${bCol}22`, color: bCol,
+            border: `1px solid ${bCol}45`,
+            borderRadius: 3, padding: '0 5px',
+            fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 700,
           }}>HEAD</span>
         )}
-        {locked && (
-          <span style={{
-            fontFamily: "'IBM Plex Sans', system-ui", fontSize: 9, fontWeight: 600,
-            background: 'rgba(77,157,255,0.12)', color: '#4d9dff',
-            border: '1px solid rgba(77,157,255,0.25)', borderRadius: 3, padding: '1px 5px',
-          }}>always</span>
-        )}
       </div>
+    </div>
+  )
+}
+
+function BranchDropdown({ open, onToggleOpen, branches, selectedBranches, defaultBranch, branchColors, onToggleBranch, onShowAll }: {
+  open: boolean
+  onToggleOpen: () => void
+  branches: BranchInfo[]
+  selectedBranches: Set<string>
+  defaultBranch: string
+  branchColors: Map<string, string>
+  onToggleBranch: (name: string) => void
+  onShowAll: () => void
+}) {
+  const allShown = selectedBranches.size === 0
+  const visibleCount = allShown ? branches.length : branches.filter(b => b.name === defaultBranch || selectedBranches.has(b.name)).length
+  const swatchBranches = [
+    ...branches.filter(b => b.name === defaultBranch),
+    ...branches.filter(b => b.name !== defaultBranch),
+  ]
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <button
+        onClick={onToggleOpen}
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 5,
+          height: 24, paddingLeft: 9, paddingRight: 7, borderRadius: 4,
+          background: open ? '#242a3d' : 'transparent',
+          border: `1px solid ${open ? '#2f3a54' : '#252d42'}`,
+          color: '#8b94b0',
+          fontFamily: "'IBM Plex Sans', system-ui", fontSize: 11, fontWeight: 500,
+          cursor: 'pointer', transition: 'all 0.12s', flexShrink: 0,
+        }}
+      >
+        {/* Mini lane swatches */}
+        <span style={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+          {swatchBranches.map(b => {
+            const bCol = branchColors.get(b.name) ?? '#4d9dff'
+            const isShown = allShown || b.name === defaultBranch || selectedBranches.has(b.name)
+            return (
+              <span key={b.name} style={{
+                width: 5, height: 12, borderRadius: 2,
+                background: isShown ? bCol : '#252d42',
+                opacity: isShown ? 0.85 : 0.35,
+                transition: 'background 0.15s, opacity 0.15s',
+              }} />
+            )
+          })}
+        </span>
+        <span>{visibleCount} branch{visibleCount !== 1 ? 'es' : ''}</span>
+        <svg width="8" height="5" viewBox="0 0 8 5" fill="none"
+          style={{ transition: 'transform 0.15s', transform: open ? 'rotate(180deg)' : 'none' }}>
+          <path d="M1 1L4 4L7 1" stroke="#4e5870" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+
+      {open && (
+        <>
+          <div onClick={onToggleOpen} style={{ position: 'fixed', inset: 0, zIndex: 90 }} />
+          <div style={{
+            position: 'absolute', top: 'calc(100% + 4px)', right: 0, zIndex: 91,
+            background: '#1d2235', border: '1px solid #2f3a54',
+            borderRadius: 6, boxShadow: '0 8px 32px rgba(0,0,0,0.55)',
+            minWidth: 240, overflow: 'hidden',
+          }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '8px 12px 6px', borderBottom: '1px solid #252d42',
+            }}>
+              <span style={{
+                fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 700,
+                color: '#4e5870', letterSpacing: '0.1em', textTransform: 'uppercase',
+              }}>Filter branches</span>
+              <button
+                onClick={onShowAll}
+                style={{
+                  fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10, color: '#e8622f',
+                  background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+                }}
+              >Show all</button>
+            </div>
+            {swatchBranches.map(b => {
+              const bCol = branchColors.get(b.name) ?? '#4d9dff'
+              const isLocked = b.name === defaultBranch
+              const isChecked = allShown || isLocked || selectedBranches.has(b.name)
+              return (
+                <BranchDropdownRow
+                  key={b.name}
+                  branch={b}
+                  checked={isChecked}
+                  locked={isLocked}
+                  bCol={bCol}
+                  onToggle={() => onToggleBranch(b.name)}
+                />
+              )
+            })}
+          </div>
+        </>
+      )}
     </div>
   )
 }
@@ -905,16 +1113,43 @@ export function HistoryPanel({ repoPath }: HistoryPanelProps) {
   const [defaultBranch,  setDefaultBranch]  = useState('main')
   const [selectedBranches, setSelectedBranches] = useState<Set<string>>(new Set())
   const [filterOpen,     setFilterOpen]     = useState(false)
-  const filterRef = useRef<HTMLDivElement>(null)
+  const [branchTips,     setBranchTips]     = useState<Map<string, BranchInfo[]>>(new Map())
 
-  useEffect(() => {
-    if (!filterOpen) return
-    const handler = (e: MouseEvent) => {
-      if (filterRef.current && !filterRef.current.contains(e.target as Node)) setFilterOpen(false)
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [filterOpen])
+  // Branch colors: default branch = index 0 → blue, others follow palette order
+  const branchColors = React.useMemo(() => {
+    const sorted = [
+      ...branches.filter(b => b.name === defaultBranch),
+      ...branches.filter(b => b.name !== defaultBranch),
+    ]
+    const map = new Map<string, string>()
+    sorted.forEach((b, i) => map.set(b.name, BRANCH_COLORS[i % BRANCH_COLORS.length]))
+    return map
+  }, [branches, defaultBranch])
+
+  // Dynamic graph column width — fits the widest lane across all nodes
+  const graphColW = React.useMemo(() => {
+    if (nodes.length === 0) return GRAPH_PAD * 2 + LANE_W
+    const maxLane = nodes.reduce((m, n) => Math.max(m, n.maxLane), 0)
+    return GRAPH_PAD + (maxLane + 1) * LANE_W + GRAPH_PAD
+  }, [nodes])
+
+  const isCollapsed = selectedBranches.size > 0
+
+  const fetchBranchTips = useCallback(async (branchList: BranchInfo[]) => {
+    const tips = new Map<string, BranchInfo[]>()
+    const locals = branchList.filter(b => !b.isRemote)
+    await Promise.all(locals.map(async b => {
+      try {
+        const [tip] = await ipc.log(repoPath, { limit: 1, refs: [b.name] })
+        if (tip) {
+          const arr = tips.get(tip.hash) ?? []
+          arr.push(b)
+          tips.set(tip.hash, arr)
+        }
+      } catch {}
+    }))
+    setBranchTips(new Map(tips))
+  }, [repoPath])
 
   // ── Drag resize ──────────────────────────────────────────────────────────────
   const [listWidth,   setListWidth]   = useState(480)
@@ -974,8 +1209,10 @@ export function HistoryPanel({ repoPath }: HistoryPanelProps) {
       ipc.branchList(repoPath),
       ipc.gitDefaultBranch(repoPath),
     ]).then(([bList, def]) => {
-      setBranches(bList.filter(b => !b.isRemote))
+      const locals = bList.filter(b => !b.isRemote)
+      setBranches(locals)
       setDefaultBranch(def)
+      fetchBranchTips(locals)
     }).catch(() => {})
     loadHistory(INITIAL_LIMIT, new Set())
   }, [repoPath])
@@ -996,10 +1233,37 @@ export function HistoryPanel({ repoPath }: HistoryPanelProps) {
   }
 
   const toggleBranch = (name: string) => {
-    if (name === defaultBranch) return // can't deselect default
+    if (name === defaultBranch) return
     const next = new Set(selectedBranches)
     next.has(name) ? next.delete(name) : next.add(name)
     setSelectedBranches(next)
+    limitRef.current = INITIAL_LIMIT
+    loadHistory(INITIAL_LIMIT, next)
+  }
+
+  const toggleCollapse = () => {
+    if (isCollapsed) {
+      // Expand: show all branches
+      const next = new Set<string>()
+      setSelectedBranches(next)
+      limitRef.current = INITIAL_LIMIT
+      loadHistory(INITIAL_LIMIT, next)
+    } else {
+      // Collapse to core: only default + current branch
+      const currentBranch = branches.find(b => b.current)?.name
+      const core = currentBranch && currentBranch !== defaultBranch
+        ? new Set([currentBranch])
+        : new Set<string>()
+      setSelectedBranches(core)
+      limitRef.current = INITIAL_LIMIT
+      loadHistory(INITIAL_LIMIT, core)
+    }
+  }
+
+  const showAllBranches = () => {
+    const next = new Set<string>()
+    setSelectedBranches(next)
+    setFilterOpen(false)
     limitRef.current = INITIAL_LIMIT
     loadHistory(INITIAL_LIMIT, next)
   }
@@ -1134,11 +1398,11 @@ export function HistoryPanel({ repoPath }: HistoryPanelProps) {
     navigator.clipboard.writeText(sorted.map(n => n.commit.hash).join('\n'))
   }
 
-  const localBranches = branches.filter(b => !b.isRemote)
-  const filterActive  = selectedBranches.size > 0
-
   return (
     <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+
+      {/* Shared SVG filter defs for the graph */}
+      <GraphDefs />
 
       {/* Left: commit list / stash list */}
       <div style={{ width: listWidth, flexShrink: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -1167,7 +1431,7 @@ export function HistoryPanel({ repoPath }: HistoryPanelProps) {
 
         {/* Header */}
         <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          display: 'flex', alignItems: 'center',
           height: 38, paddingLeft: 14, paddingRight: 8,
           borderBottom: '1px solid #252d42', background: '#161a27', flexShrink: 0, gap: 6,
         }}>
@@ -1178,56 +1442,20 @@ export function HistoryPanel({ repoPath }: HistoryPanelProps) {
             {totalLoaded > 0 ? `${totalLoaded} COMMITS` : 'HISTORY'}
           </span>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, position: 'relative' }} ref={filterRef}>
-            {/* Branch filter button */}
-            <button
-              onClick={() => setFilterOpen(o => !o)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 5,
-                height: 24, paddingLeft: 8, paddingRight: 8, borderRadius: 5,
-                background: filterActive ? 'rgba(232,98,47,0.15)' : 'transparent',
-                border: `1px solid ${filterActive ? 'rgba(232,98,47,0.4)' : '#252d42'}`,
-                color: filterActive ? '#e8622f' : '#8b94b0',
-                fontFamily: "'IBM Plex Sans', system-ui", fontSize: 11,
-                cursor: 'pointer', transition: 'all 0.12s', flexShrink: 0,
-              }}
-            >
-              <BranchFilterIcon />
-              {filterActive ? `${selectedBranches.size + 1} branches` : 'Branches'}
-            </button>
+          <div style={{ flex: 1 }} />
 
-            {/* Dropdown */}
-            {filterOpen && (
-              <div style={{
-                position: 'absolute', top: 30, right: 0, zIndex: 50, minWidth: 220,
-                background: '#1d2235', border: '1px solid #2f3a54',
-                borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.55)',
-                padding: '6px 0',
-              }}>
-                <div style={{ padding: '4px 12px 8px', fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10, fontWeight: 600, color: '#4e5870', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-                  Branches — main always shown
-                </div>
-                {/* Default branch — always on */}
-                <BranchFilterRow
-                  name={defaultBranch} checked locked
-                  onToggle={() => {}}
-                  isCurrent={branches.find(b => b.name === defaultBranch)?.current ?? false}
-                />
-                {localBranches.filter(b => b.name !== defaultBranch).map(b => (
-                  <BranchFilterRow
-                    key={b.name}
-                    name={b.name}
-                    checked={selectedBranches.has(b.name)}
-                    isCurrent={b.current}
-                    onToggle={() => toggleBranch(b.name)}
-                  />
-                ))}
-                {localBranches.length === 0 && (
-                  <div style={{ padding: '8px 12px', fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12, color: '#4e5870' }}>No other local branches</div>
-                )}
-              </div>
-            )}
-          </div>
+          <CollapseBtn isCollapsed={isCollapsed} onClick={toggleCollapse} />
+
+          <BranchDropdown
+            open={filterOpen}
+            onToggleOpen={() => setFilterOpen(o => !o)}
+            branches={branches}
+            selectedBranches={selectedBranches}
+            defaultBranch={defaultBranch}
+            branchColors={branchColors}
+            onToggleBranch={toggleBranch}
+            onShowAll={showAllBranches}
+          />
 
           <button
             onClick={() => loadHistory(limitRef.current)}
@@ -1265,6 +1493,10 @@ export function HistoryPanel({ repoPath }: HistoryPanelProps) {
               onMultiContextMenu={selectedHashes.size > 1 && selectedHashes.has(node.commit.hash)
                 ? (e) => { e.preventDefault(); setMultiCtx({ x: e.clientX, y: e.clientY }) }
                 : undefined}
+              graphColW={graphColW}
+              branchTips={branchTips}
+              branchColors={branchColors}
+              defaultBranch={defaultBranch}
             />
           ))}
 
