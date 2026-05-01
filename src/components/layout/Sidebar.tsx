@@ -109,7 +109,13 @@ function loadVisibility(): Record<string, string[]> {
 
 export function Sidebar({ active, onChange, collapsed, onToggle, width, onWidthChange, repoPath, onOpenTerminal, onOpenRepo, onOpenExplorer }: SidebarProps) {
   const { fileStatus } = useRepoStore()
-  const lockedFileCount = useLockStore(s => s.locks.length)
+  const { accounts, currentAccountId } = useAuthStore()
+  const currentLogin = accounts.find(a => a.userId === currentAccountId)?.login?.toLowerCase() ?? null
+  const lockedFileCount = useLockStore(s =>
+    currentLogin
+      ? s.locks.filter(lock => lock.owner.login.toLowerCase() === currentLogin).length
+      : 0,
+  )
   const isAdmin = useAuthStore(s => s.isAdmin(repoPath ?? ''))
   const totalChanges = fileStatus.length
   const [openPrCount, setOpenPrCount] = useState(0)
@@ -343,6 +349,7 @@ export function Sidebar({ active, onChange, collapsed, onToggle, width, onWidthC
                               ? openPrCount
                               : 0
                       }
+                      showBadge={item.id === 'timeline' || item.id === 'locks' || item.id === 'overview'}
                       disabled={item.id !== 'settings' && item.id !== 'logs' && !repoPath}
                       onClick={() => { if (repoPath || item.id === 'settings' || item.id === 'logs') onChange(item.id) }}
                     />
@@ -483,9 +490,9 @@ export function Sidebar({ active, onChange, collapsed, onToggle, width, onWidthC
 
 // ── Nav button ─────────────────────────────────────────────────────────────────
 
-function NavBtn({ item, isActive, collapsed, badge, disabled, onClick }: {
+function NavBtn({ item, isActive, collapsed, badge, showBadge, disabled, onClick }: {
   item: NavItem; isActive: boolean; collapsed: boolean
-  badge: number; disabled: boolean; onClick: () => void
+  badge: number; showBadge: boolean; disabled: boolean; onClick: () => void
 }) {
   const [hover, setHover] = React.useState(false)
   const { Icon } = item
@@ -530,7 +537,7 @@ function NavBtn({ item, isActive, collapsed, badge, disabled, onClick }: {
         </span>
       )}
 
-      {!collapsed && badge > 0 && (
+      {!collapsed && showBadge && (
         <span style={{
           background: isActive ? 'rgba(var(--lg-accent-rgb), 0.25)' : 'rgba(255,255,255,0.07)',
           color: isActive ? 'var(--lg-accent)' : 'var(--lg-text-secondary)',
@@ -542,7 +549,7 @@ function NavBtn({ item, isActive, collapsed, badge, disabled, onClick }: {
         }}>{badge}</span>
       )}
 
-      {collapsed && badge > 0 && (
+      {collapsed && showBadge && (
         <span style={{
           position: 'absolute', top: 5, right: 5,
           width: 6, height: 6, borderRadius: '50%',
