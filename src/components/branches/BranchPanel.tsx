@@ -321,7 +321,7 @@ export function BranchPanel({ onMergePreview, onRefresh }: BranchPanelProps) {
   }, [selectedBranchName, repoPath, ghSlug, insights, opRun])
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
+    <div className="flex-1 w-full h-full flex flex-col overflow-hidden">
 
       {/* ── Stash/keep dialog ──────────────────────────────────────────── */}
       {switchConfirm && (
@@ -364,8 +364,8 @@ export function BranchPanel({ onMergePreview, onRefresh }: BranchPanelProps) {
       )}
 
       {/* ── Scrollable branch lists ─────────────────────────────────────── */}
-      <div ref={splitWrapRef} className="flex-1 min-h-0 flex">
-        <div className="min-w-0 overflow-y-auto" style={{ width: `${splitPct}%` }}>
+      <div ref={splitWrapRef} className="flex-1 min-h-0 flex w-full h-full">
+        <div className="min-w-0 overflow-y-auto h-full" style={{ width: `${splitPct}%` }}>
           {/* ── LOCAL ──────────────────────────────────────────────────────── */}
           <SectionHeader label="Local" count={localBranches.length} />
 
@@ -558,7 +558,7 @@ export function BranchPanel({ onMergePreview, onRefresh }: BranchPanelProps) {
           className="w-1.5 cursor-col-resize bg-lg-border/80 hover:bg-lg-accent/60 transition-colors"
           title="Drag to resize panels"
         />
-        <div className="min-w-0 overflow-y-auto bg-lg-bg-primary/40 flex-1">
+        <div className="min-w-0 overflow-y-auto bg-lg-bg-primary/40 flex-1 h-full">
           {!selectedBranch && (
             <div className="px-5 py-6 text-[11px] font-mono text-lg-text-secondary">
               Select any local or remote branch to view health, lock activity, presence, risk, and divergence details.
