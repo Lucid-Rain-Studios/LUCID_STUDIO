@@ -346,7 +346,7 @@ export function BranchPanel({ onMergePreview, onRefresh }: BranchPanelProps) {
 
       {/* ── Scrollable branch lists ─────────────────────────────────────── */}
       <div className="flex-1 min-h-0 flex">
-        <div className="w-[52%] min-w-[320px] border-r border-lg-border overflow-y-auto">
+        <div className="w-1/2 min-w-0 border-r border-lg-border overflow-y-auto">
           {/* ── LOCAL ──────────────────────────────────────────────────────── */}
           <SectionHeader label="Local" count={localBranches.length} />
 
@@ -534,7 +534,7 @@ export function BranchPanel({ onMergePreview, onRefresh }: BranchPanelProps) {
         )}
 
         </div>
-        <div className="flex-1 min-w-[360px] overflow-y-auto bg-lg-bg-primary/40">
+        <div className="w-1/2 min-w-0 overflow-y-auto bg-lg-bg-primary/40">
           {!selectedBranch && (
             <div className="px-5 py-6 text-[11px] font-mono text-lg-text-secondary">
               Select any local or remote branch to view health, lock activity, presence, risk, and divergence details.
