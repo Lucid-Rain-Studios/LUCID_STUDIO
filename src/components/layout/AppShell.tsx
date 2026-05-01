@@ -253,7 +253,6 @@ export function AppShell() {
   useEffect(() => {
     if (authChecked && !isSignedIn) {
       clearRepo()
-      setShowLoginDialog(true)
     }
   }, [authChecked, isSignedIn, clearRepo])
 
