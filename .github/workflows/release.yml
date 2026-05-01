@@ -79,10 +79,10 @@ jobs:
         with:
           name: lucid-git-${{ matrix.platform }}-${{ github.ref_name }}
           path: |
-            dist/*.exe
-            dist/*.dmg
-            dist/*.AppImage
-            dist/*.blockmap
-            dist/latest*.yml
+            Build/*.exe
+            Build/*.dmg
+            Build/*.AppImage
+            Build/*.blockmap
+            Build/latest*.yml
           if-no-files-found: ignore
           retention-days: 7
