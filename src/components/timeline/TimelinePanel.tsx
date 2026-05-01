@@ -742,10 +742,30 @@ function LeftCommitRow({ node, selected, repoPath, remoteUrl, onRefresh, onClick
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1,
             }}>{commit.message}</span>
             {needsPush && (
-              <span title="Needs push" style={{ color: '#7dd3fc', fontSize: 11, lineHeight: 1, flexShrink: 0 }}>↑</span>
+              <span
+                title="Needs push"
+                style={{
+                  width: 16, height: 16, borderRadius: '50%', flexShrink: 0,
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  background: 'rgba(125, 211, 252, 0.14)',
+                  border: '1px solid rgba(125, 211, 252, 0.5)',
+                  color: '#c4eeff', fontSize: 11, fontWeight: 700, lineHeight: 1,
+                  boxShadow: '0 0 0 1px rgba(9, 12, 19, 0.35) inset',
+                }}
+              >↑</span>
             )}
             {needsPull && (
-              <span title="Needs pull" style={{ color: '#fca5a5', fontSize: 11, lineHeight: 1, flexShrink: 0 }}>↓</span>
+              <span
+                title="Needs pull"
+                style={{
+                  width: 16, height: 16, borderRadius: '50%', flexShrink: 0,
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  background: 'rgba(252, 165, 165, 0.14)',
+                  border: '1px solid rgba(252, 165, 165, 0.5)',
+                  color: '#ffd1d1', fontSize: 11, fontWeight: 700, lineHeight: 1,
+                  boxShadow: '0 0 0 1px rgba(9, 12, 19, 0.35) inset',
+                }}
+              >↓</span>
             )}
             {isMerge && (
               <span style={{
