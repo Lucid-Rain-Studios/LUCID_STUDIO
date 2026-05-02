@@ -80,11 +80,16 @@ export function MergePreviewDialog({ targetBranch, onClose, onMerged }: MergePre
     } catch (e) {
       const msg = String(e)
       if (msg.toLowerCase().includes('conflict')) {
-        const textConflicts = conflicts.filter(c => c.conflictType === 'content')
-        const loaded: Record<string, MergeConflictText> = {}
-        for (const c of textConflicts) loaded[c.path] = await ipc.mergeGetConflictText(repoPath, c.path)
-        setTextByFile(loaded)
         setInConflictResolution(true)
+        const loaded: Record<string, MergeConflictText> = {}
+        await Promise.all(conflicts.filter(c => c.conflictType === 'content').map(async c => {
+          try {
+            loaded[c.path] = await ipc.mergeGetConflictText(repoPath, c.path)
+          } catch {
+            loaded[c.path] = { ours: '(Unable to load ours)', theirs: '(Unable to load theirs)' }
+          }
+        }))
+        setTextByFile(loaded)
         setError(null)
       } else {
         setError(msg)
@@ -95,8 +100,12 @@ export function MergePreviewDialog({ targetBranch, onClose, onMerged }: MergePre
 
   const resolveFile = async (filePath: string, choice: 'ours' | 'theirs') => {
     if (!repoPath) return
-    await opRun(`Resolving ${filePath}…`, () => ipc.mergeResolveText(repoPath, filePath, choice))
-    setResolvedFiles(prev => ({ ...prev, [filePath]: choice }))
+    try {
+      await opRun(`Resolving ${filePath}…`, () => ipc.mergeResolveText(repoPath, filePath, choice))
+      setResolvedFiles(prev => ({ ...prev, [filePath]: choice }))
+    } catch (e) {
+      setError(String(e))
+    }
   }
 
   const finalizeMerge = async () => {
@@ -247,17 +256,19 @@ export function MergePreviewDialog({ targetBranch, onClose, onMerged }: MergePre
 
         {inConflictResolution && (
           <div className="border-t border-lg-border bg-lg-bg-secondary/50 px-4 py-3 space-y-3">
-            <div className="text-[11px] font-mono text-lg-warning">Resolve text conflicts</div>
-            {conflicts.filter(c => c.conflictType === 'content').map(c => {
+            <div className="text-[11px] font-mono text-lg-warning">Resolve merge conflicts</div>
+            {conflicts.map(c => {
               const done = resolvedFiles[c.path]
               const text = textByFile[c.path]
               return (
                 <div key={c.path} className="border border-lg-border rounded p-2 space-y-2">
                   <div className="text-[10px] font-mono text-lg-text-primary">{c.path}</div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <pre className="text-[9px] font-mono bg-lg-bg-primary rounded p-2 max-h-28 overflow-auto whitespace-pre-wrap">{text?.ours || ''}</pre>
-                    <pre className="text-[9px] font-mono bg-lg-bg-primary rounded p-2 max-h-28 overflow-auto whitespace-pre-wrap">{text?.theirs || ''}</pre>
-                  </div>
+                  {c.conflictType === 'content' && (
+                    <div className="grid grid-cols-2 gap-2">
+                      <pre className="text-[9px] font-mono bg-lg-bg-primary rounded p-2 max-h-28 overflow-auto whitespace-pre-wrap">{text?.ours || ''}</pre>
+                      <pre className="text-[9px] font-mono bg-lg-bg-primary rounded p-2 max-h-28 overflow-auto whitespace-pre-wrap">{text?.theirs || ''}</pre>
+                    </div>
+                  )}
                   <div className="flex gap-2">
                     <button onClick={() => resolveFile(c.path, 'ours')} className="px-2 h-6 text-[10px] font-mono border rounded border-lg-border">Accept ours</button>
                     <button onClick={() => resolveFile(c.path, 'theirs')} className="px-2 h-6 text-[10px] font-mono border rounded border-lg-border">Accept theirs</button>
@@ -266,7 +277,7 @@ export function MergePreviewDialog({ targetBranch, onClose, onMerged }: MergePre
                 </div>
               )
             })}
-            <button onClick={finalizeMerge} disabled={Object.keys(resolvedFiles).length < conflicts.filter(c => c.conflictType === 'content').length} className="px-3 h-7 rounded text-[11px] font-mono bg-lg-success/20 border border-lg-success/60 text-lg-success disabled:opacity-40">Finalize merge</button>
+            <button onClick={finalizeMerge} disabled={Object.keys(resolvedFiles).length < conflicts.length} className="px-3 h-7 rounded text-[11px] font-mono bg-lg-success/20 border border-lg-success/60 text-lg-success disabled:opacity-40">Finalize merge</button>
           </div>
         )}
 
@@ -289,7 +300,7 @@ export function MergePreviewDialog({ targetBranch, onClose, onMerged }: MergePre
               </button>
               <button
                 onClick={doMerge}
-                disabled={merging}
+                disabled={merging || inConflictResolution}
                 className={cn(
                   'px-3 h-7 rounded text-[11px] font-mono transition-colors disabled:opacity-40',
                   conflicts.length > 0
