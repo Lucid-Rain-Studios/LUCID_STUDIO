@@ -37,7 +37,7 @@ const TYPE_ICON: Record<ConflictPreviewFile['type'], string> = {
 }
 
 export function MergePreviewDialog({ targetBranch, onClose, onMerged }: MergePreviewDialogProps) {
-  const { repoPath, currentBranch, refreshStatus } = useRepoStore()
+  const { repoPath, currentBranch, refreshStatus, bumpSyncTick } = useRepoStore()
 
   const [loading, setLoading]   = useState(true)
   const [conflicts, setConflicts] = useState<ConflictPreviewFile[]>([])
@@ -47,6 +47,7 @@ export function MergePreviewDialog({ targetBranch, onClose, onMerged }: MergePre
   const [inConflictResolution, setInConflictResolution] = useState(false)
   const [textByFile, setTextByFile] = useState<Record<string, MergeConflictText>>({})
   const [resolvedFiles, setResolvedFiles] = useState<Record<string, 'ours' | 'theirs'>>({})
+  const [preselectedChoices, setPreselectedChoices] = useState<Record<string, 'ours' | 'theirs'>>({})
   const opRun = useOperationStore(s => s.run)
 
   useEffect(() => {
@@ -85,6 +86,7 @@ export function MergePreviewDialog({ targetBranch, onClose, onMerged }: MergePre
     try {
       await opRun(`Merging ${targetBranch}…`, () => ipc.merge(repoPath, targetBranch))
       await refreshStatus()
+      bumpSyncTick()
       onMerged()
       onClose()
     } catch (e) {
@@ -101,6 +103,14 @@ export function MergePreviewDialog({ targetBranch, onClose, onMerged }: MergePre
         }))
         setTextByFile(loaded)
         setError(null)
+
+        const selectedEntries = Object.entries(preselectedChoices)
+        if (selectedEntries.length > 0) {
+          for (const [filePath, choice] of selectedEntries) {
+            await opRun(`Resolving ${filePath}…`, () => ipc.mergeResolveText(repoPath, filePath, choice))
+          }
+          setResolvedFiles(prev => ({ ...prev, ...preselectedChoices }))
+        }
       } else {
         setError(msg)
       }
@@ -122,6 +132,7 @@ export function MergePreviewDialog({ targetBranch, onClose, onMerged }: MergePre
     if (!repoPath) return
     await opRun('Finalizing merge…', () => ipc.mergeContinue(repoPath, targetBranch))
     await refreshStatus()
+    bumpSyncTick()
     onMerged()
     onClose()
   }
@@ -235,13 +246,26 @@ export function MergePreviewDialog({ targetBranch, onClose, onMerged }: MergePre
                     </span>
                   </div>
 
-                  {/* Contributor comparison */}
+                  {/* Contributor comparison (click a side to preselect resolution) */}
                   <div className="grid grid-cols-2 gap-2">
                     {([
-                      { label: 'Ours', info: file.ours },
-                      { label: 'Theirs', info: file.theirs },
-                    ] as const).map(({ label, info }) => (
-                      <div key={label} className="bg-lg-bg-secondary rounded px-2 py-1.5 space-y-0.5">
+                      { label: 'Ours', info: file.ours, choice: 'ours' as const },
+                      { label: 'Theirs', info: file.theirs, choice: 'theirs' as const },
+                    ] as const).map(({ label, info, choice }) => (
+                      <button
+                        key={label}
+                        type="button"
+                        onClick={() => setPreselectedChoices(prev => ({ ...prev, [file.path]: choice }))}
+                        className={cn(
+                          'bg-lg-bg-secondary rounded px-2 py-1.5 space-y-0.5 text-left border transition-colors',
+                          preselectedChoices[file.path] === choice
+                            ? choice === 'ours'
+                              ? 'border-lg-success bg-lg-success/10'
+                              : 'border-lg-accent bg-lg-accent/10'
+                            : 'border-lg-border hover:border-lg-accent/60'
+                        )}
+                        title={`Use ${label.toLowerCase()} version for ${file.path}`}
+                      >
                         <div className="text-[9px] font-mono uppercase tracking-widest text-lg-text-secondary">
                           {label} · <span className="text-lg-accent">{info.branch}</span>
                         </div>
@@ -255,7 +279,7 @@ export function MergePreviewDialog({ targetBranch, onClose, onMerged }: MergePre
                           <span>{info.lastEditedAt ? timeAgo(info.lastEditedAt) : '—'}</span>
                           {info.sizeBytes > 0 && <span>{formatBytes(info.sizeBytes)}</span>}
                         </div>
-                      </div>
+                      </button>
                     ))}
                   </div>
                 </div>
