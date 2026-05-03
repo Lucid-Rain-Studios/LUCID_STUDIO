@@ -10,27 +10,55 @@ echo  Lucid Git - Patch Release (GitHub Actions)
 echo ============================================
 echo.
 
-where npm >nul 2>&1
-if errorlevel 1 (
-  echo ERROR: npm is not installed or not on PATH.
-  exit /b 1
-)
 where git >nul 2>&1
 if errorlevel 1 (
   echo ERROR: git is not installed or not on PATH.
-  exit /b 1
+  goto :fail
 )
+where node >nul 2>&1
+if errorlevel 1 (
+  echo ERROR: node is not installed or not on PATH.
+  echo.
+  echo Checked PATH and could not find node.exe. If you use nvm for Windows,
+  echo run:
+  echo   nvm list
+  echo   nvm use 20
+  echo.
+  echo Then reopen this window and run bat-patch.bat again.
+  goto :fail
+)
+where npm >nul 2>&1
+if errorlevel 1 (
+  echo ERROR: npm is not installed or not on PATH.
+  echo.
+  echo Found node here:
+  where node
+  echo.
+  echo If that path is under WindowsApps or Codex, it is not your project Node.js.
+  echo Install or repair Node.js 20. If you use nvm for Windows, run:
+  echo   nvm list
+  echo   nvm use 20
+  echo.
+  echo Then reopen this window and run bat-patch.bat again.
+  goto :fail
+)
+
+echo [preflight] Tool paths:
+where git
+where node
+where npm
+echo.
 
 echo [0/7] Switching to main and syncing latest...
 git checkout main
 if errorlevel 1 (
   echo ERROR: Failed to checkout main.
-  exit /b 1
+  goto :fail
 )
 git pull origin main
 if errorlevel 1 (
   echo ERROR: Failed to pull latest main.
-  exit /b 1
+  goto :fail
 )
 echo.
 
@@ -38,12 +66,12 @@ echo [1/7] Verifying git working tree is clean...
 git diff --quiet
 if errorlevel 1 (
   echo ERROR: You have uncommitted changes. Commit or stash them before running patch release.
-  exit /b 1
+  goto :fail
 )
 git diff --cached --quiet
 if errorlevel 1 (
   echo ERROR: You have staged but uncommitted changes. Commit or stash them before running patch release.
-  exit /b 1
+  goto :fail
 )
 echo.
 
@@ -51,7 +79,7 @@ echo [2/7] Installing dependencies...
 call npm ci --include=dev
 if errorlevel 1 (
   echo ERROR: npm ci failed.
-  exit /b 1
+  goto :fail
 )
 echo.
 
@@ -59,7 +87,7 @@ echo [3/7] Bumping patch version...
 call npm version patch
 if errorlevel 1 (
   echo ERROR: Version bump failed.
-  exit /b 1
+  goto :fail
 )
 echo.
 
@@ -67,7 +95,7 @@ echo [4/7] Running package build sanity check...
 call npm run package
 if errorlevel 1 (
   echo ERROR: Package build failed.
-  exit /b 1
+  goto :fail
 )
 echo.
 
@@ -75,7 +103,7 @@ echo [5/7] Pushing main branch...
 git push origin main
 if errorlevel 1 (
   echo ERROR: Failed to push main branch.
-  exit /b 1
+  goto :fail
 )
 echo.
 
@@ -83,7 +111,7 @@ echo [6/7] Pushing tags...
 git push origin --tags
 if errorlevel 1 (
   echo ERROR: Failed to push tags.
-  exit /b 1
+  goto :fail
 )
 echo.
 
@@ -98,4 +126,13 @@ echo   3. Confirm release v!VERSION! assets include:
 echo      - latest.yml
 echo      - Lucid-Git-!VERSION!-win-x64.exe
 echo      - Lucid-Git-!VERSION!-win-x64.exe.blockmap
+echo.
+echo Press any key to close this window...
+pause >nul
 exit /b 0
+
+:fail
+echo.
+echo Patch release stopped. Press any key to close this window...
+pause >nul
+exit /b 1
