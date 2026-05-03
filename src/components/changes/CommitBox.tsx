@@ -8,7 +8,11 @@ import { useDialogStore } from '@/stores/dialogStore'
 
 type HookState = 'idle' | 'running' | 'passed' | 'failed'
 
-export function CommitBox() {
+interface CommitBoxProps {
+  deferredStagePaths?: string[]
+}
+
+export function CommitBox({ deferredStagePaths }: CommitBoxProps = {}) {
   const { repoPath, fileStatus, refreshStatus, bumpSyncTick } = useRepoStore()
   const opRun = useOperationStore(s => s.run)
   const dialog = useDialogStore()
@@ -22,8 +26,18 @@ export function CommitBox() {
   const [hookOutput, setHookOutput]   = useState('')
   const [hookDuration, setHookDuration] = useState(0)
 
-  const stagedCount = fileStatus.filter(f => f.staged).length
-  const canCommit   = Boolean(repoPath && message.trim() && stagedCount > 0 && !isCommitting)
+  const selectedCount = deferredStagePaths ? deferredStagePaths.length : fileStatus.filter(f => f.staged).length
+  const canCommit   = Boolean(repoPath && message.trim() && selectedCount > 0 && !isCommitting)
+
+  const prepareDeferredStage = async () => {
+    if (!repoPath || !deferredStagePaths) return
+    const selected = new Set(deferredStagePaths)
+    const stagedPaths = fileStatus.filter(f => f.staged).map(f => f.path)
+    const unselectedStaged = stagedPaths.filter(path => !selected.has(path))
+
+    if (unselectedStaged.length > 0) await ipc.unstage(repoPath, unselectedStaged)
+    if (deferredStagePaths.length > 0) await ipc.stage(repoPath, deferredStagePaths)
+  }
 
   const runCommit = async (noVerify = false) => {
     if (!repoPath) return
@@ -59,6 +73,7 @@ export function CommitBox() {
     setError(null)
 
     try {
+      await prepareDeferredStage()
       const result = await ipc.hookRunPreCommit(repoPath)
 
       if (!result.exists || result.exitCode === 0) {
@@ -89,6 +104,7 @@ export function CommitBox() {
     if (!confirmed) return
     setHookState('idle')
     setHookOutput('')
+    await prepareDeferredStage()
     await runCommit(true)
   }
 
@@ -101,11 +117,11 @@ export function CommitBox() {
           if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && canCommit) handleCommit()
         }}
         placeholder={
-          stagedCount > 0
+          selectedCount > 0
             ? 'Summary (Ctrl+Enter to commit)'
             : 'Stage changes to commit'
         }
-        disabled={stagedCount === 0 || isCommitting}
+        disabled={selectedCount === 0 || isCommitting}
         rows={3}
         className="w-full bg-lg-bg-primary border border-lg-border rounded px-2 py-1.5 text-xs font-mono text-lg-text-primary placeholder:text-lg-text-secondary resize-none focus:outline-none focus:border-lg-accent disabled:opacity-40 transition-colors"
       />
@@ -168,8 +184,8 @@ export function CommitBox() {
             ? 'Committing…'
             : hookState === 'running'
               ? 'Running hook…'
-              : stagedCount > 0
-                ? `Commit ${stagedCount} file${stagedCount !== 1 ? 's' : ''}`
+              : selectedCount > 0
+                ? `Commit ${selectedCount} file${selectedCount !== 1 ? 's' : ''}`
                 : 'Commit'}
         </button>
       )}

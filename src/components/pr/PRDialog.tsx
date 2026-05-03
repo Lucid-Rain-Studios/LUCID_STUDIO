@@ -21,6 +21,10 @@ function branchToTitle(branch: string): string {
     .trim()
 }
 
+function normalizeBranchName(branch: string): string {
+  return branch.replace(/^refs\/heads\//, '').replace(/^origin\//, '')
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type Phase = 'form' | 'submitting' | 'success' | 'error'
@@ -163,18 +167,22 @@ export function PRDialog() {
   const owner = parts[0] ?? ''
   const repo  = parts[1] ?? ''
 
-  const localBranches = branches
-    .filter(b => !b.isRemote && b.name !== headBranch)
-    .map(b => b.name)
+  const normalizedHead = headBranch ? normalizeBranchName(headBranch) : ''
+  const selectableBranches = Array.from(new Set(
+    branches
+      .map(b => normalizeBranchName(b.displayName || b.name))
+      .filter(name => name && name !== normalizedHead)
+  ))
 
   // Build the base branch options: always put default branch first
-  const baseOptions = base && !localBranches.includes(base)
-    ? [base, ...localBranches]
-    : localBranches.length > 0 ? localBranches : [base]
+  const baseOptions = Array.from(new Set([
+    normalizeBranchName(base || 'main'),
+    ...selectableBranches,
+  ])).filter(name => name && name !== normalizedHead)
 
   useEffect(() => {
     if (!open || !repoPath || !headBranch) return
-    setTitle(branchToTitle(headBranch))
+    setTitle(branchToTitle(normalizeBranchName(headBranch)))
     setBody('')
     setDraft(false)
     setPhase('form')
@@ -232,7 +240,15 @@ export function PRDialog() {
     setPhase('submitting')
     setError(null)
     try {
-      const res = await ipc.githubCreatePR({ owner, repo, head: headBranch, base, title: title.trim(), body, draft })
+      const res = await ipc.githubCreatePR({
+        owner,
+        repo,
+        head: normalizeBranchName(headBranch),
+        base: normalizeBranchName(base || 'main'),
+        title: title.trim(),
+        body,
+        draft,
+      })
       setResult(res)
       setPhase('success')
       showStatusToast('PR created successfully.')

@@ -113,6 +113,9 @@ interface FileTreeProps {
   isLoading: boolean
   onSelect: (file: FileStatus) => void
   onRefresh: () => void
+  deferredStagePaths?: Set<string>
+  onToggleDeferredStagePath?: (path: string) => void
+  onSetDeferredStagePaths?: (paths: string[]) => void
   onBlameDeps?: (file: FileStatus) => void
 }
 
@@ -155,10 +158,12 @@ function SectionCheckbox({ allChecked, onToggle, color }: {
 }
 
 export function FileTree({
-  files, repoPath, selectedPath, locks, currentUserName, isLoading, onSelect, onRefresh, onBlameDeps,
+  files, repoPath, selectedPath, locks, currentUserName, isLoading, onSelect, onRefresh,
+  deferredStagePaths, onToggleDeferredStagePath, onSetDeferredStagePaths, onBlameDeps,
 }: FileTreeProps) {
-  const staged = useMemo(() => files.filter(f => f.staged), [files])
-  const unstaged = useMemo(() => files.filter(f => !f.staged), [files])
+  const isDeferredStaging = Boolean(deferredStagePaths && onToggleDeferredStagePath && onSetDeferredStagePaths)
+  const staged = useMemo(() => isDeferredStaging ? files : files.filter(f => f.staged), [files, isDeferredStaging])
+  const unstaged = useMemo(() => isDeferredStaging ? [] : files.filter(f => !f.staged), [files, isDeferredStaging])
   const [busy, setBusy] = useState(false)
   const dialog = useDialogStore()
   const [treeMode, setTreeMode] = useState(false)
@@ -230,9 +235,14 @@ export function FileTree({
   const lockFor = (file: FileStatus): Lock | null => lockMap.get(file.path.replace(/\\/g, '/')) ?? null
   const treeRows = useMemo(() => {
     if (!treeMode) return [] as FlatRow[]
-    const tree = buildTree(files)
+    const tree = buildTree(isDeferredStaging ? staged : files)
     return flattenTree(tree, 0, collapsedFolders)
-  }, [treeMode, files, collapsedFolders])
+  }, [treeMode, files, staged, collapsedFolders, isDeferredStaging])
+
+  const isCommitSelected = (file: FileStatus) => deferredStagePaths?.has(file.path) ?? file.staged
+  const toggleCommitSelected = (file: FileStatus) => {
+    if (isDeferredStaging) onToggleDeferredStagePath?.(file.path)
+  }
 
   const toggleFolder = (path: string) =>
     setCollapsedFolders(prev => {
@@ -403,8 +413,10 @@ export function FileTree({
                     file={row.file} repoPath={repoPath}
                     selected={selectedPath === row.file.path}
                     isMultiSelected={multiPaths.has(pathKey(row.file))}
+                    checkboxChecked={isDeferredStaging ? isCommitSelected(row.file) : undefined}
                     lock={lockFor(row.file)} currentUserName={currentUserName}
                     onSelect={(e) => handleFileClick(row.file, e)} onRefresh={onRefresh}
+                    onToggleCheckbox={isDeferredStaging ? () => toggleCommitSelected(row.file) : undefined}
                     onBlameDeps={onBlameDeps}
                     onMultiContextMenu={multiPaths.size >= 2 && multiPaths.has(pathKey(row.file))
                       ? (e) => setMultiCtx({ x: e.clientX, y: e.clientY })
@@ -415,7 +427,37 @@ export function FileTree({
 
         {/* ── Flat list mode ── */}
         {!treeMode && <>
-          {staged.length > 0 && (
+          {isDeferredStaging && staged.length > 0 && (
+            <section>
+              <SectionHeader
+                label="Staged" count={staged.length}
+                allChecked={staged.every(f => isCommitSelected(f))}
+                onToggleAll={() => {
+                  const allSelected = staged.every(f => isCommitSelected(f))
+                  onSetDeferredStagePaths?.(allSelected ? [] : staged.map(f => f.path))
+                }}
+                color="#2ec573"
+              />
+              {staged.map(file => (
+                <FileRow
+                  key={`deferred-${file.path}`}
+                  file={file} repoPath={repoPath}
+                  selected={selectedPath === file.path}
+                  isMultiSelected={multiPaths.has(pathKey(file))}
+                  checkboxChecked={isCommitSelected(file)}
+                  lock={lockFor(file)} currentUserName={currentUserName}
+                  onSelect={(e) => handleFileClick(file, e)} onRefresh={onRefresh}
+                  onToggleCheckbox={() => toggleCommitSelected(file)}
+                  onBlameDeps={onBlameDeps}
+                  onMultiContextMenu={multiPaths.size >= 2 && multiPaths.has(pathKey(file))
+                    ? (e) => setMultiCtx({ x: e.clientX, y: e.clientY })
+                    : undefined}
+                />
+              ))}
+            </section>
+          )}
+
+          {!isDeferredStaging && staged.length > 0 && (
             <section>
               <SectionHeader
                 label="Staged" count={staged.length}

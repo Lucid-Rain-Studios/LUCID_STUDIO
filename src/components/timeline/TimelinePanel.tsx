@@ -25,6 +25,7 @@ type CenterFile =
 
 const INITIAL_LIMIT = 300
 const MORE_INC = 300
+const MAIN_BRANCH_COLOR = '#7dd3fc'
 
 const ASSET_EXTS = new Set([
   'uasset', 'umap', 'upk', 'udk',
@@ -87,49 +88,154 @@ function linePath(seg: LineSegment, isTop: boolean): string {
   return `M ${x1} ${y1} C ${x1} ${y2} ${x2} ${y1} ${x2} ${y2}`
 }
 
-function GraphCell({ node, graphColW, lineColorLabels }: { node: GraphNode; graphColW: number; lineColorLabels: Map<string, string> }) {
-  const [hoveredSeg, setHoveredSeg] = useState<{ x: number; label: string; color: string } | null>(null)
-  const isMain  = node.lane === 0
+function firstParentHashes(commits: CommitEntry[], tipHash: string | undefined): Set<string> {
+  const hashes = new Set<string>()
+  if (!tipHash) return hashes
+
+  const byHash = new Map(commits.map(commit => [commit.hash, commit]))
+  let cursor: string | undefined = tipHash
+  while (cursor && !hashes.has(cursor)) {
+    const commit = byHash.get(cursor)
+    if (!commit) break
+    hashes.add(cursor)
+    cursor = commit.parentHashes[0]
+  }
+  return hashes
+}
+
+function remapGraphWithMainLeft(graph: GraphNode[], mainHashes: Set<string>): GraphNode[] {
+  if (graph.length === 0 || mainHashes.size === 0) return graph
+
+  const allLanes = new Set<number>()
+  const mainTipIndex = graph.findIndex(node => mainHashes.has(node.commit.hash))
+  if (mainTipIndex === -1) return graph
+
+  const mainLane = graph[mainTipIndex].lane
+  for (const node of graph) {
+    allLanes.add(node.lane)
+    for (const seg of [...node.topLines, ...node.bottomLines]) {
+      allLanes.add(seg.from)
+      allLanes.add(seg.to)
+    }
+  }
+
+  const orderedNonMain = [...allLanes].sort((a, b) => a - b)
+  const nonMainLaneMap = new Map(orderedNonMain.map((lane, index) => [lane, index + 1]))
+  const mapNonMainLane = (lane: number) => nonMainLaneMap.get(lane) ?? orderedNonMain.length + 1
+
+  return graph.map((node, rowIndex) => {
+    const nodeIsMain = mainHashes.has(node.commit.hash)
+    const mapSegment = (seg: LineSegment): LineSegment => {
+      const isMain = rowIndex >= mainTipIndex && seg.from === mainLane && seg.to === mainLane
+      const fromMainNode = nodeIsMain && seg.from === mainLane
+      const toMainNode = nodeIsMain && seg.to === mainLane
+      return {
+        ...seg,
+        from: isMain || fromMainNode ? 0 : mapNonMainLane(seg.from),
+        to: isMain || toMainNode ? 0 : mapNonMainLane(seg.to),
+        color: isMain ? MAIN_BRANCH_COLOR : seg.color,
+        branchKey: isMain ? 'main' : seg.branchKey,
+        isMain,
+      }
+    }
+    const topLines = node.topLines.map(mapSegment)
+    const bottomLines = node.bottomLines.map(mapSegment)
+    const isMain = nodeIsMain
+    const lane = isMain ? 0 : mapNonMainLane(node.lane)
+    const maxLane = Math.max(
+      lane,
+      ...topLines.flatMap(l => [l.from, l.to]),
+      ...bottomLines.flatMap(l => [l.from, l.to]),
+      0,
+    )
+    return {
+      ...node,
+      lane,
+      color: isMain ? MAIN_BRANCH_COLOR : node.color,
+      isMain,
+      topLines,
+      bottomLines,
+      maxLane,
+    }
+  })
+}
+
+function GraphCell({ node, graphColW, hoveredBranchKey, branchHoverLabels, onHoverBranch }: {
+  node: GraphNode
+  graphColW: number
+  hoveredBranchKey: string | null
+  branchHoverLabels: Map<string, string>
+  onHoverBranch: (branchKey: string | null) => void
+}) {
+  const [hoveredSeg, setHoveredSeg] = useState<{ x: number; label: string } | null>(null)
   const isMerge = node.commit.parentHashes.length > 1
   const cx = GRAPH_PAD + node.lane * LANE_W + LANE_W / 2
   const cy = ROW_H / 2
   const dotR = DOT_R + 0.5
+  const renderLine = (seg: LineSegment, isTop: boolean, key: string) => {
+    const branchKey = seg.branchKey ?? seg.color
+    const branchLabel = branchHoverLabels.get(branchKey) ?? (seg.isMain ? 'Main branch' : 'Branch lane')
+    const isHovered = hoveredBranchKey === branchKey
+    const isDimmed = !!hoveredBranchKey && !isHovered
+    const strokeWidth = isHovered ? (seg.isMain ? 4.2 : 3.4) : seg.isMain ? 2.7 : 1.65
+    const strokeOpacity = isDimmed ? 0.2 : isHovered ? 0.98 : seg.isMain ? 0.86 : 0.56
+    const path = linePath(seg, isTop)
+    return (
+      <g key={key}>
+        <path d={path}
+          stroke={seg.color} fill="none"
+          strokeWidth={strokeWidth}
+          strokeOpacity={strokeOpacity}
+          strokeLinecap="round"
+          pointerEvents="none"
+          style={{
+            transition: 'stroke-opacity 90ms ease, stroke-width 90ms ease, filter 90ms ease',
+            filter: seg.isMain
+              ? 'drop-shadow(0 0 4px rgba(125,211,252,0.5))'
+              : isHovered ? 'drop-shadow(0 0 3px rgba(255,255,255,0.3))' : 'none',
+          }}
+        />
+        <path d={path}
+          stroke="transparent" fill="none"
+          strokeWidth={10}
+          strokeLinecap="round"
+          style={{ cursor: 'help' }}
+          onMouseEnter={() => {
+            setHoveredSeg({
+              x: GRAPH_PAD + ((seg.from + seg.to) / 2) * LANE_W + LANE_W / 2,
+              label: branchLabel,
+            })
+            onHoverBranch(branchKey)
+          }}
+          onMouseMove={() => {
+            if (hoveredBranchKey !== branchKey) onHoverBranch(branchKey)
+          }}
+          onMouseLeave={() => {
+            setHoveredSeg(null)
+            onHoverBranch(null)
+          }}
+        />
+      </g>
+    )
+  }
   return (
     <svg width={graphColW} height={ROW_H} style={{ flexShrink: 0, overflow: 'visible', display: 'block', position: 'relative', zIndex: 1 }}>
-      {node.topLines.map((seg, i) => (
-        <path key={`t${i}`} d={linePath(seg, true)}
-          stroke={seg.color} fill="none"
-          strokeWidth={seg.from === 0 ? 2.2 : 1.9}
-          strokeOpacity={hoveredSeg?.color === seg.color ? 0.95 : seg.from === 0 ? 0.88 : 0.52}
-          style={{ cursor: 'help', transition: 'stroke-opacity 120ms ease, stroke-width 120ms ease', filter: hoveredSeg?.color === seg.color ? 'drop-shadow(0 0 3px rgba(255,255,255,0.28))' : 'none' }}
-          onMouseEnter={() => setHoveredSeg({ x: GRAPH_PAD + ((seg.from + seg.to) / 2) * LANE_W + LANE_W / 2, label: lineColorLabels.get(seg.color.toLowerCase()) ?? 'Branch lane', color: seg.color })}
-          onMouseLeave={() => setHoveredSeg(null)}
-        />
-      ))}
-      {node.bottomLines.map((seg, i) => (
-        <path key={`b${i}`} d={linePath(seg, false)}
-          stroke={seg.color} fill="none"
-          strokeWidth={seg.from === 0 ? 2.2 : 1.9}
-          strokeOpacity={hoveredSeg?.color === seg.color ? 0.95 : seg.from === 0 ? 0.88 : 0.52}
-          style={{ cursor: 'help', transition: 'stroke-opacity 120ms ease, stroke-width 120ms ease', filter: hoveredSeg?.color === seg.color ? 'drop-shadow(0 0 3px rgba(255,255,255,0.28))' : 'none' }}
-          onMouseEnter={() => setHoveredSeg({ x: GRAPH_PAD + ((seg.from + seg.to) / 2) * LANE_W + LANE_W / 2, label: lineColorLabels.get(seg.color.toLowerCase()) ?? 'Branch lane', color: seg.color })}
-          onMouseLeave={() => setHoveredSeg(null)}
-        />
-      ))}
-      {isMain && <circle cx={cx} cy={cy} r={dotR + 5} fill={`${node.color}14`} stroke="none" />}
+      {node.topLines.map((seg, i) => renderLine(seg, true, `t${i}`))}
+      {node.bottomLines.map((seg, i) => renderLine(seg, false, `b${i}`))}
       {isMerge ? (
-        <g filter={isMain ? 'url(#tl-glow-main)' : undefined}>
+        <g>
           <polygon
             points={`${cx},${cy - dotR - 1} ${cx + dotR + 1},${cy} ${cx},${cy + dotR + 1} ${cx - dotR - 1},${cy}`}
-            fill="#10131c" stroke={node.color} strokeWidth={isMain ? 2 : 1.8}
+            fill="#10131c" stroke={node.color} strokeWidth={node.isMain ? 2.6 : 1.8}
+            filter={node.isMain ? 'url(#tl-glow-main)' : undefined}
           />
           <circle cx={cx} cy={cy} r={2} fill={node.color} />
         </g>
       ) : (
         <circle cx={cx} cy={cy} r={dotR}
           fill="#10131c" stroke={node.color}
-          strokeWidth={isMain ? 2.5 : 2}
-          filter={isMain ? 'url(#tl-glow-main)' : undefined}
+          strokeWidth={node.isMain ? 3 : 2}
+          filter={node.isMain ? 'url(#tl-glow-main)' : undefined}
         />
       )}
       {hoveredSeg && (
@@ -137,11 +243,11 @@ function GraphCell({ node, graphColW, lineColorLabels }: { node: GraphNode; grap
           {(() => {
             const padX = 8
             const charW = 6.2
-            const tooltipW = Math.max(92, hoveredSeg.label.length * charW + padX * 2)
-            const tooltipX = Math.max(2, hoveredSeg.x - tooltipW / 2)
+            const tooltipW = Math.min(Math.max(92, hoveredSeg.label.length * charW + padX * 2), Math.max(92, graphColW - 4))
+            const tooltipX = Math.max(2, Math.min(graphColW - tooltipW - 2, hoveredSeg.x - tooltipW / 2))
             return (
               <>
-                <rect x={tooltipX} y={2} width={tooltipW} height={20} rx={5} fill="#0f1420f5" stroke="#3b4b6d" />
+                <rect x={tooltipX} y={2} width={tooltipW} height={20} rx={5} fill="#0f1420f5" stroke={hoveredBranchKey === 'main' ? MAIN_BRANCH_COLOR : '#3b4b6d'} />
                 <text x={tooltipX + tooltipW / 2} y={15} textAnchor="middle" fill="#e7ecfa" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10 }}>
                   {hoveredSeg.label}
                 </text>
@@ -407,8 +513,8 @@ function CollapseBtn({ isCollapsed, onClick }: { isCollapsed: boolean; onClick: 
   )
 }
 
-function TLBranchDropdownRow({ branch, checked, locked, bCol, onToggle }: {
-  branch: BranchInfo; checked: boolean; locked?: boolean; bCol: string; onToggle: () => void
+function TLBranchDropdownRow({ branch, checked, locked, isDefault, bCol, onToggle }: {
+  branch: BranchInfo; checked: boolean; locked?: boolean; isDefault?: boolean; bCol: string; onToggle: () => void
 }) {
   const [hover, setHover] = useState(false)
   return (
@@ -467,13 +573,13 @@ function TLBranchDropdownRow({ branch, checked, locked, bCol, onToggle }: {
         title={branch.name}
       >{branch.name}</button>
       <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-        {locked && (
+        {isDefault && (
           <span style={{
-            background: 'rgba(77,157,255,0.14)', color: '#4d9dff',
-            border: '1px solid rgba(77,157,255,0.35)',
+            background: 'rgba(125,211,252,0.14)', color: MAIN_BRANCH_COLOR,
+            border: '1px solid rgba(125,211,252,0.45)',
             borderRadius: 3, padding: '0 4px',
             fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 700,
-          }}>default</span>
+          }}>main</span>
         )}
         {branch.current && (
           <span style={{
@@ -493,7 +599,6 @@ function TLBranchDropdown({ open, onToggleOpen, branches, selectedBranches, defa
   branchColors: Map<string, string>; onToggleBranch: (name: string) => void; onShowAll: () => void; onHideAll: () => void
 }) {
   const allBranches = branches
-  const allShown = allBranches.length > 0 && allBranches.every(b => selectedBranches.has(b.name))
   const visibleCount = allBranches.filter(b => b.name === defaultBranch || selectedBranches.has(b.name)).length
   const sorted = [
     ...allBranches.filter(b => b.name === defaultBranch),
@@ -556,7 +661,7 @@ function TLBranchDropdown({ open, onToggleOpen, branches, selectedBranches, defa
               const isLocked = b.name === defaultBranch || !!b.current
               const isChecked = isLocked || selectedBranches.has(b.name)
               return (
-                <TLBranchDropdownRow key={b.name} branch={b} checked={isChecked} locked={isLocked}
+                <TLBranchDropdownRow key={b.name} branch={b} checked={isChecked} locked={isLocked} isDefault={b.name === defaultBranch}
                   bCol={bCol} onToggle={() => onToggleBranch(b.name)} />
               )
             })}
@@ -570,7 +675,7 @@ function TLBranchDropdown({ open, onToggleOpen, branches, selectedBranches, defa
 // ── Left commit row ───────────────────────────────────────────────────────────
 
 function LeftCommitRow({ node, selected, repoPath, remoteUrl, onRefresh, onClick,
-  graphColW, branchTips, branchColors, defaultBranch, lineColorLabels, needsPush, needsPull }: {
+  graphColW, branchTips, branchColors, defaultBranch, hoveredBranchKey, branchHoverLabels, onHoverBranch, needsPush, needsPull }: {
   node: GraphNode; selected: boolean
   repoPath: string; remoteUrl: string | null
   onRefresh: () => void; onClick: () => void
@@ -578,7 +683,9 @@ function LeftCommitRow({ node, selected, repoPath, remoteUrl, onRefresh, onClick
   branchTips: Map<string, BranchInfo[]>
   branchColors: Map<string, string>
   defaultBranch: string
-  lineColorLabels: Map<string, string>
+  hoveredBranchKey: string | null
+  branchHoverLabels: Map<string, string>
+  onHoverBranch: (branchKey: string | null) => void
   needsPush: boolean
   needsPull: boolean
 }) {
@@ -715,21 +822,30 @@ function LeftCommitRow({ node, selected, repoPath, remoteUrl, onRefresh, onClick
         }}
       >
         <div style={{ width: graphColW, height: ROW_H, flexShrink: 0, overflow: 'hidden' }}>
-          <GraphCell node={node} graphColW={graphColW} lineColorLabels={lineColorLabels} />
+          <GraphCell
+            node={node}
+            graphColW={graphColW}
+            hoveredBranchKey={hoveredBranchKey}
+            branchHoverLabels={branchHoverLabels}
+            onHoverBranch={onHoverBranch}
+          />
         </div>
         <div style={{ flex: 1, minWidth: 0, paddingLeft: 5, paddingRight: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2, overflow: 'hidden' }}>
             {/* Branch tip pills */}
             {tipBranches.map(b => {
               const bCol = branchColors.get(b.name) ?? '#4d9dff'
+              const isDefaultTip = b.name === defaultBranch
               const icon = b.name === defaultBranch ? '★' : b.current ? '◉' : '•'
               return (
                 <span key={b.name} style={{
                   display: 'inline-flex', alignItems: 'center', gap: 2, flexShrink: 0,
-                  background: `${bCol}16`, color: bCol,
-                  border: `1px solid ${bCol}40`,
+                  background: isDefaultTip ? `${MAIN_BRANCH_COLOR}22` : `${bCol}16`,
+                  color: isDefaultTip ? MAIN_BRANCH_COLOR : bCol,
+                  border: `1px solid ${isDefaultTip ? MAIN_BRANCH_COLOR : bCol}${isDefaultTip ? '80' : '40'}`,
                   borderRadius: 3, padding: '0 5px',
-                  fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 500,
+                  fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: isDefaultTip ? 800 : 500,
+                  boxShadow: isDefaultTip ? '0 0 8px rgba(125,211,252,0.2)' : 'none',
                 }}>
                   <span style={{ fontSize: 8 }}>{icon}</span>
                   {tlBranchShortName(b.name)}
@@ -1383,7 +1499,7 @@ const STASH_KEY = 'lucid-git:timeline-stash-open'
 
 export function TimelinePanel({ repoPath }: { repoPath: string }) {
   const opRun        = useOperationStore(s => s.run)
-  const { fileStatus, isLoading, refreshStatus, bumpSyncTick, historyTick } = useRepoStore()
+  const { fileStatus, isLoading, refreshStatus, historyTick } = useRepoStore()
   const { locks }    = useLockStore()
   const { accounts, currentAccountId } = useAuthStore()
   const currentUserName = accounts.find(a => a.userId === currentAccountId)?.login ?? null
@@ -1391,6 +1507,21 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
   // ── Selection ──────────────────────────────────────────────────────────────
   const [leftSel,    setLeftSel]    = useState<LeftSel>({ kind: 'working-tree' })
   const [centerFile, setCenterFile] = useState<CenterFile | null>(null)
+  const [timelineStagePaths, setTimelineStagePaths] = useState<Set<string>>(new Set())
+  const knownTimelineStagePaths = useRef<Set<string>>(new Set())
+
+  useEffect(() => {
+    const currentPaths = new Set(fileStatus.map(f => f.path))
+    const knownPaths = knownTimelineStagePaths.current
+    setTimelineStagePaths(prev => {
+      const next = new Set([...prev].filter(path => currentPaths.has(path)))
+      for (const path of currentPaths) {
+        if (!knownPaths.has(path)) next.add(path)
+      }
+      return next
+    })
+    knownTimelineStagePaths.current = currentPaths
+  }, [fileStatus])
 
   // ── Left column — history ──────────────────────────────────────────────────
   const [nodes,       setNodes]       = useState<GraphNode[]>([])
@@ -1403,6 +1534,7 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
   const [selBranches,  setSelBranches]  = useState<Set<string>>(new Set())
   const [filterOpen,   setFilterOpen]   = useState(false)
   const [branchTips,   setBranchTips]   = useState<Map<string, BranchInfo[]>>(new Map())
+  const [hoveredBranchKey, setHoveredBranchKey] = useState<string | null>(null)
 
   const branchColors = React.useMemo(() => {
     const sorted = [
@@ -1413,25 +1545,35 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
     sorted.forEach((b, i) => map.set(b.name, TL_BRANCH_COLORS[i % TL_BRANCH_COLORS.length]))
     return map
   }, [branches, defaultBranch])
-  const lineColorLabels = React.useMemo(() => {
-      const labels = new Map<string, string>()
-    branches.forEach(b => {
-      const color = (branchColors.get(b.name) ?? '').toLowerCase()
-      if (!color) return
-      if (!labels.has(color)) labels.set(color, b.name)
-    })
-    return labels
-  }, [branches, branchColors])
-
   const graphColW = React.useMemo(() => {
     if (nodes.length === 0) return GRAPH_PAD * 2 + LANE_W
     const maxLane = nodes.reduce((m, n) => Math.max(m, n.maxLane), 0)
     return GRAPH_PAD + (maxLane + 1) * LANE_W + GRAPH_PAD
   }, [nodes])
+  const branchHoverLabels = React.useMemo(() => {
+    const labels = new Map<string, string>([['main', defaultBranch || 'main']])
+    for (const node of nodes) {
+      const tips = branchTips.get(node.commit.hash) ?? []
+      for (const branch of tips) {
+        const key = branch.name === defaultBranch ? 'main' : node.color
+        const existing = labels.get(key)
+        if (existing && !existing.split(' / ').includes(branch.name)) {
+          labels.set(key, `${existing} / ${branch.name}`)
+        } else if (!existing) {
+          labels.set(key, branch.name)
+        }
+      }
+    }
+    return labels
+  }, [nodes, branchTips, defaultBranch])
   const minLeftWidth = React.useMemo(() => Math.max(320, graphColW + 190), [graphColW])
 
   const branchNames = React.useMemo(
     () => branches.map(b => b.name),
+    [branches]
+  )
+  const localBranchNames = React.useMemo(
+    () => branches.filter(b => !b.isRemote).map(b => b.name),
     [branches]
   )
   const areAllBranchesSelected = React.useMemo(
@@ -1440,37 +1582,19 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
   )
   const isCollapsed = !areAllBranchesSelected
 
-  const getRecentBranchSelection = useCallback(async (branchList: BranchInfo[], fallbackDefault: string) => {
-    const locals = branchList.filter(b => !b.isRemote)
-    const withTs = await Promise.all(locals.map(async b => {
-      try {
-        const [tip] = await ipc.log(repoPath, { limit: 1, refs: [b.name] })
-        return { branch: b.name, ts: tip?.timestamp ?? 0 }
-      } catch {
-        return { branch: b.name, ts: 0 }
-      }
-    }))
-    const defaultName = fallbackDefault || 'main'
-    const top = withTs
-      .filter(x => x.branch !== defaultName)
-      .sort((a, b) => b.ts - a.ts)
-      .slice(0, 5)
-      .map(x => x.branch)
-    return new Set<string>(top)
-  }, [repoPath])
-
   const fetchBranchTips = useCallback(async (branchList: BranchInfo[]) => {
     const tips = new Map<string, BranchInfo[]>()
-    const locals = branchList.filter(b => !b.isRemote)
-    await Promise.all(locals.map(async b => {
+    await Promise.all(branchList.map(async b => {
       try {
         const [tip] = await ipc.log(repoPath, { limit: 1, refs: [b.name] })
         if (tip) {
           const arr = tips.get(tip.hash) ?? []
-          arr.push(b)
+          if (!arr.some(existing => existing.name === b.name)) arr.push(b)
           tips.set(tip.hash, arr)
         }
-      } catch {}
+      } catch {
+        return
+      }
     }))
     setBranchTips(new Map(tips))
   }, [repoPath])
@@ -1541,15 +1665,19 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
   }, [graphColW, leftWidth, minLeftWidth])
 
   // ── Load history ───────────────────────────────────────────────────────────
-  const loadHistory = useCallback(async (limit: number, branches?: Set<string>) => {
+  const loadHistory = useCallback(async (limit: number, branches?: Set<string>, defaultBranchOverride?: string) => {
     setHistLoading(true)
     try {
       const active = branches ?? selBranches
+      const mainBranch = defaultBranchOverride ?? defaultBranch
       const hasAllSelected = branchNames.length > 0 && branchNames.every(name => active.has(name))
-      const refs = hasAllSelected ? undefined : [...new Set([defaultBranch, ...active])]
+      const refs = hasAllSelected ? undefined : [...new Set([mainBranch, ...active])]
       const commits = await opRun('Loading history…', () => ipc.log(repoPath, { limit, all: !refs, refs }))
-      const chronologicallySorted = [...commits].sort((a, b) => b.timestamp - a.timestamp)
-      setNodes(computeGraph(chronologicallySorted))
+      const defaultCommits = mainBranch
+        ? await ipc.log(repoPath, { limit, all: false, refs: [mainBranch] }).catch(() => [])
+        : []
+      const defaultHashes = firstParentHashes(commits, defaultCommits[0]?.hash)
+      setNodes(remapGraphWithMainLeft(computeGraph(commits), defaultHashes))
       setTotalLoaded(commits.length)
     } finally {
       setHistLoading(false)
@@ -1569,7 +1697,7 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
       const nextSel = new Set(bl.map(b => b.name))
       setSelBranches(nextSel)
       limitRef.current = INITIAL_LIMIT
-      loadHistory(INITIAL_LIMIT, nextSel)
+      loadHistory(INITIAL_LIMIT, nextSel, def)
     }).catch(() => {})
   }, [repoPath])
 
@@ -1630,9 +1758,6 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
     return () => { cancelled = true }
   }, [repoPath, defaultBranch, historyTick])
 
-  const stagedCount = fileStatus.filter(f => f.staged).length
-  const unstagedCount = fileStatus.length - stagedCount
-
   // ── Select left item ───────────────────────────────────────────────────────
   const selectWorkingTree = () => {
     setLeftSel({ kind: 'working-tree' })
@@ -1679,7 +1804,8 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
     const branch = branches.find(b => b.name === name)
     if (!branch || branch.name === defaultBranch || branch.current) return
     const next = new Set(selBranches)
-    next.has(name) ? next.delete(name) : next.add(name)
+    if (next.has(name)) next.delete(name)
+    else next.add(name)
     setSelBranches(next)
     limitRef.current = INITIAL_LIMIT
     loadHistory(INITIAL_LIMIT, next)
@@ -1722,7 +1848,9 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
   const toggleStash = () => {
     const next = !stashOpen
     setStashOpen(next)
-    try { localStorage.setItem(STASH_KEY, next ? '1' : '0') } catch {}
+    try { localStorage.setItem(STASH_KEY, next ? '1' : '0') } catch {
+      return
+    }
   }
 
   const selectedCommit = leftSel.kind === 'commit' ? leftSel.commit : null
@@ -1846,7 +1974,9 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
               branchTips={branchTips}
               branchColors={branchColors}
               defaultBranch={defaultBranch}
-              lineColorLabels={lineColorLabels}
+              hoveredBranchKey={hoveredBranchKey}
+              branchHoverLabels={branchHoverLabels}
+              onHoverBranch={setHoveredBranchKey}
               needsPush={needsPushHashes.has(node.commit.hash)}
               needsPull={needsPullHashes.has(node.commit.hash)}
             />
@@ -1866,11 +1996,16 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
           )}
         </div>
         <div style={{
-          height: 24, flexShrink: 0, borderTop: '1px solid #1e2436', background: '#0d0f15',
+          minHeight: 28, flexShrink: 0, borderTop: '1px solid #1e2436', background: '#0d0f15',
           display: 'flex', alignItems: 'center', gap: 8, padding: '0 12px',
           fontFamily: "'JetBrains Mono', monospace", fontSize: 9, color: '#4e5870',
+          flexWrap: 'wrap', lineHeight: 1.3,
         }}>
           <span>Legend:</span>
+          <span style={{ color: MAIN_BRANCH_COLOR }}>━ main path</span>
+          <span style={{ color: '#a27ef0' }}>◇ merge</span>
+          <span style={{ color: '#7dd3fc' }}>↑ push</span>
+          <span style={{ color: '#fca5a5' }}>↓ pull</span>
           <span style={{ color: '#4d9dff' }}>★ default</span>
           <span style={{ color: '#e8622f' }}>◉ head</span>
           <span style={{ color: '#2ec573' }}>• branch</span>
@@ -1909,10 +2044,18 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
                 isLoading={isLoading}
                 onSelect={file => selectCenterFile({ kind: 'working', file })}
                 onRefresh={() => refreshStatus()}
+                deferredStagePaths={timelineStagePaths}
+                onToggleDeferredStagePath={path => setTimelineStagePaths(prev => {
+                  const next = new Set(prev)
+                  if (next.has(path)) next.delete(path)
+                  else next.add(path)
+                  return next
+                })}
+                onSetDeferredStagePaths={paths => setTimelineStagePaths(new Set(paths))}
                 onBlameDeps={() => {}}
               />
             </div>
-            <CommitBox />
+            <CommitBox deferredStagePaths={[...timelineStagePaths]} />
             {/* Stash section */}
             <div style={{ borderTop: '1px solid #1e2436', flexShrink: 0 }}>
               <button

@@ -70,6 +70,7 @@ export function BranchPanel({ onMergePreview, onRefresh }: BranchPanelProps) {
   const [error, setError]                   = useState<string | null>(null)
   const [updatingMain, setUpdatingMain]     = useState(false)
   const [remoteUrl, setRemoteUrl]           = useState<string | null>(null)
+  const [defaultBranch, setDefaultBranch]   = useState('main')
   const [selectedBranchName, setSelectedBranchName] = useState<string | null>(null)
   const [switchConfirm, setSwitchConfirm]   = useState<string | null>(null)
   const [ctxMenu, setCtxMenu]               = useState<BranchContextMenuState | null>(null)
@@ -83,6 +84,7 @@ export function BranchPanel({ onMergePreview, onRefresh }: BranchPanelProps) {
   useEffect(() => {
     if (!repoPath) return
     ipc.getRemoteUrl(repoPath).then(setRemoteUrl).catch(() => {})
+    ipc.gitDefaultBranch(repoPath).then(setDefaultBranch).catch(() => setDefaultBranch('main'))
   }, [repoPath])
 
   useEffect(() => {
@@ -213,7 +215,7 @@ export function BranchPanel({ onMergePreview, onRefresh }: BranchPanelProps) {
     } catch (e) {
       const msg = String(e)
       setError(msg)
-      if (msg.toLowerCase().includes('conflict')) onMergePreview('main')
+      if (msg.toLowerCase().includes('conflict')) onMergePreview(defaultBranch)
     } finally {
       setUpdatingMain(false)
     }
@@ -306,7 +308,7 @@ export function BranchPanel({ onMergePreview, onRefresh }: BranchPanelProps) {
           const [owner, repo] = ghSlug.split('/')
           return ipc.githubListPRs({ owner, repo }).catch(() => [])
         })(),
-        ipc.branchDiff(repoPath, 'main', selected).catch(() => null),
+        ipc.branchDiff(repoPath, defaultBranch, selected).catch(() => null),
       ]))
       const activity = (activityAll as BranchActivity[]).find(a => a.ref === selected) ?? null
       const normSelected = selected.replace(/^origin\//, '')
@@ -329,7 +331,7 @@ export function BranchPanel({ onMergePreview, onRefresh }: BranchPanelProps) {
         },
       }))
     })()
-  }, [selectedBranchName, repoPath, ghSlug, insights, opRun])
+  }, [selectedBranchName, repoPath, ghSlug, insights, opRun, defaultBranch])
 
   return (
     <div className="flex-1 w-full h-full flex flex-col overflow-hidden">
@@ -617,7 +619,7 @@ export function BranchPanel({ onMergePreview, onRefresh }: BranchPanelProps) {
           disabled={updatingMain}
           className="w-full h-7 rounded text-[10px] font-mono border border-lg-border text-lg-text-secondary hover:border-lg-accent hover:text-lg-accent disabled:opacity-40 transition-colors"
         >
-          {updatingMain ? 'Updating…' : '↓ Update from main'}
+          {updatingMain ? 'Updating…' : `↓ Update from ${defaultBranch}`}
         </button>
       </div>
     </div>
@@ -655,7 +657,7 @@ function BranchStashDialog({ from, to, onConfirm, onCancel }: {
   onConfirm: (stash: boolean) => void
   onCancel: () => void
 }) {
-  const [stash, setStash] = React.useState(false)
+  const [stash, setStash] = React.useState(true)
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm">
       <div className="bg-lg-bg-elevated border border-lg-border rounded-lg shadow-2xl w-80 p-5" style={{ animation: 'slide-down 0.16s ease both' }}>

@@ -173,7 +173,7 @@ export function registerHandlers(): void {
     return result
   })
 
-  ipcMain.handle(CHANNELS.GIT_LOG, async (_event, repoPath: string, args?: { limit?: number; all?: boolean }) => {
+  ipcMain.handle(CHANNELS.GIT_LOG, async (_event, repoPath: string, args?: { limit?: number; all?: boolean; filePath?: string; refs?: string[] }) => {
     return gitService.log(repoPath, args)
   })
 

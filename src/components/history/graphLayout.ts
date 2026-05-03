@@ -28,12 +28,15 @@ export interface LineSegment {
   from:  number
   to:    number
   color: string
+  branchKey?: string
+  isMain?: boolean
 }
 
 export interface GraphNode {
   commit:      CommitEntry
   lane:        number
   color:       string
+  isMain?:     boolean
   maxLane:     number
   /** Lines drawn in the top half of this row (incoming). */
   topLines:    LineSegment[]
@@ -92,10 +95,10 @@ export function computeGraph(commits: CommitEntry[]): GraphNode[] {
       if (!l) continue
       if (l.hash === commit.hash) {
         // This lane was tracking the current commit → converge to commitLane
-        topLines.push({ from: i, to: commitLane, color: l.color })
+        topLines.push({ from: i, to: commitLane, color: l.color, branchKey: l.color })
       } else {
         // Unrelated lane → straight vertical pass-through
-        topLines.push({ from: i, to: i, color: l.color })
+        topLines.push({ from: i, to: i, color: l.color, branchKey: l.color })
       }
     }
 
@@ -132,11 +135,11 @@ export function computeGraph(commits: CommitEntry[]): GraphNode[] {
     for (let i = 0; i < lanes.length; i++) {
       const l = lanes[i]
       if (!l) continue
-      bottomLines.push({ from: i, to: i, color: l.color })
+      bottomLines.push({ from: i, to: i, color: l.color, branchKey: l.color })
     }
     // Extra lines from commitLane to each merge parent lane
     for (const targetLane of mergeTargetLanes) {
-      bottomLines.push({ from: commitLane, to: targetLane, color: commitColor })
+      bottomLines.push({ from: commitLane, to: targetLane, color: commitColor, branchKey: commitColor })
     }
 
     // ── 7. Trim trailing nulls ───────────────────────────────────────────────

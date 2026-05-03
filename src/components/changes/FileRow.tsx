@@ -16,8 +16,10 @@ interface FileRowProps {
   lock: Lock | null
   currentUserName: string | null
   isMultiSelected?: boolean
+  checkboxChecked?: boolean
   onSelect: (e: React.MouseEvent) => void
   onRefresh: () => void
+  onToggleCheckbox?: () => void
   onBlameDeps?: (file: FileStatus) => void
   onMultiContextMenu?: (e: React.MouseEvent) => void
 }
@@ -44,7 +46,7 @@ function LockIcon({ color }: { color: string }) {
 }
 
 export function FileRow({
-  file, repoPath, selected, lock, currentUserName, isMultiSelected, onSelect, onRefresh, onBlameDeps, onMultiContextMenu,
+  file, repoPath, selected, lock, currentUserName, isMultiSelected, checkboxChecked, onSelect, onRefresh, onToggleCheckbox, onBlameDeps, onMultiContextMenu,
 }: FileRowProps) {
   const isUEAsset = /\.(uasset|umap|udk|upk)$/i.test(file.path)
   const isImgAsset = /\.(png|jpg|jpeg|tga|bmp|tiff|tif|dds|exr|hdr)$/i.test(file.path)
@@ -139,6 +141,7 @@ export function FileRow({
   const doWatch = async () => { close(); await watchFile(repoPath, file.path) }
 
   const checkColor = file.staged ? '#2ec573' : '#f5a832'
+  const checked = checkboxChecked ?? file.staged
 
   return (
     <div style={{ position: 'relative' }}>
@@ -161,7 +164,7 @@ export function FileRow({
         onMouseEnter={e => { if (!selected && !isMultiSelected) e.currentTarget.style.background = '#1e2436' }}
         onMouseLeave={e => { if (!selected && !isMultiSelected) e.currentTarget.style.background = 'transparent' }}
       >
-        <AppCheckbox checked={file.staged} onChange={toggleStage} color={checkColor} />
+        <AppCheckbox checked={checked} onChange={onToggleCheckbox ?? toggleStage} color={checkColor} />
 
         {/* Status pill */}
         <span style={{

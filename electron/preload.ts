@@ -51,7 +51,7 @@ const api = {
     ipcRenderer.invoke(CHANNELS.GIT_PULL, repoPath),
   fetch: (repoPath: string) =>
     ipcRenderer.invoke(CHANNELS.GIT_FETCH, repoPath),
-  log: (repoPath: string, args?: { limit?: number; all?: boolean }) =>
+  log: (repoPath: string, args?: { limit?: number; all?: boolean; filePath?: string; refs?: string[] }) =>
     ipcRenderer.invoke(CHANNELS.GIT_LOG, repoPath, args),
   branchList: (repoPath: string) =>
     ipcRenderer.invoke(CHANNELS.GIT_BRANCH_LIST, repoPath),

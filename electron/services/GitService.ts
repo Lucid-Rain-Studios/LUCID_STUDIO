@@ -78,6 +78,35 @@ function parseStatus(raw: string): FileStatus[] {
 // ── GitService ────────────────────────────────────────────────────────────────
 
 class GitService {
+  private async hasUncommittedChanges(repoPath: string): Promise<boolean> {
+    const res = await execSafe(['status', '--porcelain=v1', '-z'], repoPath)
+    return res.exitCode === 0 && res.stdout.length > 0
+  }
+
+  private async remoteDefaultBranch(repoPath: string): Promise<{ name: string; ref: string }> {
+    const symbolic = await execSafe(['symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD'], repoPath)
+    if (symbolic.exitCode === 0) {
+      const ref = symbolic.stdout.trim()
+      const name = ref.replace(/^origin\//, '')
+      if (name) return { name, ref }
+    }
+
+    const remoteShow = await execSafe(['remote', 'show', 'origin'], repoPath)
+    if (remoteShow.exitCode === 0) {
+      const match = remoteShow.stdout.match(/HEAD branch:\s*(\S+)/)
+      if (match?.[1]) return { name: match[1], ref: `origin/${match[1]}` }
+    }
+
+    for (const name of ['main', 'master']) {
+      const remote = await execSafe(['rev-parse', '--verify', `refs/remotes/origin/${name}`], repoPath)
+      if (remote.exitCode === 0) return { name, ref: `origin/${name}` }
+      const local = await execSafe(['rev-parse', '--verify', `refs/heads/${name}`], repoPath)
+      if (local.exitCode === 0) return { name, ref: name }
+    }
+
+    return { name: 'main', ref: 'origin/main' }
+  }
+
   /** Returns the bundled git version string. */
   async version(): Promise<string> {
     const { stdout } = await exec(['version'], process.cwd())
@@ -142,6 +171,15 @@ class GitService {
   async push(repoPath: string, onProgress?: ProgressCallback): Promise<void> {
     const token = await authService.getCurrentToken()
     const remoteUrl = await this.getRemoteUrl(repoPath)
+    const upstreamRes = await execSafe(['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}'], repoPath)
+    if (upstreamRes.exitCode !== 0) {
+      const branch = await this.currentBranch(repoPath)
+      if (!branch || branch === 'HEAD' || branch === 'unknown') {
+        throw new Error('Cannot push from a detached HEAD. Switch to a branch first.')
+      }
+      await execWithProgress([...gitAuthArgs(token, remoteUrl), 'push', '--progress', '--set-upstream', 'origin', branch], repoPath, onProgress)
+      return
+    }
     await execWithProgress([...gitAuthArgs(token, remoteUrl), 'push', '--progress'], repoPath, onProgress)
   }
 
@@ -328,16 +366,24 @@ class GitService {
 
   /** Fetch origin then merge origin/main into HEAD. */
   async updateFromMain(repoPath: string): Promise<void> {
-    const token = await authService.getCurrentToken()
-    const remoteUrl = await this.getRemoteUrl(repoPath)
-    await execSafe([...gitAuthArgs(token, remoteUrl), 'fetch', 'origin'], repoPath)
-
-    const check = await execSafe(['rev-parse', '--verify', 'origin/main'], repoPath)
-    if (check.exitCode !== 0) {
-      throw new Error('Could not find origin/main')
+    if (await this.hasUncommittedChanges(repoPath)) {
+      throw new Error('Update from main needs a clean working tree. Commit or stash your current changes first so incoming files are not mixed with local edits.')
     }
 
-    await exec(['merge', 'origin/main'], repoPath)
+    const token = await authService.getCurrentToken()
+    const remoteUrl = await this.getRemoteUrl(repoPath)
+    const fetchRes = await execSafe([...gitAuthArgs(token, remoteUrl), 'fetch', 'origin', '--prune', '--progress'], repoPath)
+    if (fetchRes.exitCode !== 0) {
+      throw new Error(fetchRes.stderr || fetchRes.stdout || `Fetch from origin failed (exit ${fetchRes.exitCode})`)
+    }
+
+    const defaultBranch = await this.remoteDefaultBranch(repoPath)
+    const check = await execSafe(['rev-parse', '--verify', defaultBranch.ref], repoPath)
+    if (check.exitCode !== 0) {
+      throw new Error(`Could not find ${defaultBranch.ref}`)
+    }
+
+    await exec(['merge', '--no-edit', defaultBranch.ref], repoPath)
   }
 
   /** git log with parsed output. Pass filePath to filter to a single file, or refs to limit to specific branches. */
@@ -358,11 +404,7 @@ class GitService {
 
   /** Returns the preferred branch label for update UX. */
   async defaultBranch(repoPath: string): Promise<string> {
-    for (const name of ['main', 'master']) {
-      const r = await execSafe(['rev-parse', '--verify', name], repoPath)
-      if (r.exitCode === 0) return name
-    }
-    return 'main'
+    return (await this.remoteDefaultBranch(repoPath)).name
   }
 
   /** Per-branch activity: last committer + timestamp for each local + remote branch. */
@@ -555,6 +597,19 @@ class GitService {
 
   /** Switch to an existing branch. */
   async checkout(repoPath: string, branch: string): Promise<void> {
+    const localExists = (await execSafe(['rev-parse', '--verify', `refs/heads/${branch}`], repoPath)).exitCode === 0
+    if (localExists) {
+      await exec(['checkout', branch], repoPath)
+      return
+    }
+
+    const remoteRef = `origin/${branch}`
+    const remoteExists = (await execSafe(['rev-parse', '--verify', `refs/remotes/${remoteRef}`], repoPath)).exitCode === 0
+    if (remoteExists) {
+      await exec(['checkout', '--track', '-b', branch, remoteRef], repoPath)
+      return
+    }
+
     await exec(['checkout', branch], repoPath)
   }
 
@@ -697,7 +752,10 @@ class GitService {
   }
 
   private async resolveBranchRef(repoPath: string, targetBranch: string): Promise<string> {
-    const candidates = [targetBranch, `origin/${targetBranch}`]
+    const defaultBranch = await this.remoteDefaultBranch(repoPath)
+    const candidates = targetBranch === defaultBranch.name
+      ? [defaultBranch.ref, targetBranch]
+      : [targetBranch, `origin/${targetBranch}`]
     for (const ref of candidates) {
       const res = await execSafe(['rev-parse', '--verify', ref], repoPath)
       if (res.exitCode === 0) return ref
