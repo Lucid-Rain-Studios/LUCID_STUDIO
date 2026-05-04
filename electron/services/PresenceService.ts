@@ -7,10 +7,19 @@ class PresenceService {
     return path.join(repoPath, '.lucid-git', 'presence.json')
   }
 
+  private normalize(value: unknown): PresenceFile {
+    if (!value || typeof value !== 'object') return { version: 1, entries: {} }
+    const entries = (value as Partial<PresenceFile>).entries
+    return {
+      version: 1,
+      entries: entries && typeof entries === 'object' ? entries : {},
+    }
+  }
+
   read(repoPath: string): PresenceFile {
     try {
       const raw = fs.readFileSync(this.filePath(repoPath), 'utf8')
-      return JSON.parse(raw) as PresenceFile
+      return this.normalize(JSON.parse(raw))
     } catch {
       return { version: 1, entries: {} }
     }

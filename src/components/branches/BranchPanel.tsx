@@ -34,6 +34,18 @@ function parseGitHubSlug(remoteUrl: string): string | null {
   return m ? m[1] : null
 }
 
+function presenceEntriesFrom(value: unknown): PresenceEntry[] {
+  if (!value || typeof value !== 'object') return []
+  const entries = (value as { entries?: unknown }).entries
+  if (!entries || typeof entries !== 'object') return []
+
+  return Object.values(entries as Record<string, unknown>).filter((entry): entry is PresenceEntry => {
+    if (!entry || typeof entry !== 'object') return false
+    const candidate = entry as Partial<PresenceEntry>
+    return typeof candidate.branch === 'string' && Array.isArray(candidate.modifiedFiles)
+  })
+}
+
 function TrackPill({ n, dir }: { n: number; dir: 'ahead' | 'behind' }) {
   if (n === 0) return null
   return (
@@ -312,10 +324,11 @@ export function BranchPanel({ onMergePreview, onRefresh }: BranchPanelProps) {
       ]))
       const activity = (activityAll as BranchActivity[]).find(a => a.ref === selected) ?? null
       const normSelected = selected.replace(/^origin\//, '')
-      const branchPresence = Object.values(presenceFile.entries).filter(e => e.branch.replace(/^origin\//, '') === normSelected)
+      const presenceEntries = presenceEntriesFrom(presenceFile)
+      const branchPresence = presenceEntries.filter(e => e.branch.replace(/^origin\//, '') === normSelected)
       const branchPrs = (prs as PullRequest[]).filter(pr => pr.headBranch === selected)
       const touchedFiles = new Set((diff?.files ?? []).map(f => f.path))
-      const overlapWarnings = Object.values(presenceFile.entries)
+      const overlapWarnings = presenceEntries
         .filter(e => e.branch !== selected)
         .flatMap(e => e.modifiedFiles.filter(f => touchedFiles.has(f)).map(f => `⚠️ ${f} also modified on ${e.branch} (${e.name})`))
       setInsights(prev => ({
@@ -330,7 +343,9 @@ export function BranchPanel({ onMergePreview, onRefresh }: BranchPanelProps) {
           behindMain: diff?.behindCommits?.length ?? 0,
         },
       }))
-    })()
+    })().catch(err => {
+      setError(err instanceof Error ? err.message : String(err))
+    })
   }, [selectedBranchName, repoPath, ghSlug, insights, opRun, defaultBranch])
 
   return (
