@@ -136,7 +136,7 @@ function branchShortName(name: string): string {
 // ── Commit row ─────────────────────────────────────────────────────────────────
 
 function CommitRow({ node, selected, isPrimary, repoPath, remoteUrl, onRefresh, onClick, onMultiContextMenu,
-  graphColW, branchTips, branchColors, defaultBranch }: {
+  graphColW, branchTips, branchColors, branchNamesByColor, defaultBranch }: {
   node: GraphNode
   selected: boolean
   isPrimary: boolean

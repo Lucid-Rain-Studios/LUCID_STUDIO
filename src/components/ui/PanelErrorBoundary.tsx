@@ -1,4 +1,5 @@
 import React from 'react'
+import { logUiError } from '@/ipc'
 
 interface Props {
   children: React.ReactNode
@@ -23,6 +24,11 @@ export class PanelErrorBoundary extends React.Component<Props, State> {
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
     console.error('[Panel crash]', error.message, info.componentStack?.slice(0, 300))
+    logUiError('renderer.panelCrash', `Panel "${this.props.tabId}" crashed: ${error.message}`, {
+      tabId: this.props.tabId,
+      error,
+      componentStack: info.componentStack,
+    })
   }
 
   componentDidUpdate(prevProps: Props) {

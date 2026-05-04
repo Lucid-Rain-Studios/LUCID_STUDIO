@@ -393,6 +393,33 @@ class GitService {
     }
   }
 
+  private async runWithLfsRecovery(repoPath: string, args: string[]): Promise<void> {
+    try {
+      await exec(args, repoPath)
+    } catch (error) {
+      if (!this.shouldRunLfsRecovery(error)) throw error
+      await this.recoverLfsAndMergeState(repoPath)
+      await exec(args, repoPath)
+    }
+  }
+
+  private async authenticatedArgs(repoPath: string, args: string[]): Promise<string[]> {
+    const token = await authService.getCurrentToken()
+    const remoteUrl = await this.getRemoteUrl(repoPath)
+    return [...gitAuthArgs(token, remoteUrl), ...args]
+  }
+
+  private isMergeConflictError(error: unknown): boolean {
+    const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase()
+    return (
+      message.includes('automatic merge failed') ||
+      message.includes('fix conflicts') ||
+      message.includes('merge conflict') ||
+      message.includes('conflict (') ||
+      message.includes('conflict:')
+    )
+  }
+
   /** git log with parsed output. Pass filePath to filter to a single file, or refs to limit to specific branches. */
   async log(
     repoPath: string,
@@ -604,20 +631,21 @@ class GitService {
 
   /** Switch to an existing branch. */
   async checkout(repoPath: string, branch: string): Promise<void> {
+    const checkout = async (args: string[]) => this.runWithLfsRecovery(repoPath, await this.authenticatedArgs(repoPath, args))
     const localExists = (await execSafe(['rev-parse', '--verify', `refs/heads/${branch}`], repoPath)).exitCode === 0
     if (localExists) {
-      await exec(['checkout', branch], repoPath)
+      await checkout(['checkout', branch])
       return
     }
 
     const remoteRef = `origin/${branch}`
     const remoteExists = (await execSafe(['rev-parse', '--verify', `refs/remotes/${remoteRef}`], repoPath)).exitCode === 0
     if (remoteExists) {
-      await exec(['checkout', '--track', '-b', branch, remoteRef], repoPath)
+      await checkout(['checkout', '--track', '-b', branch, remoteRef])
       return
     }
 
-    await exec(['checkout', branch], repoPath)
+    await checkout(['checkout', branch])
   }
 
   /** Dry-run merge: returns files that would conflict. Does not modify the working tree. */
@@ -701,7 +729,7 @@ class GitService {
   /** Merge targetBranch into HEAD. Throws if there are conflicts. */
   async merge(repoPath: string, targetBranch: string): Promise<void> {
     const targetRef = await this.resolveBranchRef(repoPath, targetBranch)
-    await exec(['merge', targetRef], repoPath)
+    await this.runWithLfsRecovery(repoPath, await this.authenticatedArgs(repoPath, ['merge', targetRef]))
   }
 
 
@@ -712,14 +740,41 @@ class GitService {
   }
 
   async resolveMergeConflictText(repoPath: string, filePath: string, choice: 'ours' | 'theirs'): Promise<void> {
-    await exec(['checkout', choice === 'theirs' ? '--theirs' : '--ours', '--', filePath], repoPath)
-    await exec(['add', '--', filePath], repoPath)
+    const stage = choice === 'ours' ? '2' : '3'
+    const stageRes = await execSafe(['ls-files', '-u', '--', filePath], repoPath)
+    const hasChosenVersion = stageRes.stdout
+      .split('\n')
+      .some(line => line.trim().split(/\s+/)[2] === stage)
+
+    if (hasChosenVersion) {
+      await this.runWithLfsRecovery(
+        repoPath,
+        await this.authenticatedArgs(repoPath, ['checkout', choice === 'theirs' ? '--theirs' : '--ours', '--', filePath]),
+      )
+      await exec(['add', '--', filePath], repoPath)
+      return
+    }
+
+    // The selected side deleted the file in a delete/modify conflict.
+    await exec(['rm', '-f', '--', filePath], repoPath)
   }
 
   async continueMerge(repoPath: string, targetBranch: string): Promise<void> {
+    const unresolved = await execSafe(['diff', '--name-only', '--diff-filter=U'], repoPath)
+    const unresolvedFiles = unresolved.stdout.trim().split('\n').filter(Boolean)
+    if (unresolvedFiles.length > 0) {
+      throw new Error(`Resolve all merge conflicts before finalizing:\n${unresolvedFiles.join('\n')}`)
+    }
     await exec(['commit', '--no-edit'], repoPath).catch(async () => {
       await exec(['commit', '-m', `Merge branch ${targetBranch}`], repoPath)
     })
+  }
+
+  async abortMerge(repoPath: string): Promise<void> {
+    const res = await execSafe(['merge', '--abort'], repoPath)
+    if (res.exitCode !== 0) {
+      throw new Error(res.stderr || res.stdout || 'No merge is currently in progress.')
+    }
   }
 
   async resolveMergeIntoBranch(
@@ -736,24 +791,25 @@ class GitService {
     const temporaryLocalBranch = !localBranchExists && targetRef.startsWith('origin/')
 
     try {
-      if (localBranchExists) await exec(['checkout', targetLocal], repoPath)
-      else await exec(['checkout', '-b', targetLocal, '--track', targetRef], repoPath)
+      if (localBranchExists) await this.runWithLfsRecovery(repoPath, await this.authenticatedArgs(repoPath, ['checkout', targetLocal]))
+      else await this.runWithLfsRecovery(repoPath, await this.authenticatedArgs(repoPath, ['checkout', '-b', targetLocal, '--track', targetRef]))
 
       await execSafe(['merge', '--abort'], repoPath)
-      await exec(['merge', '--no-ff', '--no-commit', baseRef], repoPath).catch(async () => {
-        // expected when conflicts are present
-      })
+      try {
+        await this.runWithLfsRecovery(repoPath, await this.authenticatedArgs(repoPath, ['merge', '--no-ff', '--no-commit', baseRef]))
+      } catch (error) {
+        if (!this.isMergeConflictError(error)) throw error
+      }
 
       for (const [file, side] of Object.entries(fileChoices)) {
-        await exec(['checkout', side === 'theirs' ? '--theirs' : '--ours', '--', file], repoPath)
-        await exec(['add', '--', file], repoPath)
+        await this.resolveMergeConflictText(repoPath, file, side)
       }
 
       await exec(['commit', '-m', `Resolve merge conflicts: ${baseBranch} -> ${targetBranch}`], repoPath)
-      await exec(['push', 'origin', targetLocal], repoPath)
+      await exec(await this.authenticatedArgs(repoPath, ['push', 'origin', targetLocal]), repoPath)
     } finally {
       await execSafe(['merge', '--abort'], repoPath)
-      await execSafe(['checkout', startBranch], repoPath)
+      await execSafe(await this.authenticatedArgs(repoPath, ['checkout', startBranch]), repoPath)
       if (temporaryLocalBranch) await execSafe(['branch', '-D', targetLocal], repoPath)
     }
   }

@@ -46,8 +46,23 @@ autoUpdater.on('update-downloaded', () => {
 })
 
 autoUpdater.on('error', (err) => {
-  // Silently ignore update errors — don't surface to user unless they triggered a manual check
+  logService.error('updater', `Auto-updater error: ${err.message}\nStack:\n${err.stack ?? ''}`)
   if (isDev) console.error('[updater]', err.message)
+})
+
+process.on('uncaughtException', (error) => {
+  logService.error('main.uncaughtException', `${error.message}
+Stack:
+${error.stack ?? ''}`)
+})
+
+process.on('unhandledRejection', (reason) => {
+  const message = reason instanceof Error
+    ? `${reason.message}
+Stack:
+${reason.stack ?? ''}`
+    : String(reason)
+  logService.error('main.unhandledRejection', message)
 })
 
 function fmt(bytes: number): string {
@@ -113,22 +128,45 @@ function createWindow(): BrowserWindow {
 // ── Window control IPC ────────────────────────────────────────────────────────
 
 function registerWindowHandlers() {
-  ipcMain.handle(CHANNELS.WIN_MINIMIZE, () => { mainWin?.minimize() })
-  ipcMain.handle(CHANNELS.WIN_MAXIMIZE_TOGGLE, () => {
+  const handle = (channel: string, fn: () => unknown) => {
+    ipcMain.handle(channel, async () => {
+      try {
+        return await fn()
+      } catch (error) {
+        const message = error instanceof Error ? `${error.message}\nStack:\n${error.stack ?? ''}` : String(error)
+        logService.error(`ipc.${channel}`, message)
+        throw error
+      }
+    })
+  }
+
+  handle(CHANNELS.WIN_MINIMIZE, () => { mainWin?.minimize() })
+  handle(CHANNELS.WIN_MAXIMIZE_TOGGLE, () => {
     if (!mainWin) return
-    mainWin.isMaximized() ? mainWin.unmaximize() : mainWin.maximize()
+    if (mainWin.isMaximized()) mainWin.unmaximize()
+    else mainWin.maximize()
   })
-  ipcMain.handle(CHANNELS.WIN_CLOSE, () => { mainWin?.close() })
-  ipcMain.handle(CHANNELS.WIN_IS_MAXIMIZED, () => mainWin?.isMaximized() ?? false)
+  handle(CHANNELS.WIN_CLOSE, () => { mainWin?.close() })
+  handle(CHANNELS.WIN_IS_MAXIMIZED, () => mainWin?.isMaximized() ?? false)
 }
 
 // ── IPC handlers for updater ─────────────────────────────────────────────────
 // Registered after app is ready so ipcMain is available
 
 function registerUpdaterHandlers() {
-  const { ipcMain } = require('electron')
+  const handle = (channel: string, fn: () => unknown) => {
+    ipcMain.handle(channel, async () => {
+      try {
+        return await fn()
+      } catch (error) {
+        const message = error instanceof Error ? `${error.message}\nStack:\n${error.stack ?? ''}` : String(error)
+        logService.error(`ipc.${channel}`, message)
+        throw error
+      }
+    })
+  }
 
-  ipcMain.handle(CHANNELS.UPDATE_CHECK, async () => {
+  handle(CHANNELS.UPDATE_CHECK, async () => {
     if (isDev) return { available: false, version: null as string | null, source: 'dev' as const }
     const result = await autoUpdater.checkForUpdates()
     return {
@@ -138,11 +176,11 @@ function registerUpdaterHandlers() {
     }
   })
 
-  ipcMain.handle(CHANNELS.UPDATE_DOWNLOAD, async () => {
+  handle(CHANNELS.UPDATE_DOWNLOAD, async () => {
     await autoUpdater.downloadUpdate()
   })
 
-  ipcMain.handle(CHANNELS.UPDATE_INSTALL, () => {
+  handle(CHANNELS.UPDATE_INSTALL, () => {
     autoUpdater.quitAndInstall(false, true)
   })
 }

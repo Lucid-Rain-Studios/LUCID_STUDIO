@@ -103,6 +103,8 @@ const api = {
     ipcRenderer.invoke(CHANNELS.GIT_MERGE_RESOLVE_TEXT, repoPath, filePath, choice),
   mergeContinue: (repoPath: string, targetBranch: string) =>
     ipcRenderer.invoke(CHANNELS.GIT_MERGE_CONTINUE, repoPath, targetBranch),
+  mergeAbort: (repoPath: string) =>
+    ipcRenderer.invoke(CHANNELS.GIT_MERGE_ABORT, repoPath),
 
   // ── Locks ─────────────────────────────────────────────────────────────────
   listLocks: (repoPath: string) =>
@@ -338,6 +340,8 @@ const api = {
     ipcRenderer.invoke(CHANNELS.LOG_GET_SUGGESTION),
   logSaveDialog: () =>
     ipcRenderer.invoke(CHANNELS.LOG_SAVE_DIALOG),
+  logRendererEvent: (source: string, message: string, detail?: unknown) =>
+    ipcRenderer.invoke(CHANNELS.LOG_RENDERER_EVENT, source, message, detail),
 
   // ── Window controls (frameless) ───────────────────────────────────────────
   windowMinimize: (): Promise<void> =>

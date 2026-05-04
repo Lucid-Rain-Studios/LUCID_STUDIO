@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 import {
   ipc, SyncStatus,
   CommitEntry, BranchActivity, SizeBreakdown, PullRequest, ConflictPreviewFile,
+  BranchDiffSummary, LFSStatus,
 } from '@/ipc'
 import { useRepoStore } from '@/stores/repoStore'
 import { useOperationStore } from '@/stores/operationStore'

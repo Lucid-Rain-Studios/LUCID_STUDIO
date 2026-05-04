@@ -521,6 +521,7 @@ export interface LucidGitAPI {
   mergeGetConflictText: (repoPath: string, filePath: string) => Promise<MergeConflictText>
   mergeResolveText: (repoPath: string, filePath: string, choice: 'ours' | 'theirs') => Promise<void>
   mergeContinue: (repoPath: string, targetBranch: string) => Promise<void>
+  mergeAbort: (repoPath: string) => Promise<void>
   mergeResolve: (repoPath: string, targetBranch: string, baseBranch: string, fileChoices: Record<string, 'ours' | 'theirs'>) => Promise<void>
 
   // Locks
@@ -656,6 +657,7 @@ export interface LucidGitAPI {
   logGetText: () => Promise<string>
   logGetSuggestion: () => Promise<string | null>
   logSaveDialog: () => Promise<string | null>
+  logRendererEvent: (source: string, message: string, detail?: unknown) => Promise<void>
 
   // Window controls (frameless)
   windowMinimize: () => Promise<void>
@@ -681,4 +683,45 @@ declare global {
 
 // ── Typed accessor ────────────────────────────────────────────────────────────
 
-export const ipc: LucidGitAPI = window.lucidGit
+function describeUnknown(value: unknown): string {
+  if (value instanceof Error) return value.message
+  if (typeof value === 'string') return value
+  try {
+    return JSON.stringify(value)
+  } catch {
+    return String(value)
+  }
+}
+
+function logRendererEvent(source: string, message: string, detail?: unknown): void {
+  window.lucidGit.logRendererEvent(source, message, detail).catch(() => {})
+}
+
+function wrapApi<T extends LucidGitAPI>(api: T): T {
+  return new Proxy(api, {
+    get(target, prop, receiver) {
+      const value = Reflect.get(target, prop, receiver)
+      if (typeof value !== 'function' || prop === 'logRendererEvent') return value
+
+      return (...args: unknown[]) => {
+        try {
+          const result = value.apply(target, args)
+          if (result && typeof result.then === 'function') {
+            return result.catch((error: unknown) => {
+              logRendererEvent(`renderer.ipc.${String(prop)}`, `IPC call failed: ${describeUnknown(error)}`, { args, error })
+              throw error
+            })
+          }
+          return result
+        } catch (error) {
+          logRendererEvent(`renderer.ipc.${String(prop)}`, `IPC call threw synchronously: ${describeUnknown(error)}`, { args, error })
+          throw error
+        }
+      }
+    },
+  }) as T
+}
+
+export const logUiError = logRendererEvent
+
+export const ipc: LucidGitAPI = wrapApi(window.lucidGit)

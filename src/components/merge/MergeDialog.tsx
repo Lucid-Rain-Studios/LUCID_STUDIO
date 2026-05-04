@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { ipc, BranchDiffSummary, ConflictPreviewFile, MergeConflictText } from '@/ipc'
+import { ipc, BranchDiffSummary, ConflictPreviewFile, FileStatus, MergeConflictText } from '@/ipc'
 import { useRepoStore } from '@/stores/repoStore'
 import { useOperationStore } from '@/stores/operationStore'
 import { cn } from '@/lib/utils'
@@ -34,6 +34,53 @@ const TYPE_ICON: Record<ConflictPreviewFile['type'], string> = {
   text:      '📄',
   binary:    '📦',
   'ue-asset': '🎮',
+}
+
+const UE_EXTS = new Set(['.uasset', '.umap', '.udk', '.ubulk', '.uexp', '.ucas'])
+const BINARY_EXTS = new Set([
+  '.uasset', '.umap', '.udk', '.ubulk', '.uexp', '.ucas', '.pak',
+  '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tga', '.psd', '.tiff',
+  '.wav', '.mp3', '.ogg', '.flac', '.aiff', '.wem',
+  '.zip', '.7z', '.rar', '.pdf', '.fbx', '.obj',
+])
+
+function extname(filePath: string): string {
+  const name = filePath.replace(/\\/g, '/').split('/').pop() ?? filePath
+  const dot = name.lastIndexOf('.')
+  return dot >= 0 ? name.slice(dot).toLowerCase() : ''
+}
+
+function conflictFileType(filePath: string): ConflictPreviewFile['type'] {
+  const ext = extname(filePath)
+  if (UE_EXTS.has(ext)) return 'ue-asset'
+  return BINARY_EXTS.has(ext) ? 'binary' : 'text'
+}
+
+function conflictTypeFromStatus(status: FileStatus, filePath: string): ConflictPreviewFile['conflictType'] {
+  if (status.indexStatus === 'D' || status.workingStatus === 'D') return 'delete-modify'
+  return BINARY_EXTS.has(extname(filePath)) ? 'binary' : 'content'
+}
+
+function isUnmerged(status: FileStatus): boolean {
+  const xy = `${status.indexStatus}${status.workingStatus}`
+  return ['DD', 'AU', 'UD', 'UA', 'DU', 'AA', 'UU'].includes(xy)
+}
+
+function fallbackConflict(path: string, status: FileStatus, currentBranch: string, targetBranch: string): ConflictPreviewFile {
+  const emptyInfo = (branch: string) => ({
+    branch,
+    lastContributor: { name: '', email: '' },
+    lastEditedAt: '',
+    lastCommitMessage: '',
+    sizeBytes: 0,
+  })
+  return {
+    path,
+    type: conflictFileType(path),
+    conflictType: conflictTypeFromStatus(status, path),
+    ours: emptyInfo(currentBranch),
+    theirs: emptyInfo(targetBranch),
+  }
 }
 
 export function MergePreviewDialog({ targetBranch, onClose, onMerged }: MergePreviewDialogProps) {
@@ -92,9 +139,18 @@ export function MergePreviewDialog({ targetBranch, onClose, onMerged }: MergePre
     } catch (e) {
       const msg = String(e)
       if (msg.toLowerCase().includes('conflict')) {
+        const status = await ipc.status(repoPath).catch(() => [])
+        const conflictMap = new Map(conflicts.map(c => [c.path, c]))
+        for (const file of status.filter(isUnmerged)) {
+          if (!conflictMap.has(file.path)) {
+            conflictMap.set(file.path, fallbackConflict(file.path, file, currentBranch, targetBranch))
+          }
+        }
+        const activeConflicts = [...conflictMap.values()]
+        setConflicts(activeConflicts)
         setInConflictResolution(true)
         const loaded: Record<string, MergeConflictText> = {}
-        await Promise.all(conflicts.filter(c => c.conflictType === 'content').map(async c => {
+        await Promise.all(activeConflicts.filter(c => c.conflictType === 'content').map(async c => {
           try {
             loaded[c.path] = await ipc.mergeGetConflictText(repoPath, c.path)
           } catch {
@@ -106,10 +162,13 @@ export function MergePreviewDialog({ targetBranch, onClose, onMerged }: MergePre
 
         const selectedEntries = Object.entries(preselectedChoices)
         if (selectedEntries.length > 0) {
+          const resolved: Record<string, 'ours' | 'theirs'> = {}
           for (const [filePath, choice] of selectedEntries) {
+            if (!conflictMap.has(filePath)) continue
             await opRun(`Resolving ${filePath}…`, () => ipc.mergeResolveText(repoPath, filePath, choice))
+            resolved[filePath] = choice
           }
-          setResolvedFiles(prev => ({ ...prev, ...preselectedChoices }))
+          setResolvedFiles(prev => ({ ...prev, ...resolved }))
         }
       } else {
         setError(msg)
@@ -130,18 +189,36 @@ export function MergePreviewDialog({ targetBranch, onClose, onMerged }: MergePre
 
   const finalizeMerge = async () => {
     if (!repoPath) return
-    await opRun('Finalizing merge…', () => ipc.mergeContinue(repoPath, targetBranch))
-    await refreshStatus()
-    bumpSyncTick()
-    onMerged()
-    onClose()
+    try {
+      setError(null)
+      await opRun('Finalizing merge...', () => ipc.mergeContinue(repoPath, targetBranch))
+      await refreshStatus()
+      bumpSyncTick()
+      onMerged()
+      onClose()
+    } catch (e) {
+      setError(String(e))
+    }
+  }
+
+  const abortMerge = async () => {
+    if (!repoPath) return
+    try {
+      setError(null)
+      await opRun('Aborting merge...', () => ipc.mergeAbort(repoPath))
+      await refreshStatus()
+      bumpSyncTick()
+      onClose()
+    } catch (e) {
+      setError(String(e))
+    }
   }
 
   return (
     /* Backdrop */
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
-      onMouseDown={e => { if (e.target === e.currentTarget) onClose() }}
+      onMouseDown={e => { if (!inConflictResolution && e.target === e.currentTarget) onClose() }}
     >
       <div className="bg-lg-bg-elevated border border-lg-border rounded-lg shadow-2xl w-[640px] max-h-[80vh] flex flex-col">
 
@@ -158,7 +235,7 @@ export function MergePreviewDialog({ targetBranch, onClose, onMerged }: MergePre
             </div>
           </div>
           <button
-            onClick={onClose}
+            onClick={inConflictResolution ? abortMerge : onClose}
             className="text-lg-text-secondary hover:text-lg-text-primary text-lg font-mono leading-none"
           >
             ×
@@ -353,10 +430,10 @@ export function MergePreviewDialog({ targetBranch, onClose, onMerged }: MergePre
             {conflicts.length === 0 && <div />}
             <div className="flex gap-2 shrink-0">
               <button
-                onClick={onClose}
+                onClick={inConflictResolution ? abortMerge : onClose}
                 className="px-3 h-7 rounded text-[11px] font-mono border border-lg-border text-lg-text-secondary hover:border-lg-accent hover:text-lg-accent transition-colors"
               >
-                Cancel
+                {inConflictResolution ? 'Abort merge' : 'Cancel'}
               </button>
               <button
                 onClick={doMerge}

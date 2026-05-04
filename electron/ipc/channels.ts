@@ -30,6 +30,7 @@ export const CHANNELS = {
   GIT_MERGE_GET_CONFLICT_TEXT: 'git:merge-get-conflict-text',
   GIT_MERGE_RESOLVE_TEXT: 'git:merge-resolve-text',
   GIT_MERGE_CONTINUE: 'git:merge-continue',
+  GIT_MERGE_ABORT: 'git:merge-abort',
   GIT_REMOTE_URL:    'git:remote-url',
   GIT_SYNC_STATUS:   'git:sync-status',
   GIT_UPDATE_FROM_MAIN: 'git:update-from-main',
@@ -190,6 +191,7 @@ export const CHANNELS = {
   LOG_GET_TEXT:      'log:get-text',
   LOG_GET_SUGGESTION:'log:get-suggestion',
   LOG_SAVE_DIALOG:   'log:save-dialog',
+  LOG_RENDERER_EVENT:'log:renderer-event',
 
   // Events: main → renderer (one-way via ipcRenderer.on)
   EVT_OPERATION_PROGRESS: 'evt:operation-progress',
