@@ -14,6 +14,8 @@ files:
 extraResources:
   - from: assets/icon.png
     to: assets/icon.png
+  - from: assets/icon.ico
+    to: assets/icon.ico
 
 # Native modules + bundled Git must live outside the ASAR archive
 asarUnpack:
@@ -29,16 +31,17 @@ compression: maximum
 
 # ── Windows ──────────────────────────────────────────────────────────────────
 win:
-  icon: assets/icon.png
+  icon: assets/icon.ico
   target:
     - target: nsis
       arch: [x64]
   requestedExecutionLevel: asInvoker   # install to AppData, no UAC prompt
-  # signAndEditExecutable is true by default; set false until a cert is configured
-  # to avoid needing winCodeSign tool extraction on Windows hosts without Developer Mode
+  # Keep executable editing disabled on Windows hosts without symlink privileges;
+  # the NSIS script below sets Lucid Git's desktop shortcut icon explicitly.
   signAndEditExecutable: false
 
 nsis:
+  include: assets/installer.nsh
   oneClick: true
   perMachine: false
   allowElevation: false

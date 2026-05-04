@@ -202,6 +202,79 @@ function compactGraphLanes(graph: GraphNode[]): GraphNode[] {
 }
 
 function pruneGraphToBranchKeys(graph: GraphNode[], allowedBranchKeys: Set<string>): GraphNode[] {
+  if (allowedBranchKeys.has('main')) {
+    const selectedBranchKeys = new Set([...allowedBranchKeys].filter(key => key !== 'main'))
+    const branchLane = new Map<string, number>()
+    for (const node of graph) {
+      if (selectedBranchKeys.has(node.color) && !branchLane.has(node.color)) {
+        branchLane.set(node.color, node.lane)
+      }
+    }
+
+    const collapsed = graph.map(node => {
+      const keepOwnLane = node.isMain || selectedBranchKeys.has(node.color)
+      const canonicalLane = (branchKey: string) => branchLane.get(branchKey) ?? 0
+      const lane = keepOwnLane && !node.isMain ? canonicalLane(node.color) : 0
+      const mapSegment = (seg: LineSegment, isTop: boolean): LineSegment => {
+        const branchKey = seg.branchKey ?? seg.color
+        const keepSegmentLane = seg.isMain || selectedBranchKeys.has(branchKey)
+        const mapEndpoint = (endpoint: number, isCommitEndpoint: boolean) => {
+          if (isCommitEndpoint) return lane
+          if (endpoint === 0) return 0
+          return keepSegmentLane && selectedBranchKeys.has(branchKey) ? canonicalLane(branchKey) : 0
+        }
+        return {
+          ...seg,
+          from: mapEndpoint(seg.from, !isTop && seg.from === node.lane),
+          to: mapEndpoint(seg.to, isTop && seg.to === node.lane),
+          color: keepSegmentLane ? seg.color : MAIN_BRANCH_COLOR,
+          branchKey: keepSegmentLane ? branchKey : 'main',
+          isMain: seg.isMain || !keepSegmentLane,
+        }
+      }
+      const topLines = node.topLines.map(seg => mapSegment(seg, true))
+      const bottomLines = node.bottomLines.map(seg => mapSegment(seg, false))
+      const isMain = node.isMain || !keepOwnLane
+      const color = keepOwnLane ? node.color : MAIN_BRANCH_COLOR
+      const maxLane = Math.max(
+        lane,
+        ...topLines.flatMap(l => [l.from, l.to]),
+        ...bottomLines.flatMap(l => [l.from, l.to]),
+        0,
+      )
+      return {
+        ...node,
+        lane,
+        color,
+        isMain,
+        topLines,
+        bottomLines,
+        maxLane,
+      }
+    })
+
+    return compactGraphLanes(collapsed.map(node => {
+      const dedupe = (segments: LineSegment[]) => {
+        const seen = new Set<string>()
+        return segments.filter(seg => {
+          const key = `${seg.from}:${seg.to}:${seg.color}:${seg.branchKey ?? ''}:${seg.isMain ? 1 : 0}`
+          if (seen.has(key)) return false
+          seen.add(key)
+          return true
+        })
+      }
+      const topLines = dedupe(node.topLines)
+      const bottomLines = dedupe(node.bottomLines)
+      const maxLane = Math.max(
+        node.lane,
+        ...topLines.flatMap(l => [l.from, l.to]),
+        ...bottomLines.flatMap(l => [l.from, l.to]),
+        0,
+      )
+      return { ...node, topLines, bottomLines, maxLane }
+    }))
+  }
+
   const rows = allowedBranchKeys.size === 0
     ? graph.filter(node => node.isMain)
     : graph.filter(node => node.isMain || allowedBranchKeys.has(node.color))
@@ -245,7 +318,7 @@ function GraphCell({ node, graphColW, hoveredBranchKey, branchHoverLabels, onHov
   const dotR = DOT_R + 0.5
   const renderLine = (seg: LineSegment, isTop: boolean, key: string) => {
     const branchKey = seg.branchKey ?? seg.color
-    const branchLabel = branchHoverLabels.get(branchKey) ?? (seg.isMain ? 'Main branch' : 'Branch lane')
+    const branchLabel = branchHoverLabels.get(branchKey) ?? (seg.isMain ? 'Main branch' : 'Selected branch lane')
     const isHovered = hoveredBranchKey === branchKey
     const isDimmed = !!hoveredBranchKey && !isHovered
     const strokeWidth = isHovered ? (seg.isMain ? 4.2 : 3.4) : seg.isMain ? 2.7 : 1.65
