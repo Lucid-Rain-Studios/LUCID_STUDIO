@@ -5,7 +5,7 @@ import { useRepoStore } from '@/stores/repoStore'
 import { useLockStore } from '@/stores/lockStore'
 import { useAuthStore } from '@/stores/authStore'
 import { useDialogStore } from '@/stores/dialogStore'
-import { computeGraph, GraphNode, LANE_W, ROW_H, DOT_R, GRAPH_PAD, LineSegment } from '@/components/history/graphLayout'
+import { computeGraph, GraphNode, ROW_H, DOT_R, GRAPH_PAD, LineSegment } from '@/components/history/graphLayout'
 import { TextDiff } from '@/components/diff/TextDiff'
 import { FileTree } from '@/components/changes/FileTree'
 import { CommitBox } from '@/components/changes/CommitBox'
@@ -26,6 +26,11 @@ type CenterFile =
 const INITIAL_LIMIT = 300
 const MORE_INC = 300
 const MAIN_BRANCH_COLOR = '#7dd3fc'
+const TL_LANE_W = 10
+const LEFT_WIDTH_MAX = 860
+const CENTER_WIDTH_MIN = 240
+const CENTER_WIDTH_MAX = 520
+const DEFAULT_LEFT_WIDTH = 360
 
 const ASSET_EXTS = new Set([
   'uasset', 'umap', 'upk', 'udk',
@@ -80,8 +85,8 @@ function GraphDefs() {
 }
 
 function linePath(seg: LineSegment, isTop: boolean): string {
-  const x1 = GRAPH_PAD + seg.from * LANE_W + LANE_W / 2
-  const x2 = GRAPH_PAD + seg.to   * LANE_W + LANE_W / 2
+  const x1 = GRAPH_PAD + seg.from * TL_LANE_W + TL_LANE_W / 2
+  const x2 = GRAPH_PAD + seg.to   * TL_LANE_W + TL_LANE_W / 2
   const y1 = isTop ? 0         : ROW_H / 2
   const y2 = isTop ? ROW_H / 2 : ROW_H
   if (x1 === x2) return `M ${x1} ${y1} L ${x2} ${y2}`
@@ -188,7 +193,7 @@ function GraphCell({ node, graphColW, hoveredBranchKey, branchHoverLabels, onHov
 }) {
   const [hoveredSeg, setHoveredSeg] = useState<{ x: number; label: string } | null>(null)
   const isMerge = node.commit.parentHashes.length > 1
-  const cx = GRAPH_PAD + node.lane * LANE_W + LANE_W / 2
+  const cx = GRAPH_PAD + node.lane * TL_LANE_W + TL_LANE_W / 2
   const cy = ROW_H / 2
   const dotR = DOT_R + 0.5
   const renderLine = (seg: LineSegment, isTop: boolean, key: string) => {
@@ -221,7 +226,7 @@ function GraphCell({ node, graphColW, hoveredBranchKey, branchHoverLabels, onHov
           style={{ cursor: 'help' }}
           onMouseEnter={() => {
             setHoveredSeg({
-              x: GRAPH_PAD + ((seg.from + seg.to) / 2) * LANE_W + LANE_W / 2,
+              x: GRAPH_PAD + ((seg.from + seg.to) / 2) * TL_LANE_W + TL_LANE_W / 2,
               label: branchLabel,
             })
             onHoverBranch(branchKey)
@@ -435,7 +440,7 @@ function WorkingTreeGraphRow({ selected, changeCount, graphColW, lane = 0, onCli
   const [hover, setHover] = useState(false)
   const hasChanges = changeCount > 0
   const accent = hasChanges ? '#e8622f' : '#2ec573'
-  const cx = GRAPH_PAD + lane * LANE_W + LANE_W / 2
+  const cx = GRAPH_PAD + lane * TL_LANE_W + TL_LANE_W / 2
   const cy = Math.round(WT_ROW_H * 0.40)
 
   return (
@@ -1487,6 +1492,7 @@ function CommitHeader({ commit }: { commit: CommitEntry }) {
 // ── Main panel ────────────────────────────────────────────────────────────────
 
 const STASH_KEY = 'lucid-git:timeline-stash-open'
+const LEFT_WIDTH_KEY = 'lucid-git:timeline-left-width'
 
 export function TimelinePanel({ repoPath }: { repoPath: string }) {
   const opRun        = useOperationStore(s => s.run)
@@ -1548,9 +1554,9 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
     return map
   }, [filterBranches, defaultBranch])
   const graphColW = React.useMemo(() => {
-    if (nodes.length === 0) return GRAPH_PAD * 2 + LANE_W
+    if (nodes.length === 0) return GRAPH_PAD * 2 + TL_LANE_W
     const maxLane = nodes.reduce((m, n) => Math.max(m, n.maxLane), 0)
-    return GRAPH_PAD + (maxLane + 1) * LANE_W + GRAPH_PAD
+    return GRAPH_PAD + (maxLane + 1) * TL_LANE_W + GRAPH_PAD
   }, [nodes])
   const branchHoverLabels = React.useMemo(() => {
     const labels = new Map<string, string>([['main', defaultBranch || 'main']])
@@ -1568,7 +1574,8 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
     }
     return labels
   }, [nodes, branchTips, defaultBranch])
-  const minLeftWidth = React.useMemo(() => Math.max(320, graphColW + 190), [graphColW])
+  const minLeftWidth = React.useMemo(() => Math.max(320, graphColW + 260), [graphColW])
+  const maxLeftWidth = Math.max(LEFT_WIDTH_MAX, minLeftWidth)
 
   const branchNames = React.useMemo(
     () => filterBranches.map(b => b.name),
@@ -1609,7 +1616,14 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
   const [blameLoading, setBlameLoading] = useState(false)
 
   // ── Layout ─────────────────────────────────────────────────────────────────
-  const [leftWidth,   setLeftWidth]   = useState(310)
+  const [leftWidth,   setLeftWidth]   = useState(() => {
+    try {
+      const saved = Number(localStorage.getItem(LEFT_WIDTH_KEY))
+      return Number.isFinite(saved) && saved > 0 ? Math.min(LEFT_WIDTH_MAX, Math.max(DEFAULT_LEFT_WIDTH, saved)) : DEFAULT_LEFT_WIDTH
+    } catch {
+      return DEFAULT_LEFT_WIDTH
+    }
+  })
   const [graphWidth,  setGraphWidth]  = useState<number | null>(null)
   const [centerWidth, setCenterWidth] = useState(370)
   const dragging   = useRef<'left' | 'center' | 'graph' | null>(null)
@@ -1617,8 +1631,14 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
   const dragStartW = useRef(0)
 
   useEffect(() => {
-    setLeftWidth(w => Math.max(w, minLeftWidth))
-  }, [minLeftWidth])
+    setLeftWidth(w => Math.min(maxLeftWidth, Math.max(w, minLeftWidth)))
+  }, [maxLeftWidth, minLeftWidth])
+
+  useEffect(() => {
+    try { localStorage.setItem(LEFT_WIDTH_KEY, String(Math.round(leftWidth))) } catch {
+      return
+    }
+  }, [leftWidth])
 
   useEffect(() => {
     setGraphWidth(w => (w == null ? graphColW : Math.max(w, graphColW)))
@@ -1641,7 +1661,7 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
         setGraphWidth(next)
         return
       }
-      const w = Math.max(240, Math.min(520, dragStartW.current + delta))
+      const w = Math.max(CENTER_WIDTH_MIN, Math.min(which === 'left' ? maxLeftWidth : CENTER_WIDTH_MAX, dragStartW.current + delta))
       if (which === 'left') setLeftWidth(Math.max(w, minLeftWidth))
       else setCenterWidth(w)
     }
@@ -1654,7 +1674,7 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
     }
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
-  }, [graphColW, leftWidth, minLeftWidth])
+  }, [graphColW, leftWidth, maxLeftWidth, minLeftWidth])
 
   // ── Load history ───────────────────────────────────────────────────────────
   const loadHistory = useCallback(async (limit: number, branches?: Set<string>, defaultBranchOverride?: string) => {
@@ -1888,6 +1908,26 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
             {totalLoaded > 0 ? `${totalLoaded} Commits` : 'Commits'}
           </span>
           <div style={{ flex: 1 }} />
+          <div
+            title="Commit list width"
+            style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}
+          >
+            <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10, color: '#4e5870', fontWeight: 700 }}>
+              Width
+            </span>
+            <input
+              type="range"
+              min={minLeftWidth}
+              max={maxLeftWidth}
+              value={leftWidth}
+              onChange={e => setLeftWidth(Math.max(minLeftWidth, Math.min(maxLeftWidth, Number(e.currentTarget.value))))}
+              style={{
+                width: 112,
+                accentColor: '#e8622f',
+                cursor: 'ew-resize',
+              }}
+            />
+          </div>
           <TLBranchDropdown
             open={filterOpen}
             onToggleOpen={() => setFilterOpen(o => !o)}
