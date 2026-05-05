@@ -125,12 +125,11 @@ export async function exec(
   })
 
   if (result.exitCode !== 0) {
-    const errText = (result.stderr || result.stdout).slice(0, 1000)
-    const subCmd  = detectGitSubcommand(args)
+    const combined = [result.stderr, result.stdout].filter(Boolean).join('\n')
+    const errText  = combined.slice(0, 1000)
+    const subCmd   = detectGitSubcommand(args)
     logService.error(`git.${subCmd}`, `git ${subCmd} failed (exit ${result.exitCode}):\n${errText}`)
-    throw new Error(
-      `git ${args[0]} failed (exit ${result.exitCode}):\n${result.stderr || result.stdout}`
-    )
+    throw new Error(`git ${args[0]} failed (exit ${result.exitCode}):\n${combined}`)
   }
 
   return { stdout: result.stdout, stderr: result.stderr }

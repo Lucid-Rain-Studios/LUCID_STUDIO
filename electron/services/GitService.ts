@@ -416,7 +416,8 @@ class GitService {
       message.includes('fix conflicts') ||
       message.includes('merge conflict') ||
       message.includes('conflict (') ||
-      message.includes('conflict:')
+      message.includes('conflict:') ||
+      message.includes('cannot merge binary')
     )
   }
 
@@ -742,6 +743,10 @@ class GitService {
   async resolveMergeConflictText(repoPath: string, filePath: string, choice: 'ours' | 'theirs'): Promise<void> {
     const stage = choice === 'ours' ? '2' : '3'
     const stageRes = await execSafe(['ls-files', '-u', '--', filePath], repoPath)
+
+    // No unmerged stages means git auto-resolved this file; nothing to do.
+    if (!stageRes.stdout.trim()) return
+
     const hasChosenVersion = stageRes.stdout
       .split('\n')
       .some(line => line.trim().split(/\s+/)[2] === stage)
