@@ -339,6 +339,7 @@ function HeaderBtn({ title, onClick, danger, children }: {
 }) {
   return (
     <button
+      className="lg-compact-icon-button"
       title={title}
       onClick={onClick}
       style={{
@@ -366,6 +367,7 @@ function ZoomBtn({ title, onClick, children, label }: {
 }) {
   return (
     <button
+      className={label ? undefined : 'lg-compact-icon-button'}
       title={title}
       onClick={onClick}
       style={{

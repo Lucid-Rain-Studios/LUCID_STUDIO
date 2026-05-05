@@ -320,7 +320,7 @@ export function Sidebar({ active, onChange, collapsed, onToggle, width, onWidthC
 
                     {/* Customise button */}
                     <button
-                      className="lg-sidebar-section-icon"
+                      className="lg-sidebar-section-icon lg-compact-icon-button"
                       onClick={(e) => openPopoverFor(e, group.key)}
                       title="Customise section"
                       aria-label={`Customise ${group.label} section`}
@@ -344,7 +344,7 @@ export function Sidebar({ active, onChange, collapsed, onToggle, width, onWidthC
 
                     {/* Chevron — clicks collapse/expand */}
                     <button
-                      className="lg-sidebar-section-icon"
+                      className="lg-sidebar-section-icon lg-compact-icon-button"
                       onClick={() => toggleGroup(group.key)}
                       title={isGroupCollapsed ? `Expand ${group.label}` : `Collapse ${group.label}`}
                       aria-label={isGroupCollapsed ? `Expand ${group.label}` : `Collapse ${group.label}`}

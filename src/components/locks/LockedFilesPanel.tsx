@@ -808,7 +808,7 @@ function StatChip({ label, value, color }: { label: string; value: number; color
 function ActionBtn({ title, onClick, icon }: { title: string; onClick: () => void; icon: React.ReactNode }) {
   return (
     <button
-      className="lg-toolbar-control lg-icon-control"
+      className="lg-toolbar-control lg-icon-control lg-compact-icon-button"
       title={title}
       aria-label={title}
       onClick={onClick}

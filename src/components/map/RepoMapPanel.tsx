@@ -824,6 +824,7 @@ export function RepoMapPanel({ repoPath }: RepoMapPanelProps) {
           </div>
 
           <button
+            className="lg-compact-icon-button"
             onClick={loadData}
             disabled={loading}
             style={{

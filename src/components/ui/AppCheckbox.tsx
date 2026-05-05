@@ -35,7 +35,7 @@ export function AppCheckbox({
       }}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
-      className={className}
+      className={['lg-compact-icon-button', className].filter(Boolean).join(' ')}
       style={{
         width: size,
         height: size,

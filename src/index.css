@@ -138,6 +138,17 @@ html.lg-appearance-applied #root .lg-toolbar-control.lg-icon-control {
   padding: 0 !important;
 }
 
+html.lg-appearance-applied #root .lg-compact-icon-button {
+  min-height: 0 !important;
+  padding: 0 !important;
+  line-height: 1 !important;
+}
+
+html.lg-appearance-applied #root .lg-compact-icon-button > svg {
+  display: block;
+  flex-shrink: 0;
+}
+
 html.lg-appearance-applied #root .lg-sidebar-section-label {
   height: 18px !important;
   min-height: 18px !important;

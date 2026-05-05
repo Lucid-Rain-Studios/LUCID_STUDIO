@@ -177,6 +177,7 @@ export function FileRow({
         {/* Asset thumbnail — clickable to open viewer */}
         {isPreviewable && thumbnail && (
           <AppTooltip content="Preview file" side="top" delay={250}><button
+            className="lg-compact-icon-button"
             onClick={e => { e.stopPropagation(); openViewer(repoPath, file.path) }}
             style={{
               width: 24, height: 24, borderRadius: 4, overflow: 'hidden', flexShrink: 0,

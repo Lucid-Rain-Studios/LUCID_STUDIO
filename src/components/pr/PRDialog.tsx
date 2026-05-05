@@ -307,6 +307,7 @@ export function PRDialog() {
               </span>
             )}
             <button
+              className="lg-compact-icon-button"
               onClick={closeDialog}
               style={{
                 width: 22, height: 22, borderRadius: 5, border: 'none',

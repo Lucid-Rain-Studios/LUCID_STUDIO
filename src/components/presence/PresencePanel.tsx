@@ -352,6 +352,7 @@ export function PresencePanel({ repoPath }: PresencePanelProps) {
 
         <div style={{ flex: 1 }} />
         <button
+          className="lg-compact-icon-button"
           onClick={loadData}
           disabled={loading}
           title="Refresh"

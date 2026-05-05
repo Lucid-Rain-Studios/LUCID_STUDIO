@@ -585,6 +585,7 @@ function TinyBtn({ title, onClick, children }: { title: string; onClick: () => v
   const [hover, setHover] = useState(false)
   return (
     <button
+      className="lg-compact-icon-button"
       onClick={onClick} title={title}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}

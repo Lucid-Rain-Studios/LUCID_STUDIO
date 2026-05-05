@@ -109,6 +109,7 @@ function RecentRepoRow({ name, path, divider, onOpen, onRemove }: {
         </span>
       </button>
       <button
+        className="lg-compact-icon-button"
         onClick={e => { e.stopPropagation(); onRemove() }}
         onMouseEnter={() => setRemoveHover(true)}
         onMouseLeave={() => setRemoveHover(false)}
