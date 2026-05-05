@@ -647,7 +647,7 @@ export function TopBar({ onOpen, onClone, onAddAccount, onSynced }: TopBarProps)
               onSignOut={() => useAuthStore.getState().logout(currentAccount.userId)}
             />
           ) : (
-            <button onClick={onAddAccount} style={{
+            <button className="lg-toolbar-control" onClick={onAddAccount} style={{
               height: 28, paddingLeft: 12, paddingRight: 12,
               borderRadius: 5, border: '1px solid #1d2535',
               background: 'rgba(255,255,255,0.04)', color: '#7b8499',
@@ -1033,7 +1033,7 @@ function RepoMenuItem({
         {label}
       </span>
       {shortcut && (
-        <span style={{
+        <span className="lg-toolbar-badge lg-count-badge" style={{
           fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#283047',
           background: 'rgba(255,255,255,0.04)', border: '1px solid #1d2535',
           borderRadius: 4, padding: '1px 5px',
@@ -1109,6 +1109,7 @@ function UpdateFromMainBtn({
   return (
     <div style={{ position: 'relative' }}>
       <button
+        className="lg-toolbar-control"
         onClick={onClick}
         disabled={isDisabled}
         onMouseEnter={() => !isDisabled && setHover(true)}
@@ -1174,6 +1175,7 @@ function SyncBtn({
   const textColor   = error ? '#e84040' : active ? countColor : '#7b8499'
   const button = (
     <button
+      className="lg-toolbar-control"
       onClick={disabled ? undefined : onClick}
       onMouseEnter={() => !disabled && setHover(true)}
       onMouseLeave={() => setHover(false)}
@@ -1352,7 +1354,7 @@ function AccountMenu({ account, onSignOut }: { account: { userId: string; login:
 
 function TopBtn({ onClick, label, accent }: { onClick: () => void; label: string; accent?: boolean }) {
   return (
-    <button onClick={onClick} style={{
+    <button className="lg-toolbar-control" onClick={onClick} style={{
       height: 28, paddingLeft: 13, paddingRight: 13, borderRadius: 5,
       background: accent ? 'var(--lg-accent)' : 'rgba(255,255,255,0.04)',
       border: `1px solid ${accent ? 'var(--lg-accent)' : 'var(--lg-border)'}`,
@@ -1471,6 +1473,7 @@ function FetchPullSplitBtn({
   const borderColor = error ? '#e84040' : hasBehind ? '#f5a832' : '#1d2535'
   const fetchButton = (
     <button
+      className="lg-toolbar-control"
       onClick={disabled ? undefined : onFetch}
       disabled={disabled}
       data-disabled-reason={disabled ? fetchDisabledReason ?? undefined : undefined}
@@ -1493,6 +1496,7 @@ function FetchPullSplitBtn({
   )
   const pullButton = (
     <button
+      className="lg-toolbar-control"
       onClick={pullDisabled ? undefined : onPull}
       disabled={pullDisabled}
       data-disabled-reason={pullDisabled ? pullDisabledReason ?? undefined : undefined}
@@ -1513,7 +1517,7 @@ function FetchPullSplitBtn({
       <ArrowDown />
       {pullLabel}
       {hasBehind && (
-        <span style={{
+        <span className="lg-toolbar-badge lg-count-badge" style={{
           background: 'rgba(245,168,50,0.2)', color: '#f5a832',
           fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 700,
           borderRadius: 8, paddingLeft: 5, paddingRight: 5, lineHeight: '15px',

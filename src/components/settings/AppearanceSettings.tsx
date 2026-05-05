@@ -6,12 +6,12 @@ import {
 } from '@/lib/appearance'
 
 const DEFAULTS: Partial<AppSettings> = {
-  fontFamily:     'IBM Plex Sans',
+  fontFamily:     'system-ui',
   fontSize:       13,
   uiDensity:      'normal',
   theme:          'dark',
-  codeFontFamily: 'JetBrains Mono',
-  fontWeight:     400,
+  codeFontFamily: 'Menlo',
+  fontWeight:     500,
   borderRadius:   'default',
   accentColor:    undefined,
 }

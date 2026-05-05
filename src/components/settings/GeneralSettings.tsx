@@ -14,10 +14,13 @@ const DEFAULTS: AppSettings = {
     includeGc: true,
     includePruneLfs: true,
   },
-  fontFamily: 'IBM Plex Sans',
+  fontFamily: 'system-ui',
   fontSize: 13,
   uiDensity: 'normal',
   theme: 'dark',
+  codeFontFamily: 'Menlo',
+  fontWeight: 500,
+  borderRadius: 'default',
   defaultBranchName: 'main',
 }
 

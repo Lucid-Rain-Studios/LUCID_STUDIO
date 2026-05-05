@@ -24,13 +24,15 @@
     --lg-accent-rgb:     232, 98, 47;
 
     /* ── Typography tokens ─────────────────────────────────────────────── */
-    --lg-font-ui:        'IBM Plex Sans', system-ui, sans-serif;
-    --lg-font-mono:      'JetBrains Mono', 'Cascadia Code', 'Fira Code', Consolas, monospace;
+    --lg-font-ui:        system-ui, sans-serif;
+    --lg-font-mono:      'Menlo', 'JetBrains Mono', 'Cascadia Code', 'Fira Code', Consolas, monospace;
     --lg-font-size:      13px;
-    --lg-font-weight:    400;
+    --lg-font-weight:    500;
     --lg-radius:         6px;
     --lg-row-height:     32px;
     --lg-row-pad:        6px;
+    --lg-control-pad-x:  12px;
+    --lg-content-pad:    20px;
 
     /* ── Depth & elevation ─────────────────────────────────────────────── */
     --lg-shadow-sm:   0 1px 2px rgba(0,0,0,0.4), 0 1px 4px rgba(0,0,0,0.2);
@@ -88,6 +90,67 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   user-select: none;
+}
+
+/*
+  App-wide appearance enforcement.
+  Much of this app still uses inline typography on leaf nodes, so inherited
+  body styles alone cannot make Settings > Appearance apply globally.
+*/
+html.lg-appearance-applied body,
+html.lg-appearance-applied #root {
+  font-family: var(--lg-font-ui) !important;
+  font-size: var(--lg-font-size) !important;
+  font-weight: var(--lg-font-weight) !important;
+}
+
+html.lg-appearance-applied #root :where(
+  div, span, p, label, button, input, select, textarea, a, h1, h2, h3, h4, h5, h6, li
+) {
+  font-family: var(--lg-font-ui) !important;
+  font-size: var(--lg-font-size) !important;
+  font-weight: var(--lg-font-weight) !important;
+}
+
+html.lg-appearance-applied #root :where(code, pre, kbd, samp, .font-mono),
+html.lg-appearance-applied #root :where([style*="JetBrains Mono"], [style*="Cascadia Code"], [style*="Fira Code"], [style*="Consolas"], [style*="monospace"]) {
+  font-family: var(--lg-font-mono) !important;
+}
+
+html.lg-appearance-applied #root :where(button:not(.lg-toolbar-control), input, select, textarea) {
+  min-height: var(--lg-row-height) !important;
+  border-radius: var(--lg-radius) !important;
+}
+
+html.lg-appearance-applied #root :where(button:not(.lg-toolbar-control), select) {
+  padding-inline: var(--lg-control-pad-x) !important;
+}
+
+html.lg-appearance-applied #root .lg-toolbar-control {
+  height: 28px !important;
+  min-height: 28px !important;
+  border-radius: 5px !important;
+}
+
+html.lg-appearance-applied #root .lg-toolbar-control.lg-icon-control {
+  width: 32px !important;
+  min-width: 32px !important;
+  padding: 0 !important;
+}
+
+html.lg-appearance-applied #root .lg-toolbar-badge {
+  font-family: var(--lg-font-mono) !important;
+  font-weight: 700 !important;
+}
+
+html.lg-appearance-applied #root .lg-count-badge {
+  font-size: 10px !important;
+  line-height: 15px !important;
+}
+
+html.lg-appearance-applied #root .lg-notification-badge {
+  font-size: 8px !important;
+  line-height: 1 !important;
 }
 
 /* ── Selection ──────────────────────────────────────────────────────────── */

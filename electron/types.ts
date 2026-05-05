@@ -179,7 +179,11 @@ export interface AppSettings {
   fontFamily: string
   fontSize: number
   uiDensity: 'compact' | 'normal' | 'relaxed'
-  theme: 'dark' | 'darker' | 'midnight'
+  theme: 'dark' | 'darker' | 'midnight' | 'dracula' | 'nord' | 'catppuccin' | 'tokyo-night' | 'ocean' | 'forest' | 'rose-pine' | 'monokai'
+  codeFontFamily?: string
+  fontWeight?: 300 | 400 | 500 | 600
+  borderRadius?: 'sharp' | 'default' | 'rounded' | 'pill'
+  accentColor?: string
   defaultBranchName?: string
 }
 

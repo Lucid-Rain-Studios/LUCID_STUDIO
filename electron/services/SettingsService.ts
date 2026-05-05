@@ -15,7 +15,11 @@ export interface AppSettings {
   fontFamily: string
   fontSize: number
   uiDensity: 'compact' | 'normal' | 'relaxed'
-  theme: 'dark' | 'darker' | 'midnight'
+  theme: 'dark' | 'darker' | 'midnight' | 'dracula' | 'nord' | 'catppuccin' | 'tokyo-night' | 'ocean' | 'forest' | 'rose-pine' | 'monokai'
+  codeFontFamily?: string
+  fontWeight?: 300 | 400 | 500 | 600
+  borderRadius?: 'sharp' | 'default' | 'rounded' | 'pill'
+  accentColor?: string
   defaultBranchName?: string
 }
 
@@ -29,10 +33,13 @@ const DEFAULTS: AppSettings = {
     includeGc: true,
     includePruneLfs: true,
   },
-  fontFamily: 'IBM Plex Sans',
+  fontFamily: 'system-ui',
   fontSize: 13,
   uiDensity: 'normal',
   theme: 'dark',
+  codeFontFamily: 'Menlo',
+  fontWeight: 500,
+  borderRadius: 'default',
   defaultBranchName: 'main',
 }
 

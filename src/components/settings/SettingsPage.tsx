@@ -9,21 +9,21 @@ interface SettingsPageProps {
   repoPath: string | null
 }
 
-type SettingsTab = 'appearance' | 'general' | 'discord' | 'team'
+type SettingsTab = 'general' | 'appearance' | 'discord' | 'team'
 
 const ALL_TABS: { id: SettingsTab; label: string; requiresRepo?: boolean; adminOnly?: boolean }[] = [
-  { id: 'appearance', label: 'Appearance' },
   { id: 'general',    label: 'General' },
+  { id: 'appearance', label: 'Appearance' },
   { id: 'discord',    label: 'Discord',     requiresRepo: true, adminOnly: true },
   { id: 'team',       label: 'Team config', requiresRepo: true, adminOnly: true },
 ]
 
 export function SettingsPage({ repoPath }: SettingsPageProps) {
-  const [tab, setTab] = useState<SettingsTab>('appearance')
+  const [tab, setTab] = useState<SettingsTab>('general')
   const isAdmin = useAuthStore(s => s.isAdmin(repoPath ?? ''))
 
   const tabs = ALL_TABS.filter(t => !t.requiresRepo || !!repoPath)
-  const activeTab = tabs.find(t => t.id === tab) ? tab : 'appearance'
+  const activeTab = tabs.find(t => t.id === tab) ? tab : 'general'
   const activeTabDef = tabs.find(t => t.id === activeTab)
   const showAdminBanner = activeTabDef?.adminOnly && !isAdmin && !!repoPath
 

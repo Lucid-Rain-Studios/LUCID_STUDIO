@@ -10,7 +10,7 @@ export function NotificationBell() {
     <div className="relative">
       <button
         onClick={() => setOpen(o => !o)}
-        className="flex items-center justify-center w-8 h-8 rounded text-lg-text-secondary hover:text-lg-text-primary hover:bg-lg-bg-elevated transition-colors"
+        className="lg-toolbar-control lg-icon-control flex items-center justify-center w-8 h-8 rounded text-lg-text-secondary hover:text-lg-text-primary hover:bg-lg-bg-elevated transition-colors"
         title="Notifications"
       >
         <svg
@@ -28,7 +28,7 @@ export function NotificationBell() {
         </svg>
 
         {unreadCount > 0 && (
-          <span className="absolute top-1 right-1 w-3.5 h-3.5 rounded-full bg-lg-accent text-[8px] font-mono font-bold text-white flex items-center justify-center leading-none">
+          <span className="lg-toolbar-badge lg-notification-badge absolute top-1 right-1 w-3.5 h-3.5 rounded-full bg-lg-accent text-[8px] font-mono font-bold text-white flex items-center justify-center leading-none">
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}

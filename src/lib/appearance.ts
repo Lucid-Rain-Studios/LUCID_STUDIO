@@ -289,6 +289,7 @@ export const ACCENT_PRESETS = [
 
 export function applyAppearanceSettings(settings: Partial<AppSettings>): void {
   const root = document.documentElement
+  root.classList.add('lg-appearance-applied')
 
   // Theme
   const theme = THEMES.find(t => t.id === settings.theme) ?? THEMES[0]
@@ -310,22 +311,19 @@ export function applyAppearanceSettings(settings: Partial<AppSettings>): void {
   root.style.setProperty('--lg-accent-rgb', `${ar}, ${ag}, ${ab}`)
 
   // UI font
-  const uiFont = settings.fontFamily ?? 'IBM Plex Sans'
+  const uiFont = settings.fontFamily ?? 'system-ui'
   root.style.setProperty('--lg-font-ui', `'${uiFont}', system-ui, sans-serif`)
 
   // Code font
-  const codeFont = settings.codeFontFamily ?? 'JetBrains Mono'
+  const codeFont = settings.codeFontFamily ?? 'Menlo'
   root.style.setProperty('--lg-font-mono', `'${codeFont}', 'Cascadia Code', 'Fira Code', Consolas, monospace`)
 
   // Font size
-  if (settings.fontSize) {
-    root.style.setProperty('--lg-font-size', `${settings.fontSize}px`)
-  }
+  const fontSize = settings.fontSize ?? 13
+  root.style.setProperty('--lg-font-size', `${fontSize}px`)
 
   // Font weight
-  if (settings.fontWeight) {
-    root.style.setProperty('--lg-font-weight', String(settings.fontWeight))
-  }
+  root.style.setProperty('--lg-font-weight', String(settings.fontWeight ?? 500))
 
   // Border radius
   const r = BORDER_RADII.find(x => x.id === settings.borderRadius) ?? BORDER_RADII[1]
@@ -335,8 +333,13 @@ export function applyAppearanceSettings(settings: Partial<AppSettings>): void {
   // Density → row heights
   const rowH: Record<string, string> = { compact: '26px', normal: '32px', relaxed: '40px' }
   const padH: Record<string, string> = { compact: '3px', normal: '6px', relaxed: '10px' }
-  root.style.setProperty('--lg-row-height', rowH[settings.uiDensity ?? 'normal'])
-  root.style.setProperty('--lg-row-pad', padH[settings.uiDensity ?? 'normal'])
+  const padX: Record<string, string> = { compact: '8px', normal: '12px', relaxed: '16px' }
+  const contentPad: Record<string, string> = { compact: '12px', normal: '20px', relaxed: '28px' }
+  const density = settings.uiDensity ?? 'normal'
+  root.style.setProperty('--lg-row-height', rowH[density])
+  root.style.setProperty('--lg-row-pad', padH[density])
+  root.style.setProperty('--lg-control-pad-x', padX[density])
+  root.style.setProperty('--lg-content-pad', contentPad[density])
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
