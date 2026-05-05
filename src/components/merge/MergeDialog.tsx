@@ -95,18 +95,44 @@ export function MergePreviewDialog({ targetBranch, onClose, onMerged }: MergePre
   const [textByFile, setTextByFile] = useState<Record<string, MergeConflictText>>({})
   const [resolvedFiles, setResolvedFiles] = useState<Record<string, 'ours' | 'theirs'>>({})
   const [preselectedChoices, setPreselectedChoices] = useState<Record<string, 'ours' | 'theirs'>>({})
+  const [recoveredMergeBranch, setRecoveredMergeBranch] = useState<string | null>(null)
   const opRun = useOperationStore(s => s.run)
+  const displayMergeBranch = recoveredMergeBranch ?? targetBranch
 
   useEffect(() => {
     if (!repoPath) return
     setLoading(true)
     setError(null)
-    Promise.all([
-      opRun(`Analyzing merge with ${targetBranch}…`, () => ipc.mergePreview(repoPath, targetBranch)),
-      ipc.branchDiff(repoPath, currentBranch, targetBranch),
-      ipc.branchDiff(repoPath, targetBranch, currentBranch),
-    ])
-      .then(([preview, forwardDiff, reverseDiff]) => {
+
+    // If a merge is already in progress (e.g. "Update from main" hit binary
+    // conflicts and bailed), jump straight to conflict-resolution mode against
+    // the existing MERGE_HEAD. Re-running the merge would just fail with
+    // "MERGE_HEAD exists" and never let the user resolve anything.
+    ipc.mergeInProgress(repoPath)
+      .then(async (inProgress) => {
+        if (inProgress) {
+          setRecoveredMergeBranch(inProgress.mergedBranch)
+          setConflicts(inProgress.conflicts)
+          setInConflictResolution(true)
+          const textConflicts = inProgress.conflicts.filter(c => c.conflictType === 'content')
+          const loaded: Record<string, MergeConflictText> = {}
+          await Promise.all(textConflicts.map(async c => {
+            try {
+              loaded[c.path] = await ipc.mergeGetConflictText(repoPath, c.path)
+            } catch {
+              loaded[c.path] = { ours: '(Unable to load ours)', theirs: '(Unable to load theirs)' }
+            }
+          }))
+          setTextByFile(loaded)
+          setLoading(false)
+          return
+        }
+
+        const [preview, forwardDiff, reverseDiff] = await Promise.all([
+          opRun(`Analyzing merge with ${targetBranch}…`, () => ipc.mergePreview(repoPath, targetBranch)),
+          ipc.branchDiff(repoPath, currentBranch, targetBranch),
+          ipc.branchDiff(repoPath, targetBranch, currentBranch),
+        ])
         setConflicts(preview)
         const forwardIncoming = forwardDiff.aheadCommits.length
         const reverseIncoming = reverseDiff.behindCommits.length
@@ -118,9 +144,12 @@ export function MergePreviewDialog({ targetBranch, onClose, onMerged }: MergePre
             }
           : forwardDiff
         setDiffSummary(chosen)
+        setLoading(false)
       })
-      .catch(e => setError(String(e)))
-      .finally(() => setLoading(false))
+      .catch(e => {
+        setError(String(e))
+        setLoading(false)
+      })
   }, [repoPath, targetBranch, currentBranch, opRun])
 
   const mergeCommitCount = diffSummary?.aheadCommits.length ?? 0
@@ -191,7 +220,7 @@ export function MergePreviewDialog({ targetBranch, onClose, onMerged }: MergePre
     if (!repoPath) return
     try {
       setError(null)
-      await opRun('Finalizing merge...', () => ipc.mergeContinue(repoPath, targetBranch))
+      await opRun('Finalizing merge...', () => ipc.mergeContinue(repoPath, displayMergeBranch))
       await refreshStatus()
       bumpSyncTick()
       onMerged()
@@ -229,7 +258,7 @@ export function MergePreviewDialog({ targetBranch, onClose, onMerged }: MergePre
               Merge preview
             </div>
             <div className="text-[10px] font-mono text-lg-text-secondary mt-0.5">
-              <span className="text-lg-accent">{targetBranch}</span>
+              <span className="text-lg-accent">{displayMergeBranch}</span>
               {' → '}
               <span className="text-lg-success">{currentBranch}</span>
             </div>
@@ -271,7 +300,7 @@ export function MergePreviewDialog({ targetBranch, onClose, onMerged }: MergePre
           {!loading && !error && diffSummary && (
             <div className="border-y border-lg-border bg-lg-bg-primary/40">
               <div className="px-4 py-2 border-b border-lg-border/60 flex items-center justify-between gap-3">
-                <div className="text-[10px] font-mono text-lg-text-secondary">Incoming changes from <span className="text-lg-accent">{targetBranch}</span></div>
+                <div className="text-[10px] font-mono text-lg-text-secondary">Incoming changes from <span className="text-lg-accent">{displayMergeBranch}</span></div>
                 <div className="text-[10px] font-mono text-lg-text-primary">
                   {mergeCommitCount} commit{mergeCommitCount !== 1 ? 's' : ''} · {mergeFileCount} file{mergeFileCount !== 1 ? 's' : ''}
                 </div>
@@ -279,7 +308,7 @@ export function MergePreviewDialog({ targetBranch, onClose, onMerged }: MergePre
 
               {mergeCommitCount === 0 && mergeFileCount === 0 ? (
                 <div className="px-4 py-3 text-[10px] font-mono text-lg-text-secondary">
-                  No changes to merge. Current branch already contains all commits from {targetBranch}.
+                  No changes to merge. Current branch already contains all commits from {displayMergeBranch}.
                 </div>
               ) : (
                 <div className="max-h-44 overflow-y-auto">
@@ -382,7 +411,7 @@ export function MergePreviewDialog({ targetBranch, onClose, onMerged }: MergePre
                           : 'border-lg-border text-lg-text-secondary'
                       )}
                     >
-                      Keep {targetBranch}
+                      Keep {displayMergeBranch}
                     </button>
                   </div>
                 </div>

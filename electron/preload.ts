@@ -105,6 +105,8 @@ const api = {
     ipcRenderer.invoke(CHANNELS.GIT_MERGE_CONTINUE, repoPath, targetBranch),
   mergeAbort: (repoPath: string) =>
     ipcRenderer.invoke(CHANNELS.GIT_MERGE_ABORT, repoPath),
+  mergeInProgress: (repoPath: string) =>
+    ipcRenderer.invoke(CHANNELS.GIT_MERGE_IN_PROGRESS, repoPath),
 
   // ── Locks ─────────────────────────────────────────────────────────────────
   listLocks: (repoPath: string) =>

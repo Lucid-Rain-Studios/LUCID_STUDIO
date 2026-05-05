@@ -393,6 +393,13 @@ export function registerHandlers(): void {
     await runGitOp('Abort merge', () => gitService.abortMerge(repoPath))
   })
 
+  handle(CHANNELS.GIT_MERGE_IN_PROGRESS, async (_event, repoPath: string) => {
+    const state = await gitService.mergeInProgress(repoPath)
+    if (!state) return null
+    const conflicts = await gitService.listInProgressConflicts(repoPath)
+    return { ...state, conflicts }
+  })
+
   handle(
     CHANNELS.GIT_MERGE_RESOLVE,
     async (

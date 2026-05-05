@@ -1,6 +1,13 @@
 import chokidar, { FSWatcher } from 'chokidar'
+import { logService } from './LogService'
 
 type ChangeCallback = () => void
+
+// Errors emitted by chokidar's underlying fs.watch on transient files
+// (LFS tmp objects, pack tmp files, index.lock, etc.). These churn rapidly
+// during git operations and surface as EPERM / ENOENT on Windows. Swallow
+// them so they never escalate to unhandledRejection.
+const TRANSIENT_WATCH_ERRORS = /^(EPERM|ENOENT|EBUSY|EACCES)\b/
 
 class WatcherService {
   private watchers = new Map<string, FSWatcher>()
@@ -11,10 +18,22 @@ class WatcherService {
 
     const watcher = chokidar.watch(repoPath, {
       ignored: [
-        /[/\\]\.git[/\\]objects[/\\]/,
-        /[/\\]\.git[/\\]lfs[/\\]objects[/\\]/,
-        /[/\\]\.git[/\\]logs[/\\]/,
-        /[/\\]\.git[/\\]refs[/\\]/,
+        // Ignore everything under .git/ except the few files that signal
+        // git-state changes we care about (HEAD, index, MERGE_HEAD, ORIG_HEAD).
+        // This keeps LFS tmp files, pack tmp files, index.lock churn, etc.
+        // out of the watcher entirely.
+        (filePath: string) => {
+          const norm = filePath.replace(/\\/g, '/')
+          const m = norm.match(/\.git\/(.*)$/)
+          if (!m) return false
+          const rest = m[1]
+          if (rest === '' || rest === 'HEAD' || rest === 'index'
+              || rest === 'MERGE_HEAD' || rest === 'ORIG_HEAD'
+              || rest === 'CHERRY_PICK_HEAD' || rest === 'REBASE_HEAD') {
+            return false
+          }
+          return true
+        },
         /[/\\]node_modules[/\\]/,
         /[/\\]\.vs[/\\]/,
         /[/\\]Binaries[/\\]/,
@@ -45,6 +64,11 @@ class WatcherService {
       .on('unlink',    fire)
       .on('addDir',    fire)
       .on('unlinkDir', fire)
+      .on('error', (err) => {
+        const msg = err instanceof Error ? err.message : String(err)
+        if (TRANSIENT_WATCH_ERRORS.test(msg)) return
+        logService.warn('watcher', `chokidar error in ${repoPath}: ${msg}`)
+      })
 
     this.watchers.set(repoPath, watcher)
   }

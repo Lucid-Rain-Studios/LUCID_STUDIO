@@ -770,8 +770,11 @@ class GitService {
     if (unresolvedFiles.length > 0) {
       throw new Error(`Resolve all merge conflicts before finalizing:\n${unresolvedFiles.join('\n')}`)
     }
+    // Use git's prepared MERGE_MSG (matches GitHub Desktop's "Merge branch
+    // 'X' into Y" format). The fallback only fires if MERGE_MSG is missing.
     await exec(['commit', '--no-edit'], repoPath).catch(async () => {
-      await exec(['commit', '-m', `Merge branch ${targetBranch}`], repoPath)
+      const branchLabel = targetBranch.replace(/^origin\//, '')
+      await exec(['commit', '-m', `Merge branch '${branchLabel}'`], repoPath)
     })
   }
 
@@ -780,6 +783,92 @@ class GitService {
     if (res.exitCode !== 0) {
       throw new Error(res.stderr || res.stdout || 'No merge is currently in progress.')
     }
+  }
+
+  /**
+   * Returns the in-progress merge state, or null if no merge is active.
+   * - mergeHead: the commit being merged into HEAD
+   * - mergedBranch: best-guess branch name for that commit (refs/heads/X if a
+   *   branch points at it, otherwise the short SHA)
+   * - unresolvedFiles: paths still listed by git status as unmerged (UU/AU/UD/...)
+   * - autoResolvedFiles: paths that git auto-resolved as part of this merge but
+   *   that the caller may want to confirm (currently empty — we report only
+   *   files needing user input).
+   */
+  async mergeInProgress(repoPath: string): Promise<{
+    mergeHead: string
+    mergedBranch: string
+    unresolvedFiles: string[]
+  } | null> {
+    const gitDirRes = await execSafe(['rev-parse', '--git-dir'], repoPath)
+    if (gitDirRes.exitCode !== 0) return null
+    const gitDir = path.resolve(repoPath, gitDirRes.stdout.trim())
+    const mergeHeadPath = path.join(gitDir, 'MERGE_HEAD')
+
+    let mergeHead: string
+    try {
+      mergeHead = (await fs.promises.readFile(mergeHeadPath, 'utf8')).trim().split(/\s+/)[0]
+    } catch {
+      return null
+    }
+    if (!mergeHead) return null
+
+    const branchRes = await execSafe(['for-each-ref', '--points-at', mergeHead, '--format=%(refname:short)', 'refs/heads/', 'refs/remotes/'], repoPath)
+    const mergedBranch = branchRes.stdout.trim().split('\n').filter(Boolean)[0] ?? mergeHead.slice(0, 7)
+
+    const unresolvedRes = await execSafe(['diff', '--name-only', '--diff-filter=U'], repoPath)
+    const unresolvedFiles = unresolvedRes.stdout.split('\n').map(s => s.trim()).filter(Boolean)
+
+    return { mergeHead, mergedBranch, unresolvedFiles }
+  }
+
+  /**
+   * Build ConflictPreviewFile records for every unmerged file in an in-progress
+   * merge. Used when the UI is recovering from a failed `merge` / `pull` /
+   * `updateFromMain` and needs to show conflicts without re-running the merge.
+   */
+  async listInProgressConflicts(repoPath: string): Promise<ConflictPreviewFile[]> {
+    const merge = await this.mergeInProgress(repoPath)
+    if (!merge) return []
+
+    const UE_EXTS = new Set(['.uasset', '.umap', '.udk', '.ubulk', '.uexp', '.ucas'])
+    const currentBranch = await this.currentBranch(repoPath)
+    const status = await this.status(repoPath)
+    const statusByPath = new Map(status.map(f => [f.path, f]))
+
+    const out: ConflictPreviewFile[] = []
+    for (const filePath of merge.unresolvedFiles) {
+      const ext = path.extname(filePath).toLowerCase()
+      const isBin = BINARY_EXTS.has(ext)
+      const type: ConflictPreviewFile['type'] = UE_EXTS.has(ext) ? 'ue-asset'
+        : isBin ? 'binary' : 'text'
+
+      // Porcelain XY for unmerged files:
+      //   UD = modified by us, deleted by them   → delete-modify
+      //   DU = deleted by us, modified by them   → delete-modify
+      //   DD = both deleted                       → delete-modify (both sides agree)
+      //   AA / UU = both added/modified           → content/binary conflict
+      //   AU / UA = added on one side             → content/binary conflict
+      const fileStatus = statusByPath.get(filePath)
+      const xy = fileStatus ? `${fileStatus.indexStatus}${fileStatus.workingStatus}` : ''
+      const isDeleteModify = xy === 'UD' || xy === 'DU' || xy === 'DD'
+      const conflictType: ConflictPreviewFile['conflictType'] =
+        isDeleteModify ? 'delete-modify'
+        : isBin ? 'binary'
+        : 'content'
+
+      const [oursInfo, theirsInfo] = await Promise.all([
+        this._contributorInfo(repoPath, filePath, 'HEAD', currentBranch).catch(() => ({
+          branch: currentBranch, lastContributor: { name: '', email: '' }, lastEditedAt: '', lastCommitMessage: '', sizeBytes: 0,
+        } as ContributorInfo)),
+        this._contributorInfo(repoPath, filePath, 'MERGE_HEAD', merge.mergedBranch).catch(() => ({
+          branch: merge.mergedBranch, lastContributor: { name: '', email: '' }, lastEditedAt: '', lastCommitMessage: '', sizeBytes: 0,
+        } as ContributorInfo)),
+      ])
+
+      out.push({ path: filePath, type, conflictType, ours: oursInfo, theirs: theirsInfo })
+    }
+    return out
   }
 
   async resolveMergeIntoBranch(
@@ -810,7 +899,14 @@ class GitService {
         await this.resolveMergeConflictText(repoPath, file, side)
       }
 
-      await exec(['commit', '-m', `Resolve merge conflicts: ${baseBranch} -> ${targetBranch}`], repoPath)
+      // git prepared MERGE_MSG already says "Merge branch '<base>' into <target>".
+      // Use --no-edit so the commit message matches GitHub Desktop / vanilla git.
+      // Fall back to an explicit message only if MERGE_MSG was somehow consumed.
+      try {
+        await exec(['commit', '--no-edit'], repoPath)
+      } catch {
+        await exec(['commit', '-m', `Merge branch '${baseBranch.replace(/^origin\//, '')}' into ${targetLocal}`], repoPath)
+      }
       await exec(await this.authenticatedArgs(repoPath, ['push', 'origin', targetLocal]), repoPath)
     } finally {
       await execSafe(['merge', '--abort'], repoPath)

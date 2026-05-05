@@ -522,6 +522,12 @@ export interface LucidGitAPI {
   mergeResolveText: (repoPath: string, filePath: string, choice: 'ours' | 'theirs') => Promise<void>
   mergeContinue: (repoPath: string, targetBranch: string) => Promise<void>
   mergeAbort: (repoPath: string) => Promise<void>
+  mergeInProgress: (repoPath: string) => Promise<{
+    mergeHead: string
+    mergedBranch: string
+    unresolvedFiles: string[]
+    conflicts: ConflictPreviewFile[]
+  } | null>
   mergeResolve: (repoPath: string, targetBranch: string, baseBranch: string, fileChoices: Record<string, 'ours' | 'theirs'>) => Promise<void>
 
   // Locks
