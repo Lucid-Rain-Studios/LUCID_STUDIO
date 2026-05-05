@@ -138,6 +138,21 @@ html.lg-appearance-applied #root .lg-toolbar-control.lg-icon-control {
   padding: 0 !important;
 }
 
+html.lg-appearance-applied #root .lg-sidebar-section-label {
+  height: 18px !important;
+  min-height: 18px !important;
+  padding: 0 !important;
+}
+
+html.lg-appearance-applied #root .lg-sidebar-section-icon {
+  width: 18px !important;
+  min-width: 18px !important;
+  height: 18px !important;
+  min-height: 18px !important;
+  padding: 0 !important;
+  border-radius: 4px !important;
+}
+
 html.lg-appearance-applied #root .lg-toolbar-badge {
   font-family: var(--lg-font-mono) !important;
   font-weight: 700 !important;

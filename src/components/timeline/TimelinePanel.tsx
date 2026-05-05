@@ -10,6 +10,7 @@ import { TextDiff } from '@/components/diff/TextDiff'
 import { FileTree } from '@/components/changes/FileTree'
 import { CommitBox } from '@/components/changes/CommitBox'
 import { StashPanel } from '@/components/changes/StashPanel'
+import { FileDetailsSidePanel } from '@/components/shared/FileDetailsSidePanel'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -2279,13 +2280,15 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
       <DragHandle onMouseDown={makeDragStart('center', centerWidth)} />
 
       {/* ── Right column ──────────────────────────────────────────────────── */}
-      <RightPanel
-        centerFile={centerFile}
+      <FileDetailsSidePanel
+        filePath={centerFile?.file.path ?? null}
+        hash={centerFile?.kind === 'commit' ? centerFile.commitHash : 'HEAD'}
         repoPath={repoPath}
         diff={diff}
         diffLoading={diffLoading}
         blame={blame}
         blameLoading={blameLoading}
+        emptyMessage="Select a file to preview"
       />
     </div>
   )

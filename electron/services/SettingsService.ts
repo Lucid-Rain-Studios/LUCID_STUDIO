@@ -24,7 +24,7 @@ export interface AppSettings {
 }
 
 const DEFAULTS: AppSettings = {
-  autoFetchIntervalMinutes: 15,
+  autoFetchIntervalMinutes: 5,
   defaultCloneDepth: 50,
   largeFileWarnMB: 100,
   scheduledCleanup: {

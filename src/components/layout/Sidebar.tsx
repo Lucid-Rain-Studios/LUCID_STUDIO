@@ -305,6 +305,7 @@ export function Sidebar({ active, onChange, collapsed, onToggle, width, onWidthC
                   }}>
                     {/* Label — clicks collapse/expand */}
                     <button
+                      className="lg-sidebar-section-label"
                       onClick={() => toggleGroup(group.key)}
                       style={{ flex: 1, display: 'flex', alignItems: 'center', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0, minWidth: 0 }}
                     >
@@ -319,8 +320,10 @@ export function Sidebar({ active, onChange, collapsed, onToggle, width, onWidthC
 
                     {/* Customise button */}
                     <button
+                      className="lg-sidebar-section-icon"
                       onClick={(e) => openPopoverFor(e, group.key)}
                       title="Customise section"
+                      aria-label={`Customise ${group.label} section`}
                       style={{
                         width: 18, height: 18, borderRadius: 4, flexShrink: 0,
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -334,19 +337,22 @@ export function Sidebar({ active, onChange, collapsed, onToggle, width, onWidthC
                       onMouseEnter={e => { if (popover?.key !== group.key) { e.currentTarget.style.opacity = '1'; e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)' } }}
                       onMouseLeave={e => { if (popover?.key !== group.key) { e.currentTarget.style.opacity = '0.4'; e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'transparent' } }}
                     >
-                      <svg width="9" height="9" viewBox="0 0 10 10" fill="none">
+                      <svg width="9" height="9" viewBox="0 0 10 10" fill="none" style={{ display: 'block', flexShrink: 0 }}>
                         <path d="M5 2v6M2 5h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                       </svg>
                     </button>
 
                     {/* Chevron — clicks collapse/expand */}
                     <button
+                      className="lg-sidebar-section-icon"
                       onClick={() => toggleGroup(group.key)}
+                      title={isGroupCollapsed ? `Expand ${group.label}` : `Collapse ${group.label}`}
+                      aria-label={isGroupCollapsed ? `Expand ${group.label}` : `Collapse ${group.label}`}
                       style={{ width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0 }}
                     >
                       <svg
                         width="10" height="10" viewBox="0 0 10 10" fill="none"
-                        style={{ color: 'var(--lg-text-secondary)', opacity: 0.4, transform: isGroupCollapsed ? 'rotate(-90deg)' : 'none', transition: 'transform 0.15s ease' }}
+                        style={{ color: 'var(--lg-text-secondary)', opacity: 0.4, transform: isGroupCollapsed ? 'rotate(-90deg)' : 'none', transition: 'transform 0.15s ease', display: 'block', flexShrink: 0 }}
                       >
                         <path d="M2 3.5l3 3 3-3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>

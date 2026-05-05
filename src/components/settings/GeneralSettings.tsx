@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils'
 const CONFIRM_BRANCH_KEY = 'lucid-git:confirm-branch-switch'
 
 const DEFAULTS: AppSettings = {
-  autoFetchIntervalMinutes: 15,
+  autoFetchIntervalMinutes: 5,
   defaultCloneDepth: 50,
   largeFileWarnMB: 100,
   scheduledCleanup: {
@@ -145,6 +145,8 @@ export function GeneralSettings() {
               className="bg-lg-bg-primary border border-lg-border rounded px-2 py-1 text-[11px] font-mono text-lg-text-primary focus:outline-none focus:border-lg-accent"
             >
               <option value={0}>Disabled</option>
+              <option value={1}>Every 1 min</option>
+              <option value={2}>Every 2 min</option>
               <option value={5}>Every 5 min</option>
               <option value={15}>Every 15 min</option>
               <option value={30}>Every 30 min</option>

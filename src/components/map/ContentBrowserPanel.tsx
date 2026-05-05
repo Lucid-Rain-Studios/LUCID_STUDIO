@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef, useLayoutEffect, useCallback } from 'react'
-import { ipc, Lock } from '@/ipc'
+import { ipc, Lock, BlameEntry } from '@/ipc'
 import { useLockStore } from '@/stores/lockStore'
 import { useAuthStore } from '@/stores/authStore'
+import { FileDetailsSidePanel } from '@/components/shared/FileDetailsSidePanel'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -265,13 +266,14 @@ function FolderRow({ name, depth, count, collapsed, onToggle }: {
   )
 }
 
-function FileRow({ filePath, depth, locked, onContextMenu }: {
-  filePath: string; depth: number; locked: boolean; onContextMenu: (e: React.MouseEvent) => void
+function FileRow({ filePath, depth, locked, selected, onSelect, onContextMenu }: {
+  filePath: string; depth: number; locked: boolean; selected: boolean; onSelect: () => void; onContextMenu: (e: React.MouseEvent) => void
 }) {
   const [hover, setHover] = useState(false)
   const name = filePath.replace(/\\/g, '/').split('/').pop() ?? filePath
   return (
     <div
+      onClick={onSelect}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       onContextMenu={onContextMenu}
@@ -279,15 +281,16 @@ function FileRow({ filePath, depth, locked, onContextMenu }: {
       style={{
         display: 'flex', alignItems: 'center', gap: 6,
         height: ROW_HEIGHT, paddingLeft: 10 + depth * 14, paddingRight: 10,
-        background: hover ? '#181d2e' : 'transparent',
+        background: selected ? '#1e2539' : hover ? '#181d2e' : 'transparent',
+        borderLeft: `2px solid ${selected ? '#e8622f' : 'transparent'}`,
         borderBottom: '1px solid #11141f',
-        cursor: 'default', boxSizing: 'border-box',
+        cursor: 'pointer', boxSizing: 'border-box',
       }}
     >
       <FileIcon filePath={filePath} />
       <span style={{
         fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12,
-        color: hover ? '#dde1f0' : '#8b94b0',
+        color: selected || hover ? '#dde1f0' : '#8b94b0',
         flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
       }}>{name}</span>
       {locked && <LockBadge />}
@@ -306,6 +309,9 @@ export function ContentBrowserPanel({ repoPath, onNavigate }: ContentBrowserPane
   const [files,    setFiles]    = useState<string[] | null>(null)
   const [search,   setSearch]   = useState('')
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+  const [selectedFile, setSelectedFile] = useState<string | null>(null)
+  const [blame, setBlame] = useState<BlameEntry[]>([])
+  const [blameLoading, setBlameLoading] = useState(false)
 
   const { locks }           = useLockStore()
   const { accounts, currentAccountId } = useAuthStore()
@@ -313,8 +319,28 @@ export function ContentBrowserPanel({ repoPath, onNavigate }: ContentBrowserPane
 
   useEffect(() => {
     setFiles(null)
+    setSelectedFile(null)
+    setBlame([])
     ipc.gitLsFiles(repoPath).then(setFiles).catch(() => setFiles([]))
   }, [repoPath])
+
+  useEffect(() => {
+    if (!selectedFile) {
+      setBlame([])
+      setBlameLoading(false)
+      return
+    }
+
+    let cancelled = false
+    setBlame([])
+    setBlameLoading(true)
+    ipc.gitBlame(repoPath, selectedFile, 'HEAD')
+      .then(entries => { if (!cancelled) setBlame(entries) })
+      .catch(() => { if (!cancelled) setBlame([]) })
+      .finally(() => { if (!cancelled) setBlameLoading(false) })
+
+    return () => { cancelled = true }
+  }, [repoPath, selectedFile])
 
   const filtered = useMemo(() => {
     if (!files) return []
@@ -350,7 +376,8 @@ export function ContentBrowserPanel({ repoPath, onNavigate }: ContentBrowserPane
   )
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#0b0d13' }}>
+    <div style={{ flex: 1, display: 'flex', overflow: 'hidden', background: '#0b0d13' }}>
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {/* Header */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 8,
@@ -441,8 +468,27 @@ export function ContentBrowserPanel({ repoPath, onNavigate }: ContentBrowserPane
           locks={locks}
           currentUserName={currentUserName}
           onNavigate={onNavigate}
+          selectedFile={selectedFile}
+          onSelectFile={setSelectedFile}
         />
       )}
+      </div>
+      <div style={{
+        width: 360, flexShrink: 0,
+        borderLeft: '1px solid #252d42',
+        background: '#0d0f15',
+        display: 'flex', flexDirection: 'column', overflow: 'hidden',
+      }}>
+        <FileDetailsSidePanel
+          repoPath={repoPath}
+          filePath={selectedFile}
+          hash="HEAD"
+          blame={blame}
+          blameLoading={blameLoading}
+          mode="details"
+          emptyMessage="Select a file for details"
+        />
+      </div>
     </div>
   )
 }
@@ -451,12 +497,14 @@ export function ContentBrowserPanel({ repoPath, onNavigate }: ContentBrowserPane
 
 type RowWithToggle = FlatRow & { onToggle?: () => void }
 
-function VirtualListInner({ rows, repoPath, locks, currentUserName, onNavigate }: {
+function VirtualListInner({ rows, repoPath, locks, currentUserName, onNavigate, selectedFile, onSelectFile }: {
   rows: RowWithToggle[]
   repoPath: string
   locks: Lock[]
   currentUserName: string | null
   onNavigate: (tab: string) => void
+  selectedFile: string | null
+  onSelectFile: (filePath: string) => void
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [scrollTop,   setScrollTop]   = useState(0)
@@ -511,6 +559,8 @@ function VirtualListInner({ rows, repoPath, locks, currentUserName, onNavigate }
                 key={`file:${row.path}`}
                 filePath={row.path} depth={row.depth}
                 locked={normLockPaths.has(row.path.replace(/\\/g, '/'))}
+                selected={selectedFile === row.path}
+                onSelect={() => onSelectFile(row.path)}
                 onContextMenu={e => openMenu(e, row.path)}
               />
             )

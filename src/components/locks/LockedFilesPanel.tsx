@@ -680,7 +680,7 @@ function LockRow({
         {hover && (
           <>
             <ActionBtn
-              title="Copy path"
+              title="Copy File Path"
               onClick={() => onCopyPath(lock)}
               icon={<CopyIcon />}
             />
@@ -808,10 +808,12 @@ function StatChip({ label, value, color }: { label: string; value: number; color
 function ActionBtn({ title, onClick, icon }: { title: string; onClick: () => void; icon: React.ReactNode }) {
   return (
     <button
+      className="lg-toolbar-control lg-icon-control"
       title={title}
+      aria-label={title}
       onClick={onClick}
       style={{
-        width: 26, height: 26, borderRadius: 5, flexShrink: 0,
+        width: 26, height: 26, minHeight: 26, padding: 0, borderRadius: 5, flexShrink: 0,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         background: 'transparent', border: '1px solid #1a2030',
         color: '#4a566a', cursor: 'pointer',
@@ -849,7 +851,7 @@ function SearchIcon() {
 
 function CopyIcon() {
   return (
-    <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
+    <svg width="11" height="11" viewBox="0 0 16 16" fill="none" style={{ display: 'block', flexShrink: 0 }}>
       <rect x="5.5" y="5.5" width="8" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.3" />
       <path d="M10.5 5.5V3.5a1 1 0 0 0-1-1h-7a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
@@ -858,7 +860,7 @@ function CopyIcon() {
 
 function ExplorerIcon() {
   return (
-    <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
+    <svg width="11" height="11" viewBox="0 0 16 16" fill="none" style={{ display: 'block', flexShrink: 0 }}>
       <rect x="1.5" y="3.5" width="13" height="10" rx="1.5" stroke="currentColor" strokeWidth="1.3" />
       <path d="M1.5 6.5h13" stroke="currentColor" strokeWidth="0.9" strokeOpacity="0.5" />
       <path d="M5.5 9.5L7 11l3.5-3.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
