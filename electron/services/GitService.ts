@@ -1,10 +1,11 @@
 import { GitProcess } from 'dugite'
+import Database from 'better-sqlite3'
 import fs from 'fs'
 import path from 'path'
 import { exec, execSafe, execWithProgress, gitAuthArgs, ProgressCallback } from '../util/dugite-exec'
 import { authService } from './AuthService'
 import { parseGitLog, GIT_LOG_FORMAT } from '../util/git-log-parse'
-import { FileStatus, BranchInfo, CommitEntry, DiffContent, StashEntry, ContributorInfo, ConflictPreviewFile, SyncStatus, LFSStatus, SizeBreakdown, CleanupResult, BranchActivity, BranchDiffSummary, BranchDiffFile } from '../types'
+import { FileStatus, BranchInfo, CommitEntry, DiffContent, StashEntry, ContributorInfo, ConflictPreviewFile, SyncStatus, LFSStatus, LfsLockCacheFile, LfsLocksMaintenanceResult, SizeBreakdown, CleanupResult, BranchActivity, BranchDiffSummary, BranchDiffFile } from '../types'
 
 // ── Diff helpers ──────────────────────────────────────────────────────────────
 
@@ -1037,6 +1038,175 @@ class GitService {
   }
 
   // ── LFS ───────────────────────────────────────────────────────────────────
+
+  private async gitCommonDir(repoPath: string): Promise<string | null> {
+    const commonDir = await execSafe(['rev-parse', '--git-common-dir'], repoPath)
+    const raw = commonDir.exitCode === 0 ? commonDir.stdout.trim() : ''
+    if (!raw) return null
+    return path.resolve(repoPath, raw)
+  }
+
+  private async findLfsLockCacheFiles(repoPath: string): Promise<string[]> {
+    const gitDir = await this.gitCommonDir(repoPath)
+    if (!gitDir) return []
+
+    const lfsDir = path.join(gitDir, 'lfs')
+    const found: string[] = []
+
+    const walk = async (dir: string, depth: number): Promise<void> => {
+      if (depth > 6) return
+      let entries: fs.Dirent[]
+      try {
+        entries = await fs.promises.readdir(dir, { withFileTypes: true })
+      } catch {
+        return
+      }
+
+      for (const entry of entries) {
+        const full = path.join(dir, entry.name)
+        if (entry.isDirectory()) {
+          await walk(full, depth + 1)
+        } else if (entry.isFile() && entry.name.toLowerCase() === 'lockcache.db') {
+          found.push(full)
+        }
+      }
+    }
+
+    await walk(lfsDir, 0)
+    return found.sort()
+  }
+
+  private async inspectLfsLockCacheFile(filePath: string): Promise<LfsLockCacheFile> {
+    try {
+      const stat = await fs.promises.stat(filePath)
+      if (stat.size === 0) {
+        return { path: filePath, sizeBytes: 0, exists: true, integrity: 'empty' }
+      }
+
+      let db: Database.Database | null = null
+      try {
+        db = new Database(filePath, { readonly: true, fileMustExist: true })
+        const row = db.prepare('PRAGMA integrity_check').get() as Record<string, unknown> | undefined
+        const value = row ? String(Object.values(row)[0] ?? '') : ''
+        return {
+          path: filePath,
+          sizeBytes: stat.size,
+          exists: true,
+          integrity: value.toLowerCase() === 'ok' ? 'ok' : 'corrupt',
+          error: value && value.toLowerCase() !== 'ok' ? value : undefined,
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        if (/file is not a database|database disk image is malformed/i.test(message) && stat.size < 1024) {
+          return {
+            path: filePath,
+            sizeBytes: stat.size,
+            exists: true,
+            integrity: 'stale',
+            error: 'Small unreadable lock cache; clearing and refreshing is recommended.',
+          }
+        }
+        return {
+          path: filePath,
+          sizeBytes: stat.size,
+          exists: true,
+          integrity: 'corrupt',
+          error: message,
+        }
+      } finally {
+        db?.close()
+      }
+    } catch {
+      return { path: filePath, sizeBytes: 0, exists: false, integrity: 'missing' }
+    }
+  }
+
+  private parseLfsLocksCount(stdout: string): number | null {
+    if (!stdout.trim()) return 0
+    try {
+      const parsed = JSON.parse(stdout) as unknown
+      if (Array.isArray(parsed)) return parsed.length
+      if (parsed && typeof parsed === 'object' && Array.isArray((parsed as { locks?: unknown[] }).locks)) {
+        return (parsed as { locks: unknown[] }).locks.length
+      }
+      if (parsed && typeof parsed === 'object') {
+        const lockGroups = parsed as { ours?: unknown[]; theirs?: unknown[] }
+        if (Array.isArray(lockGroups.ours) || Array.isArray(lockGroups.theirs)) {
+          return (lockGroups.ours?.length ?? 0) + (lockGroups.theirs?.length ?? 0)
+        }
+      }
+    } catch {
+      // Older Git LFS versions can emit plain text if --json is unavailable.
+    }
+    return null
+  }
+
+  private async runLfsLocksCheck(repoPath: string): Promise<{ stdout: string; stderr: string; exitCode: number; usedVerify: boolean }> {
+    const token = await authService.getCurrentToken()
+    const remoteUrl = await this.getRemoteUrl(repoPath)
+    const verify = await execSafe([...gitAuthArgs(token, remoteUrl), 'lfs', 'locks', '--verify', '--json'], repoPath)
+    if (verify.exitCode === 0 || !/unknown flag:\s*--verify/i.test(verify.stderr)) {
+      return { ...verify, usedVerify: true }
+    }
+
+    const plain = await execSafe([...gitAuthArgs(token, remoteUrl), 'lfs', 'locks', '--json'], repoPath)
+    return {
+      ...plain,
+      usedVerify: false,
+      stderr: [plain.stderr.trim(), 'Note: this Git LFS version does not support locks --verify; used git lfs locks --json instead.'].filter(Boolean).join('\n'),
+    }
+  }
+
+  async lfsLocksMaintenance(repoPath: string, repair: boolean): Promise<LfsLocksMaintenanceResult> {
+    const beforePaths = await this.findLfsLockCacheFiles(repoPath)
+    const before = await Promise.all(beforePaths.map(filePath => this.inspectLfsLockCacheFile(filePath)))
+    const deletedLockCacheFiles: string[] = []
+
+    if (repair) {
+      for (const filePath of beforePaths) {
+        try {
+          await fs.promises.rm(filePath, { force: true })
+          deletedLockCacheFiles.push(filePath)
+        } catch {
+          // The verify step below will report any remaining cache issues.
+        }
+      }
+    }
+
+    const verify = await this.runLfsLocksCheck(repoPath)
+    const afterPaths = repair ? await this.findLfsLockCacheFiles(repoPath) : beforePaths
+    const after = repair
+      ? await Promise.all(afterPaths.map(filePath => this.inspectLfsLockCacheFile(filePath)))
+      : before
+
+    const lockCount = this.parseLfsLocksCount(verify.stdout)
+    const corruptCount = after.filter(file => file.integrity === 'corrupt' || file.integrity === 'empty').length
+    const staleCount = after.filter(file => file.integrity === 'stale').length
+    const hasErrors = verify.exitCode !== 0 || corruptCount > 0
+    const summaryText = hasErrors
+      ? [
+          verify.exitCode !== 0 ? 'Git LFS lock verification failed.' : '',
+          corruptCount > 0 ? `${corruptCount} lock cache file${corruptCount === 1 ? '' : 's'} need attention.` : '',
+        ].filter(Boolean).join(' ')
+      : [
+          verify.usedVerify ? 'Git LFS locks verified' : 'Git LFS locks checked',
+          lockCount === null ? '' : `(${lockCount} lock${lockCount === 1 ? '' : 's'})`,
+          staleCount > 0 ? `${staleCount} stale cache file${staleCount === 1 ? '' : 's'} can be cleared.` : '',
+        ].filter(Boolean).join(' ')
+    const summary = /[.!?]$/.test(summaryText) ? summaryText : `${summaryText}.`
+
+    return {
+      lockCacheFiles: after,
+      deletedLockCacheFiles,
+      verifyExitCode: verify.exitCode,
+      verifyOutput: verify.stdout.trim(),
+      verifyError: verify.stderr.trim(),
+      usedVerify: verify.usedVerify,
+      lockCount,
+      hasErrors,
+      summary,
+    }
+  }
 
   /** Parse .gitattributes + count LFS objects + suggest untracked binary exts. Cached 5 min. */
   async lfsStatus(repoPath: string): Promise<LFSStatus> {

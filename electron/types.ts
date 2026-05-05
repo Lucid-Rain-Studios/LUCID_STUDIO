@@ -137,6 +137,26 @@ export interface LFSStatus {
   totalBytes: number
 }
 
+export interface LfsLockCacheFile {
+  path: string
+  sizeBytes: number
+  exists: boolean
+  integrity: 'ok' | 'missing' | 'empty' | 'stale' | 'corrupt' | 'unknown'
+  error?: string
+}
+
+export interface LfsLocksMaintenanceResult {
+  lockCacheFiles: LfsLockCacheFile[]
+  deletedLockCacheFiles: string[]
+  verifyExitCode: number
+  verifyOutput: string
+  verifyError: string
+  usedVerify: boolean
+  lockCount: number | null
+  hasErrors: boolean
+  summary: string
+}
+
 export interface SyncStatus {
   ahead: number
   behind: number

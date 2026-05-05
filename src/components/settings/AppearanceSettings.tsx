@@ -60,6 +60,17 @@ export function AppearanceSettings() {
     finally { setSaving(false) }
   }
 
+  const handleRestoreDefaults = () => {
+    setSettings(s => {
+      if (!s) return s
+      const next = { ...s, ...DEFAULTS } as AppSettings
+      applyAppearanceSettings(next)
+      return next
+    })
+    setCustomAccent('')
+    setSaved(false)
+  }
+
   const accent = settings.accentColor ?? (THEMES.find(t => t.id === settings.theme)?.vars['--lg-accent'] ?? '#e8622f')
 
   return (
@@ -303,6 +314,7 @@ export function AppearanceSettings() {
       {/* Save */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 8 }}>
         <SaveBtn label={saving ? 'Saving…' : 'Save'} disabled={saving} onClick={handleSave} />
+        <SecondaryBtn label="Restore defaults" disabled={saving} onClick={handleRestoreDefaults} />
         {saved && (
           <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 12, color: '#2ec573' }}>
             ✓ Saved
@@ -378,6 +390,26 @@ function SaveBtn({ label, disabled, onClick }: { label: string; disabled: boolea
         background: hover ? 'rgba(232,98,47,0.2)' : 'rgba(232,98,47,0.12)',
         border: '1px solid rgba(232,98,47,0.5)',
         color: 'var(--lg-accent)', fontFamily: 'var(--lg-font-ui)', fontSize: 13, fontWeight: 600,
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        opacity: disabled ? 0.5 : 1, transition: 'all 0.12s',
+      }}
+    >{label}</button>
+  )
+}
+
+function SecondaryBtn({ label, disabled, onClick }: { label: string; disabled: boolean; onClick: () => void }) {
+  const [hover, setHover] = useState(false)
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        height: 32, paddingLeft: 14, paddingRight: 14, borderRadius: 'var(--lg-radius)',
+        background: hover ? 'rgba(255,255,255,0.07)' : 'transparent',
+        border: '1px solid var(--lg-border-strong)',
+        color: 'var(--lg-text-secondary)', fontFamily: 'var(--lg-font-ui)', fontSize: 13, fontWeight: 500,
         cursor: disabled ? 'not-allowed' : 'pointer',
         opacity: disabled ? 0.5 : 1, transition: 'all 0.12s',
       }}

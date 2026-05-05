@@ -97,6 +97,26 @@ export interface LFSStatus {
   totalBytes: number
 }
 
+export interface LfsLockCacheFile {
+  path: string
+  sizeBytes: number
+  exists: boolean
+  integrity: 'ok' | 'missing' | 'empty' | 'stale' | 'corrupt' | 'unknown'
+  error?: string
+}
+
+export interface LfsLocksMaintenanceResult {
+  lockCacheFiles: LfsLockCacheFile[]
+  deletedLockCacheFiles: string[]
+  verifyExitCode: number
+  verifyOutput: string
+  verifyError: string
+  usedVerify: boolean
+  lockCount: number | null
+  hasErrors: boolean
+  summary: string
+}
+
 export interface SizeBreakdown {
   totalBytes: number
   objectsBytes: number
@@ -544,6 +564,8 @@ export interface LucidGitAPI {
   lfsUntrack:   (repoPath: string, pattern: string) => Promise<void>
   lfsMigrate:   (repoPath: string, patterns: string[]) => Promise<void>
   lfsAutodetect:(repoPath: string) => Promise<string[]>
+  lfsLocksCheck: (repoPath: string) => Promise<LfsLocksMaintenanceResult>
+  lfsLocksRepair: (repoPath: string) => Promise<LfsLocksMaintenanceResult>
 
   // Cleanup
   cleanupSize: (repoPath: string) => Promise<SizeBreakdown>

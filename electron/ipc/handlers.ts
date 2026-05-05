@@ -455,6 +455,16 @@ export function registerHandlers(): void {
     return gitService.lfsAutodetect(repoPath)
   })
 
+  handle(CHANNELS.LFS_LOCKS_CHECK, async (_event, repoPath: string) => {
+    return gitService.lfsLocksMaintenance(repoPath, false)
+  })
+
+  handle(CHANNELS.LFS_LOCKS_REPAIR, async (_event, repoPath: string) => {
+    const result = await gitService.lfsLocksMaintenance(repoPath, true)
+    await lockService.refresh(repoPath)
+    return result
+  })
+
   handle(CHANNELS.LFS_MIGRATE, async (event, repoPath: string, patterns: string[]) => {
     await requireAdmin(repoPath)
     return gitService.lfsMigrate(repoPath, patterns, (step) => {

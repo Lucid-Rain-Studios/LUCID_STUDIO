@@ -129,6 +129,13 @@ class LockService {
     }
   }
 
+  async refresh(repoPath: string): Promise<Lock[]> {
+    const locks = await this.listLocks(repoPath)
+    this.prevLocks.set(repoPath, locks)
+    this.broadcastLocks(repoPath, locks)
+    return locks
+  }
+
   // ── Private ─────────────────────────────────────────────────────────────────
 
   private async poll(repoPath: string): Promise<void> {

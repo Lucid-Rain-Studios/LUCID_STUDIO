@@ -177,13 +177,24 @@ function Metric({ label, value, color, sub }: { label: string; value: string | n
 
 // ── Repository size card ──────────────────────────────────────────────────────
 
-function SizeCard({ size, sizeLoading, onNavigate }: { size: SizeBreakdown | null; sizeLoading: boolean; onNavigate: (t: string) => void }) {
+function SizeCard({
+  size,
+  sizeLoading,
+  onNavigate,
+  onRefresh,
+}: {
+  size: SizeBreakdown | null
+  sizeLoading: boolean
+  onNavigate: (t: string) => void
+  onRefresh: () => void
+}) {
   if (!size) return (
     <Card title="Repository Size" icon={<SizeCardIcon />} accentColor="#a27ef0">
-      <div style={{ padding: 14 }}>
+      <div style={{ padding: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
         <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12, color: '#344057' }}>
-          {sizeLoading ? 'Measuring…' : 'Size data unavailable'}
+          {sizeLoading ? 'Measuring…' : 'Size data not measured'}
         </span>
+        <Btn label="Refresh" onClick={onRefresh} loading={sizeLoading} disabled={sizeLoading} color="#a27ef0" />
       </div>
     </Card>
   )
@@ -210,7 +221,10 @@ function SizeCard({ size, sizeLoading, onNavigate }: { size: SizeBreakdown | nul
       onAction={() => onNavigate('cleanup')}
     >
       <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <Metric label="Total on disk" value={fmtBytes(size.totalBytes)} color={sizeColor} />
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+          <Metric label="Total on disk" value={fmtBytes(size.totalBytes)} color={sizeColor} />
+          <Btn label="Refresh" onClick={onRefresh} loading={sizeLoading} disabled={sizeLoading} color="#a27ef0" />
+        </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {bars.map(b => (
@@ -865,6 +879,7 @@ export function OverviewPanel({ repoPath, onNavigate, onRefresh }: OverviewPanel
   const [ghSlug,     setGhSlug]     = useState<string | null>(null)
   const [sizeLoading, setSizeLoading] = useState(false)
   const mounted = useRef(true)
+  const sizeRequestId = useRef(0)
 
   useEffect(() => {
     mounted.current = true
@@ -924,18 +939,22 @@ export function OverviewPanel({ repoPath, onNavigate, onRefresh }: OverviewPanel
 
   const loadSize = useCallback(async () => {
     if (!mounted.current) return
+    const requestId = ++sizeRequestId.current
     setSizeLoading(true)
     try {
       const s = await ipc.cleanupSize(repoPath)
-      if (mounted.current) setSize(s)
+      if (mounted.current && requestId === sizeRequestId.current) setSize(s)
     } catch { }
-    finally { if (mounted.current) setSizeLoading(false) }
+    finally {
+      if (mounted.current && requestId === sizeRequestId.current) setSizeLoading(false)
+    }
   }, [repoPath])
 
   useEffect(() => {
-    const t = setTimeout(loadSize, 800)
-    return () => clearTimeout(t)
-  }, [loadSize])
+    sizeRequestId.current += 1
+    setSize(null)
+    setSizeLoading(false)
+  }, [repoPath])
 
   useEffect(() => { loadAll() }, [loadAll])
 
@@ -1071,7 +1090,7 @@ export function OverviewPanel({ repoPath, onNavigate, onRefresh }: OverviewPanel
         />
 
         {/* ── Row 1: Repository Size ───────────────────────────────────────── */}
-        <SizeCard size={size} sizeLoading={sizeLoading} onNavigate={onNavigate} />
+        <SizeCard size={size} sizeLoading={sizeLoading} onNavigate={onNavigate} onRefresh={loadSize} />
 
         {/* ── Row 2: Recent Commits | Branch Activity ───────────────────────── */}
         <div style={{ display: 'grid', gridTemplateColumns: '3fr 2fr', gap: 14, alignItems: 'start' }}>

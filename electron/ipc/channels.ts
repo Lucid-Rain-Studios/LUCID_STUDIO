@@ -60,6 +60,8 @@ export const CHANNELS = {
   LFS_UNTRACK:    'lfs:untrack',
   LFS_MIGRATE:    'lfs:migrate',
   LFS_AUTODETECT: 'lfs:autodetect',
+  LFS_LOCKS_CHECK:  'lfs:locks-check',
+  LFS_LOCKS_REPAIR: 'lfs:locks-repair',
 
   // Cleanup
   CLEANUP_SIZE:      'cleanup:size',

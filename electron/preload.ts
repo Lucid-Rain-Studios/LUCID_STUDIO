@@ -133,6 +133,10 @@ const api = {
     ipcRenderer.invoke(CHANNELS.LFS_MIGRATE, repoPath, patterns),
   lfsAutodetect: (repoPath: string) =>
     ipcRenderer.invoke(CHANNELS.LFS_AUTODETECT, repoPath),
+  lfsLocksCheck: (repoPath: string) =>
+    ipcRenderer.invoke(CHANNELS.LFS_LOCKS_CHECK, repoPath),
+  lfsLocksRepair: (repoPath: string) =>
+    ipcRenderer.invoke(CHANNELS.LFS_LOCKS_REPAIR, repoPath),
 
   // ── Cleanup ───────────────────────────────────────────────────────────────
   cleanupSize: (repoPath: string) =>
