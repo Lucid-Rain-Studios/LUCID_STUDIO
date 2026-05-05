@@ -359,7 +359,7 @@ function DailyFlowStrip({
     syncSub   = `${ahead} commit${ahead !== 1 ? 's' : ''} ready to push`
   }
 
-  const isBusy = !!busy
+  const isBusy = busy !== 'idle'
 
   const s1Btns: FlowStepBtn[] = [
     {
