@@ -533,7 +533,7 @@ function FlowStep({ step }: { step: FlowStepDef }) {
       </div>
 
       {step.btns && step.btns.length > 0 && (
-        <div style={{ marginLeft: 27, display: 'flex', gap: 6 }}>
+        <div style={{ marginLeft: 27, display: 'flex', gap: 6, flexWrap: 'wrap', rowGap: 6 }}>
           {step.btns.map((b, i) => (
             <SmallBtn key={i} label={b.label} color={b.color} disabled={b.disabled} disabledReason={b.disabledReason} onClick={b.onClick} />
           ))}
@@ -707,16 +707,14 @@ function SuggestionsCard({ lastFetch, lastPull, sync, fileStatus, conflictReport
 
 // ── Local Status Card (sync + changes combined) ───────────────────────────────
 
-function LocalStatusCard({ sync, busy, hasFetched, files, staged, unstaged, onFetch, onPull, onPush, onNavigate }: {
-  sync: SyncStatus | null; busy: 'idle' | 'fetch' | 'pull' | 'push'; hasFetched: boolean
+function LocalStatusCard({ sync, files, staged, unstaged, onNavigate }: {
+  sync: SyncStatus | null
   files: FileStatus[]; staged: number; unstaged: number
-  onFetch: () => void; onPull: () => void; onPush: () => void
   onNavigate: (tab: string) => void
 }) {
   const behind      = sync?.behind ?? 0
   const ahead       = sync?.ahead  ?? 0
   const clean       = sync && behind === 0 && ahead === 0
-  const pushEnabled = canPush(hasFetched, behind, ahead, busy)
   const total       = staged + unstaged
   const preview     = files.slice(0, 4)
 
@@ -738,12 +736,6 @@ function LocalStatusCard({ sync, busy, hasFetched, files, staged, unstaged, onFe
             <span style={{ fontSize: 11.5, color: '#344057' }}>In sync with remote</span>
           </div>
         )}
-
-        <div style={{ display: 'flex', gap: 6 }}>
-          <SmallBtn label={fetchButtonLabel(busy)} color="#4a9eff" disabled={busy !== 'idle'} disabledReason={fetchDisabledReason(busy)} onClick={onFetch} />
-          <SmallBtn label={pullButtonLabel(busy)} color="#f5a832" disabled={!canPull(hasFetched, behind, busy)} disabledReason={pullDisabledReason(hasFetched, behind, busy)} onClick={onPull} />
-          <SmallBtn label={pushButtonLabel(busy)} color={pushEnabled ? '#2dbd6e' : undefined} disabled={!pushEnabled} disabledReason={pushDisabledReason(hasFetched, behind, ahead, busy)} onClick={onPush} />
-        </div>
 
         <div style={{ height: 1, background: '#1a2030', marginLeft: -14, marginRight: -14 }} />
 
