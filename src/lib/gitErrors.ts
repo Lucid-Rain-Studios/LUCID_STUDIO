@@ -103,6 +103,43 @@ const DEFS: ErrorDef[] = [
     ],
   },
   {
+    code: 'DIRTY_WORKING_TREE',
+    test: /needs a clean working tree|Your local changes.*would be overwritten|Please commit your changes or stash them|cannot pull with rebase.*unstaged changes|working tree has modifications/i,
+    title: 'Uncommitted changes block the update',
+    description: 'Update from main needs a clean working tree. Commit or stash your current changes first so incoming files are not mixed with local edits.',
+    causes: [
+      'You have edits in the working tree that have not been committed or stashed',
+      'A previous merge / rebase left files modified',
+      'Files are still open and saving from an external editor (e.g. Unreal Editor, Photoshop) — close that program before retrying',
+    ],
+    severity: 'error',
+    canAutoFix: false,
+    fixes: [
+      { label: 'Close any program editing files in this repo (Unreal Editor, Photoshop, Blender, …) and retry', action: { type: 'open-settings', section: 'changes' } },
+      { label: 'Commit your changes first', command: 'git commit -am "WIP"' },
+      { label: 'Or stash them temporarily', command: 'git stash push -m "before update from main"' },
+      { label: 'Discard local changes (destructive)', command: 'git reset --hard HEAD' },
+    ],
+  },
+  {
+    code: 'WORKING_TREE_LOCKED',
+    test: /unable to unlink old.*Invalid argument|unable to unlink old.*Permission denied|unable to (?:create|write) file.*(Permission denied|Access is denied|Invalid argument)/i,
+    title: 'Files locked by another program',
+    description: 'Git could not update the working tree because one or more files are open in another program. Close the program holding those files (most often Unreal Editor for .uasset / .umap files), then retry.',
+    causes: [
+      'Unreal Editor has the project open and is holding .uasset / .umap files — close the editor and retry',
+      'A file is open in an external editor (Photoshop, Audition, Blender, etc.) — close it before retrying',
+      'OneDrive / Dropbox / antivirus has the file briefly locked — pause sync or exclude the repo folder',
+    ],
+    severity: 'error',
+    canAutoFix: true,
+    fixes: [
+      { label: 'Close Unreal Editor (and any other program editing the listed files), then retry the update', action: { type: 'open-conflict-resolver' } },
+      { label: 'Open the merge resolver to pick ours/theirs for the locked files', action: { type: 'open-conflict-resolver' } },
+      { label: 'Abort the in-progress merge', command: 'git merge --abort' },
+    ],
+  },
+  {
     code: 'MERGE_CONFLICT',
     test: /CONFLICT|Automatic merge failed|fix conflicts and then commit|Cannot merge|Merge conflict/i,
     title: 'Merge conflicts',

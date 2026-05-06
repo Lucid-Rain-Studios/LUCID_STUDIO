@@ -180,6 +180,8 @@ export function DashboardPanel({ repoPath, onNavigate }: DashboardPanelProps) {
   const topBarSnapshot = getTopBarSyncSnapshot()
   const topBarHandlers = getTopBarSyncHandlers()
   const usingTopBarState = topBarSnapshot.repoPath === repoPath
+  const defaultBranch = topBarSnapshot.defaultBranch
+  const updatingFromMain = usingTopBarState ? topBarSnapshot.updatingFromMain : false
 
   const doFetch = async () => {
     if (usingTopBarState && topBarHandlers) return void topBarHandlers.fetch()
@@ -228,7 +230,7 @@ export function DashboardPanel({ repoPath, onNavigate }: DashboardPanelProps) {
   const behind    = effectiveSync?.behind ?? 0
   const ahead     = effectiveSync?.ahead ?? 0
   const busyState = effectiveBusy
-  const canCreatePRNow = canCreatePR(!!ghSlug, currentBranch, ahead, busyState)
+  const canCreatePRNow = canCreatePR(!!ghSlug, currentBranch, busyState)
   const stalePull = behind > 0 && (lastPull === null || Date.now() - lastPull > TWO_DAYS)
   void topBarTick
 
@@ -306,11 +308,16 @@ export function DashboardPanel({ repoPath, onNavigate }: DashboardPanelProps) {
         hasFetched={effectiveHasFetched}
         ghSlug={ghSlug}
         currentBranch={currentBranch}
+        defaultBranch={defaultBranch}
+        updatingFromMain={updatingFromMain}
         conflictReport={conflictReport}
         conflictChecking={conflictChecking}
         onFetch={doFetch}
         onPull={doPull}
         onPush={doPush}
+        onUpdateFromMain={() => {
+          if (usingTopBarState && topBarHandlers) topBarHandlers.updateFromMain()
+        }}
         onGoChanges={() => onNavigate('timeline')}
         onDeepConflictCheck={() => runPotentialConflictCheck('deep')}
         canCreatePR={canCreatePRNow}
@@ -326,9 +333,9 @@ export function DashboardPanel({ repoPath, onNavigate }: DashboardPanelProps) {
       {/* ── Status grid (3 columns) ─────────────────────────────────────── */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gridAutoRows: '1fr', gap: 14, marginTop: 16, flex: 1, minHeight: 300 }}>
         <LocalStatusCard
-          sync={effectiveSync} busy={busyState} hasFetched={effectiveHasFetched} files={fileStatus}
+          sync={effectiveSync} files={fileStatus}
           staged={staged} unstaged={unstaged}
-          onFetch={doFetch} onPull={doPull} onPush={doPush} onNavigate={onNavigate}
+          onNavigate={onNavigate}
         />
         <LocksCard locks={locks} currentLogin={currentLogin} repoPath={repoPath} unlockFile={unlockFile} isAdmin={isAdmin} />
         <PRsCard ghSlug={ghSlug} />
@@ -355,9 +362,9 @@ interface FlowStepDef {
 }
 
 function DailyFlowStrip({
-  sync, staged, unstaged, busy, hasFetched, ghSlug, currentBranch,
+  sync, staged, unstaged, busy, hasFetched, ghSlug, currentBranch, defaultBranch, updatingFromMain,
   conflictReport, conflictChecking,
-  onFetch, onPull, onPush, onGoChanges, onDeepConflictCheck, onOpenPR, canCreatePR,
+  onFetch, onPull, onPush, onUpdateFromMain, onGoChanges, onDeepConflictCheck, onOpenPR, canCreatePR,
 }: {
   sync: SyncStatus | null
   staged: number; unstaged: number
@@ -365,9 +372,11 @@ function DailyFlowStrip({
   hasFetched: boolean
   ghSlug: string | null
   currentBranch: string
+  defaultBranch: string
+  updatingFromMain: boolean
   conflictReport: PotentialMergeConflictReport | null
   conflictChecking: 'lightweight' | 'deep' | null
-  onFetch: () => void; onPull: () => void; onPush: () => void
+  onFetch: () => void; onPull: () => void; onPush: () => void; onUpdateFromMain: () => void
   onGoChanges: () => void; onDeepConflictCheck: () => void; onOpenPR: () => void; canCreatePR: boolean
 }) {
   const behind     = sync?.behind ?? 0
@@ -390,6 +399,9 @@ function DailyFlowStrip({
   }
 
   const isBusy = busy !== 'idle'
+  const pushEnabled = canPush(hasFetched, behind, ahead, busy)
+  const onDefaultBranch = currentBranch === defaultBranch
+  const updateFromMainEnabled = !onDefaultBranch && !updatingFromMain && !isBusy
 
   const s1Btns: FlowStepBtn[] = [
     {
@@ -405,6 +417,30 @@ function DailyFlowStrip({
       disabled: !canPull(hasFetched, behind, busy),
       disabledReason: pullDisabledReason(hasFetched, behind, busy),
       onClick:  onPull,
+    },
+    {
+      label:    pushButtonLabel(busy),
+      color:    pushEnabled ? '#2dbd6e' : undefined,
+      disabled: !pushEnabled,
+      disabledReason: pushDisabledReason(hasFetched, behind, ahead, busy),
+      onClick:  onPush,
+    },
+    {
+      label:    updatingFromMain
+        ? 'Updating…'
+        : onDefaultBranch
+          ? `On ${defaultBranch}`
+          : `Update from ${defaultBranch}`,
+      color:    updateFromMainEnabled ? '#4a9eff' : undefined,
+      disabled: !updateFromMainEnabled,
+      disabledReason: onDefaultBranch
+        ? `Already on ${defaultBranch}`
+        : updatingFromMain
+          ? 'Update in progress'
+          : isBusy
+            ? 'Sync in progress'
+            : null,
+      onClick:  onUpdateFromMain,
     },
   ]
 
@@ -438,7 +474,7 @@ function DailyFlowStrip({
         ? `Merge ${currentBranch} into ${sync?.remoteBranch ?? 'main'}`
         : 'No GitHub remote detected',
       state: 'neutral',
-      btns: ghSlug ? [{ label: 'Create PR', color: '#a78bfa', disabled: !canCreatePR, disabledReason: createPRDisabledReason(!!ghSlug, currentBranch, ahead, busy), onClick: onOpenPR }] : undefined,
+      btns: ghSlug ? [{ label: 'Create PR', color: '#a78bfa', disabled: !canCreatePR, disabledReason: createPRDisabledReason(!!ghSlug, currentBranch, busy), onClick: onOpenPR }] : undefined,
     },
   ]
 

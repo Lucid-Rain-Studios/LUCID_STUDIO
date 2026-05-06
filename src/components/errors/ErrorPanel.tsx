@@ -91,10 +91,15 @@ export function ErrorPanel({ onReauth, onNavigateTab }: ErrorPanelProps) {
     }
   }
 
-  const severityColor = (s: LucidGitError['severity']) =>
-    s === 'fatal' ? 'border-lg-error bg-lg-error/5 text-lg-error' :
-    s === 'error' ? 'border-lg-error/70 bg-lg-error/5 text-lg-error' :
-                   'border-lg-warning/70 bg-lg-warning/5 text-lg-warning'
+  // Solid app-dark background with a saturated severity-colored frame, matching
+  // the rest of Lucid Git's panel chrome (no transparency on the surface itself).
+  const severityFrame = (s: LucidGitError['severity']) =>
+    s === 'fatal' ? 'border-lg-error'      :
+    s === 'error' ? 'border-lg-error'      :
+                    'border-lg-warning'
+
+  const severityAccent = (s: LucidGitError['severity']) =>
+    s === 'warning' ? 'text-lg-warning' : 'text-lg-error'
 
   const severityLabel = (s: LucidGitError['severity']) =>
     s === 'fatal' ? 'FATAL' : s === 'error' ? 'ERROR' : 'WARNING'
@@ -121,27 +126,31 @@ export function ErrorPanel({ onReauth, onNavigateTab }: ErrorPanelProps) {
         <div className={cn(
           'fixed bottom-6 left-1/2 -translate-x-1/2 z-50',
           'w-full max-w-lg mx-4',
-          'rounded-lg border shadow-2xl',
+          'rounded-lg border-2 shadow-2xl',
           'font-mono text-[11px]',
-          severityColor(current.severity)
+          'bg-lg-bg-elevated text-lg-text-primary',
+          severityFrame(current.severity)
         )}>
           {/* Header */}
-          <div className="flex items-center gap-2 px-4 py-2.5 border-b border-current/20">
+          <div className={cn(
+            'flex items-center gap-2 px-4 py-2.5 border-b border-lg-border',
+            severityAccent(current.severity)
+          )}>
             <span className={cn('w-2 h-2 rounded-full shrink-0', severityDot(current.severity))} />
-            <span className="text-[9px] tracking-widest uppercase opacity-70">
+            <span className="text-[9px] tracking-widest uppercase opacity-90">
               {severityLabel(current.severity)} · {current.code}
             </span>
             <span className="flex-1 font-semibold text-[12px]">{current.title}</span>
             <button
               onClick={() => setExpanded(v => !v)}
-              className="text-[10px] opacity-60 hover:opacity-100 transition-opacity"
+              className="text-[10px] text-lg-text-secondary hover:text-lg-text-primary transition-colors"
               title="Toggle details"
             >
               {expanded ? '▲' : '▼'}
             </button>
             <button
               onClick={handleDismiss}
-              className="text-[10px] opacity-60 hover:opacity-100 transition-opacity ml-1"
+              className="text-[10px] text-lg-text-secondary hover:text-lg-text-primary transition-colors ml-1"
               title="Dismiss"
             >
               ✕
@@ -150,16 +159,16 @@ export function ErrorPanel({ onReauth, onNavigateTab }: ErrorPanelProps) {
 
           {/* Body */}
           <div className="px-4 py-2.5 space-y-2">
-            <p className="text-[11px] opacity-90">{current.description}</p>
+            <p className="text-[11px] text-lg-text-primary">{current.description}</p>
 
             {/* Causes — collapsed by default */}
             {expanded && current.causes.length > 0 && (
               <div>
-                <div className="text-[9px] uppercase tracking-widest opacity-50 mb-1">Likely causes</div>
+                <div className="text-[9px] uppercase tracking-widest text-lg-text-secondary mb-1">Likely causes</div>
                 <ul className="space-y-0.5">
                   {current.causes.map((c, i) => (
-                    <li key={i} className="flex gap-1.5 opacity-75">
-                      <span className="shrink-0">·</span>
+                    <li key={i} className="flex gap-1.5 text-lg-text-secondary">
+                      <span className={cn('shrink-0', severityAccent(current.severity))}>·</span>
                       <span>{c}</span>
                     </li>
                   ))}
@@ -170,7 +179,7 @@ export function ErrorPanel({ onReauth, onNavigateTab }: ErrorPanelProps) {
             {/* Fix steps */}
             {current.fixes.length > 0 && (
               <div>
-                <div className="text-[9px] uppercase tracking-widest opacity-50 mb-1.5">Fixes</div>
+                <div className="text-[9px] uppercase tracking-widest text-lg-text-secondary mb-1.5">Fixes</div>
                 <div className="space-y-1">
                   {current.fixes.map((step, i) => (
                     <FixRow
@@ -188,16 +197,16 @@ export function ErrorPanel({ onReauth, onNavigateTab }: ErrorPanelProps) {
 
             {/* Auto-fix result */}
             {autoFixResult && (
-              <pre className="text-[10px] opacity-80 whitespace-pre-wrap border-t border-current/20 pt-1.5 mt-1">
+              <pre className="text-[10px] text-lg-text-secondary whitespace-pre-wrap border-t border-lg-border pt-1.5 mt-1">
                 {autoFixResult}
               </pre>
             )}
 
             {/* Raw output toggle */}
             {expanded && (
-              <details className="text-[9px] opacity-60">
-                <summary className="cursor-pointer hover:opacity-100">Raw git output</summary>
-                <pre className="mt-1 max-h-24 overflow-y-auto whitespace-pre-wrap opacity-80">
+              <details className="text-[9px] text-lg-text-secondary">
+                <summary className="cursor-pointer hover:text-lg-text-primary transition-colors">Raw git output</summary>
+                <pre className="mt-1 max-h-24 overflow-y-auto whitespace-pre-wrap bg-lg-bg-primary border border-lg-border rounded p-2">
                   {current.gitMessage}
                 </pre>
               </details>
@@ -205,17 +214,17 @@ export function ErrorPanel({ onReauth, onNavigateTab }: ErrorPanelProps) {
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-between px-4 py-1.5 border-t border-current/20 opacity-60">
+          <div className="flex items-center justify-between px-4 py-1.5 border-t border-lg-border">
             <button
               onClick={() => setShowHistory(true)}
-              className="text-[9px] hover:opacity-100 transition-opacity"
+              className="text-[9px] text-lg-text-secondary hover:text-lg-text-primary transition-colors"
             >
               Error history ({history.length})
             </button>
             {current.docsUrl && (
               <button
                 onClick={() => ipc.openExternal(current.docsUrl!)}
-                className="text-[9px] hover:opacity-100 transition-opacity"
+                className="text-[9px] text-lg-text-secondary hover:text-lg-text-primary transition-colors"
               >
                 Docs ↗
               </button>

@@ -27,10 +27,17 @@ export function canPush(hasFetched: boolean, behind: number, ahead: number, busy
   return busy === 'idle' && hasFetched && behind === 0 && ahead > 0
 }
 
-export function canCreatePR(hasRemote: boolean, branchName: string | null | undefined, ahead: number, busy: SyncBusyState): boolean {
+// "ahead" here is intentionally NOT taken as a gate. SyncStatus.ahead measures
+// how far HEAD is ahead of its UPSTREAM remote tracking branch, which becomes
+// 0 the moment you push — yet a PR is exactly what you want to open after
+// pushing. The relevant check ("does this branch have commits not on main?")
+// would require a separate branchDiff call; for the button gate it's enough
+// that the branch exists, isn't main, has a GitHub remote, and isn't busy.
+// GitHub itself reports "no commits between" if the branch has nothing new.
+export function canCreatePR(hasRemote: boolean, branchName: string | null | undefined, busy: SyncBusyState): boolean {
   const normalized = (branchName ?? '').trim().toLowerCase()
   const isMainBranch = normalized === 'main'
-  return hasRemote && !!normalized && !isMainBranch && busy === 'idle' && ahead > 0
+  return hasRemote && !!normalized && !isMainBranch && busy === 'idle'
 }
 
 export function fetchDisabledReason(busy: SyncBusyState): string | null {
@@ -45,12 +52,11 @@ export function pushDisabledReason(hasFetched: boolean, behind: number, ahead: n
   return busyReason(busy) ?? (!hasFetched ? 'Please Fetch first' : behind > 0 ? 'Please Pull first' : ahead === 0 ? 'Nothing to push' : null)
 }
 
-export function createPRDisabledReason(hasRemote: boolean, branchName: string | null | undefined, ahead: number, busy: SyncBusyState): string | null {
+export function createPRDisabledReason(hasRemote: boolean, branchName: string | null | undefined, busy: SyncBusyState): string | null {
   const normalized = (branchName ?? '').trim().toLowerCase()
   return busyReason(busy)
     ?? (!hasRemote ? 'No GitHub remote detected'
       : !normalized ? 'No branch selected'
         : normalized === 'main' ? 'Create PR from a feature branch'
-          : ahead === 0 ? 'Nothing to publish'
-            : null)
+          : null)
 }

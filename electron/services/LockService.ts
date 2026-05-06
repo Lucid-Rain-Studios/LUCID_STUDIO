@@ -161,7 +161,7 @@ class LockService {
   private isMissingFileUnlockCacheError(message: string): boolean {
     return /Unable to unlock/i.test(message)
       && /(CreateFile|open)\s+/i.test(message)
-      && /(cannot find the file|no such file or directory)/i.test(message)
+      && /(cannot find the (file|path)|no such file or directory)/i.test(message)
   }
 
   private async poll(repoPath: string): Promise<void> {

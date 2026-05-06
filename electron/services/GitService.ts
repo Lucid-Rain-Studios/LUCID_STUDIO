@@ -533,12 +533,19 @@ class GitService {
     )
   }
 
-  /** git log with parsed output. Pass filePath to filter to a single file, or refs to limit to specific branches. */
+  /** git log with parsed output. Pass filePath to filter to a single file, or refs to limit to specific branches.
+   *
+   *  Sorting: --author-date-order keeps the topology constraint git users
+   *  expect (a parent never appears before its child), but otherwise orders
+   *  commits by author timestamp — the same field surfaced as `commit.timestamp`
+   *  in the UI. --topo-order would group by lines of history at the cost of
+   *  showing commits out of date order, which surprises users who expect the
+   *  Timeline / History to read top-to-bottom newest-to-oldest. */
   async log(
     repoPath: string,
     args: { limit?: number; all?: boolean; filePath?: string; refs?: string[] } = {}
   ): Promise<CommitEntry[]> {
-    const cmdArgs = ['log', `--format=${GIT_LOG_FORMAT}`, '--topo-order']
+    const cmdArgs = ['log', `--format=${GIT_LOG_FORMAT}`, '--author-date-order']
     if (args.all && !args.filePath && !args.refs?.length) cmdArgs.push('--all')
     if (args.limit) cmdArgs.push(`-${args.limit}`)
     if (args.refs?.length) cmdArgs.push(...args.refs)

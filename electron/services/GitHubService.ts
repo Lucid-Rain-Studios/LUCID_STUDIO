@@ -98,8 +98,12 @@ class GitHubService {
   }
 
   async mergePR(token: string, args: PRActionArgs): Promise<void> {
+    // 'merge' creates a merge commit and preserves every commit on the source
+    // branch — matching GitHub Desktop's default and the local merge() path
+    // (which uses --no-ff). 'squash' would collapse the source branch into a
+    // single commit on main, hiding the original commit history.
     await ghFetch(token, `/repos/${args.owner}/${args.repo}/pulls/${args.prNumber}/merge`, 'PUT', {
-      merge_method: 'squash',
+      merge_method: 'merge',
     })
   }
 

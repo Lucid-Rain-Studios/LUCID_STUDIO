@@ -9,6 +9,8 @@ export interface TopBarSyncSnapshot {
   hasFetched: boolean
   canPushNow: boolean
   canCreatePRNow: boolean
+  defaultBranch: string
+  updatingFromMain: boolean
 }
 
 interface TopBarSyncHandlers {
@@ -16,6 +18,7 @@ interface TopBarSyncHandlers {
   pull: () => Promise<void> | void
   push: () => Promise<void> | void
   createPR: () => Promise<void> | void
+  updateFromMain: () => Promise<void> | void
 }
 
 let snapshot: TopBarSyncSnapshot = {
@@ -25,6 +28,8 @@ let snapshot: TopBarSyncSnapshot = {
   hasFetched: false,
   canPushNow: false,
   canCreatePRNow: false,
+  defaultBranch: 'main',
+  updatingFromMain: false,
 }
 
 let handlers: TopBarSyncHandlers | null = null

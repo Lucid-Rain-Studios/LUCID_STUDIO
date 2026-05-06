@@ -24,10 +24,11 @@ import { useStatusToastStore } from '@/stores/statusToastStore'
 import { setTopBarSyncHandlers, updateTopBarSyncSnapshot } from '@/lib/topBarSyncBridge'
 
 interface TopBarProps {
-  onOpen:       () => void
-  onClone:      () => void
-  onAddAccount: () => void
-  onSynced?:    () => void
+  onOpen:           () => void
+  onClone:          () => void
+  onAddAccount:     () => void
+  onSynced?:        () => void
+  onMergeConflict?: (branch: string) => void
 }
 
 const CONFIRM_BRANCH_KEY = 'lucid-git:confirm-branch-switch'
@@ -41,7 +42,7 @@ function parseGitHubSlug(url: string): string | null {
   return null
 }
 
-export function TopBar({ onOpen, onClone, onAddAccount, onSynced }: TopBarProps) {
+export function TopBar({ onOpen, onClone, onAddAccount, onSynced, onMergeConflict }: TopBarProps) {
   const { repoPath, currentBranch, refreshStatus, recentRepos, openRepo, removeRecentRepo, clearRepo, branches, checkout, fileStatus, syncTick, bumpSyncTick } = useRepoStore()
   const { accounts, currentAccountId, permissionErrors, fetchRepoPermission, viewAsRole, setViewAsRole } = useAuthStore()
   const opRun   = useOperationStore(s => s.run)
@@ -170,8 +171,26 @@ export function TopBar({ onOpen, onClone, onAddAccount, onSynced }: TopBarProps)
       showStatusToast(`Update from ${defaultBranch} successful.`)
     } catch (e) {
       const s = String(e)
-      showStatusToast(`Update from ${defaultBranch} failed.`)
+      // Always surface the underlying git error (file lock, conflict, etc.)
+      // so the user can see *why* the update failed. If git also left us
+      // mid-merge (MERGE_HEAD with unresolved files), additionally open the
+      // merge dialog so the user can pick ours/theirs per file.
+      let inProgressBranch: string | null = null
+      try {
+        const inProgress = await ipc.mergeInProgress(repoPath)
+        if (inProgress) inProgressBranch = inProgress.mergedBranch
+      } catch {
+        // ignore — error panel still shows below
+      }
+      if (inProgressBranch) {
+        showStatusToast(`Update from ${defaultBranch} hit conflicts.`)
+      } else {
+        showStatusToast(`Update from ${defaultBranch} failed.`)
+      }
       pushErr(s)
+      if (inProgressBranch && onMergeConflict) {
+        onMergeConflict(inProgressBranch)
+      }
     } finally {
       setUpdatingFromMain(false)
     }
@@ -182,9 +201,9 @@ export function TopBar({ onOpen, onClone, onAddAccount, onSynced }: TopBarProps)
   const ghSlug = remoteUrl ? parseGitHubSlug(remoteUrl) : null
   const busyState = syncOp === 'idle' ? 'idle' : syncOp === 'fetching' ? 'fetch' : syncOp === 'pulling' ? 'pull' : 'push'
   const canPushNow = canPush(hasFetched, sync?.behind ?? 0, sync?.ahead ?? 0, busyState)
-  const canCreatePRNow = canCreatePR(!!ghSlug, currentBranch, sync?.ahead ?? 0, busyState)
+  const canCreatePRNow = canCreatePR(!!ghSlug, currentBranch, busyState)
   const pushReason = pushDisabledReason(hasFetched, sync?.behind ?? 0, sync?.ahead ?? 0, busyState)
-  const createPRReason = createPRDisabledReason(!!ghSlug, currentBranch, sync?.ahead ?? 0, busyState)
+  const createPRReason = createPRDisabledReason(!!ghSlug, currentBranch, busyState)
 
   const doFetch = async () => {
     if (!repoPath || syncOp !== 'idle') return
@@ -233,8 +252,10 @@ export function TopBar({ onOpen, onClone, onAddAccount, onSynced }: TopBarProps)
       hasFetched,
       canPushNow,
       canCreatePRNow,
+      defaultBranch,
+      updatingFromMain,
     })
-  }, [repoPath, sync, syncOp, hasFetched, canPushNow, canCreatePRNow])
+  }, [repoPath, sync, syncOp, hasFetched, canPushNow, canCreatePRNow, defaultBranch, updatingFromMain])
 
   useEffect(() => {
     setTopBarSyncHandlers(repoPath ? {
@@ -244,9 +265,10 @@ export function TopBar({ onOpen, onClone, onAddAccount, onSynced }: TopBarProps)
       createPR: () => {
         if (remoteUrl && canCreatePRNow) openPRDialog(repoPath, currentBranch, remoteUrl)
       },
+      updateFromMain: doUpdateFromMain,
     } : null)
     return () => setTopBarSyncHandlers(null)
-  }, [repoPath, remoteUrl, canCreatePRNow, currentBranch, doFetch, doTopBarPull, doPush, openPRDialog])
+  }, [repoPath, remoteUrl, canCreatePRNow, currentBranch, doFetch, doTopBarPull, doPush, doUpdateFromMain, openPRDialog])
 
   const repoName = repoPath
     ? (repoPath.replace(/\\/g, '/').split('/').pop() ?? repoPath)
@@ -1117,6 +1139,7 @@ function UpdateFromMainBtn({
   const [hover, setHover] = React.useState(false)
   const onDefault = currentBranch === defaultBranch
   const isDisabled = onDefault || busy || disabled
+  const active = !isDisabled
 
   return (
     <div style={{ position: 'relative' }}>
@@ -1131,21 +1154,26 @@ function UpdateFromMainBtn({
           display: 'flex', alignItems: 'center', gap: 6,
           height: 28, paddingLeft: 10, paddingRight: 10,
           borderRadius: 5,
-          border: `1px solid ${onDefault ? '#1a2030' : hover ? 'rgba(74,158,255,0.35)' : '#1d2535'}`,
+          border: `1px solid ${onDefault
+            ? '#1a2030'
+            : active
+              ? hover ? '#4a9eff' : 'rgba(74,158,255,0.5)'
+              : '#1d2535'}`,
           background: onDefault
             ? 'transparent'
-            : hover
-              ? 'rgba(74,158,255,0.1)'
+            : active
+              ? hover ? 'rgba(74,158,255,0.18)' : 'rgba(74,158,255,0.08)'
               : 'rgba(255,255,255,0.03)',
-          color: onDefault ? '#344057' : busy ? '#7b8499' : hover ? '#4a9eff' : '#6b7590',
+          color: onDefault ? '#344057' : busy ? '#7b8499' : active ? '#4a9eff' : '#6b7590',
           fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12.5, fontWeight: 500,
           cursor: isDisabled ? 'not-allowed' : 'pointer',
           opacity: busy ? 0.6 : 1,
+          boxShadow: active ? '0 0 12px rgba(74,158,255,0.18)' : 'none',
           transition: 'border-color 0.12s, background 0.12s, color 0.12s',
           whiteSpace: 'nowrap',
         }}
       >
-        <MergeDownIcon color={onDefault ? '#283047' : busy ? '#7b8499' : hover ? '#4a9eff' : '#4a566a'} />
+        <MergeDownIcon color={onDefault ? '#283047' : busy ? '#7b8499' : active ? '#4a9eff' : '#4a566a'} />
         <span>
           {busy
             ? `Updating…`
@@ -1482,7 +1510,14 @@ function FetchPullSplitBtn({
   const [hoverPull,  setHoverPull]  = React.useState(false)
   const pullDisabled = disabled || !hasFetched || behindCount === 0
   const hasBehind   = behindCount > 0
-  const borderColor = error ? '#e84040' : hasBehind ? '#f5a832' : '#1d2535'
+  const fetchActive = !disabled
+  const borderColor = error
+    ? '#e84040'
+    : hasBehind
+      ? '#f5a832'
+      : fetchActive
+        ? 'rgba(74,158,255,0.5)'
+        : '#1d2535'
   const fetchButton = (
     <button
       className="lg-toolbar-control"
@@ -1494,9 +1529,13 @@ function FetchPullSplitBtn({
       style={{
         display: 'flex', alignItems: 'center', gap: 5,
         paddingLeft: 10, paddingRight: 10,
-        background: hoverFetch && !disabled ? 'rgba(74,158,255,0.08)' : 'transparent',
+        background: disabled
+          ? 'transparent'
+          : hoverFetch
+            ? 'rgba(74,158,255,0.18)'
+            : 'rgba(74,158,255,0.08)',
         border: 'none',
-        color: disabled ? '#344057' : hoverFetch ? '#4a9eff' : '#6b7590',
+        color: disabled ? '#344057' : '#4a9eff',
         fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12.5, fontWeight: 500,
         cursor: disabled ? 'not-allowed' : 'pointer',
         transition: 'background 0.12s, color 0.12s', whiteSpace: 'nowrap',

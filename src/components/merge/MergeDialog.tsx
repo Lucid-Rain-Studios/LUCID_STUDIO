@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { ipc, BranchDiffSummary, ConflictPreviewFile, FileStatus, MergeConflictText } from '@/ipc'
+import { ipc, BranchDiffSummary, ConflictPreviewFile, FileStatus } from '@/ipc'
 import { useRepoStore } from '@/stores/repoStore'
 import { useOperationStore } from '@/stores/operationStore'
 import { cn } from '@/lib/utils'
@@ -93,12 +93,11 @@ export function MergePreviewDialog({ targetBranch, onClose, onMerged }: MergePre
   const [error, setError]       = useState<string | null>(null)
   const [merging, setMerging]   = useState(false)
   const [inConflictResolution, setInConflictResolution] = useState(false)
-  const [textByFile, setTextByFile] = useState<Record<string, MergeConflictText>>({})
-  const [resolvedFiles, setResolvedFiles] = useState<Record<string, 'ours' | 'theirs'>>({})
   const [preselectedChoices, setPreselectedChoices] = useState<Record<string, 'ours' | 'theirs'>>({})
   const [recoveredMergeBranch, setRecoveredMergeBranch] = useState<string | null>(null)
   const opRun = useOperationStore(s => s.run)
   const displayMergeBranch = recoveredMergeBranch ?? targetBranch
+  const allChoicesMade = conflicts.length > 0 && conflicts.every(c => preselectedChoices[c.path])
 
   useEffect(() => {
     if (!repoPath) return
@@ -115,16 +114,6 @@ export function MergePreviewDialog({ targetBranch, onClose, onMerged }: MergePre
           setRecoveredMergeBranch(inProgress.mergedBranch)
           setConflicts(inProgress.conflicts)
           setInConflictResolution(true)
-          const textConflicts = inProgress.conflicts.filter(c => c.conflictType === 'content')
-          const loaded: Record<string, MergeConflictText> = {}
-          await Promise.all(textConflicts.map(async c => {
-            try {
-              loaded[c.path] = await ipc.mergeGetConflictText(repoPath, c.path)
-            } catch {
-              loaded[c.path] = { ours: '(Unable to load ours)', theirs: '(Unable to load theirs)' }
-            }
-          }))
-          setTextByFile(loaded)
           setLoading(false)
           return
         }
@@ -176,30 +165,9 @@ export function MergePreviewDialog({ targetBranch, onClose, onMerged }: MergePre
             conflictMap.set(file.path, fallbackConflict(file.path, file, currentBranch, targetBranch))
           }
         }
-        const activeConflicts = [...conflictMap.values()]
-        setConflicts(activeConflicts)
+        setConflicts([...conflictMap.values()])
         setInConflictResolution(true)
-        const loaded: Record<string, MergeConflictText> = {}
-        await Promise.all(activeConflicts.filter(c => c.conflictType === 'content').map(async c => {
-          try {
-            loaded[c.path] = await ipc.mergeGetConflictText(repoPath, c.path)
-          } catch {
-            loaded[c.path] = { ours: '(Unable to load ours)', theirs: '(Unable to load theirs)' }
-          }
-        }))
-        setTextByFile(loaded)
         setError(null)
-
-        const selectedEntries = Object.entries(preselectedChoices)
-        if (selectedEntries.length > 0) {
-          const resolved: Record<string, 'ours' | 'theirs'> = {}
-          for (const [filePath, choice] of selectedEntries) {
-            if (!conflictMap.has(filePath)) continue
-            await opRun(`Resolving ${filePath}…`, () => ipc.mergeResolveText(repoPath, filePath, choice))
-            resolved[filePath] = choice
-          }
-          setResolvedFiles(prev => ({ ...prev, ...resolved }))
-        }
       } else {
         setError(msg)
       }
@@ -207,20 +175,20 @@ export function MergePreviewDialog({ targetBranch, onClose, onMerged }: MergePre
     }
   }
 
-  const resolveFile = async (filePath: string, choice: 'ours' | 'theirs') => {
-    if (!repoPath) return
-    try {
-      await opRun(`Resolving ${filePath}…`, () => ipc.mergeResolveText(repoPath, filePath, choice))
-      setResolvedFiles(prev => ({ ...prev, [filePath]: choice }))
-    } catch (e) {
-      setError(String(e))
-    }
-  }
-
+  // Apply the user's per-file ours/theirs choices, then commit the merge.
+  // Resolves are idempotent — calling mergeResolveText for the same choice
+  // twice just re-stages the same content — so we always resolve all files
+  // here to honor whatever the user has selected most recently in the UI.
   const finalizeMerge = async () => {
     if (!repoPath) return
+    setMerging(true)
+    setError(null)
     try {
-      setError(null)
+      for (const c of conflicts) {
+        const choice = preselectedChoices[c.path]
+        if (!choice) continue
+        await opRun(`Resolving ${c.path}…`, () => ipc.mergeResolveText(repoPath, c.path, choice))
+      }
       await opRun('Finalizing merge...', () => ipc.mergeContinue(repoPath, displayMergeBranch))
       await refreshStatus()
       bumpSyncTick()
@@ -228,6 +196,7 @@ export function MergePreviewDialog({ targetBranch, onClose, onMerged }: MergePre
       onClose()
     } catch (e) {
       setError(String(e))
+      setMerging(false)
     }
   }
 
@@ -419,62 +388,51 @@ export function MergePreviewDialog({ targetBranch, onClose, onMerged }: MergePre
           )}
         </div>
 
-        {inConflictResolution && (
-          <div className="border-t border-lg-border bg-lg-bg-secondary/50 px-4 py-3 space-y-3">
-            <div className="text-[11px] font-mono text-lg-warning">Resolve merge conflicts</div>
-            {conflicts.map(c => {
-              const done = resolvedFiles[c.path]
-              const text = textByFile[c.path]
-              return (
-                <div key={c.path} className="border border-lg-border rounded p-2 space-y-2">
-                  <FilePathText path={c.path} className="block text-[10px] font-mono text-lg-text-primary truncate" />
-                  {c.conflictType === 'content' && (
-                    <div className="grid grid-cols-2 gap-2">
-                      <pre className="text-[9px] font-mono bg-lg-bg-primary rounded p-2 max-h-28 overflow-auto whitespace-pre-wrap">{text?.ours || ''}</pre>
-                      <pre className="text-[9px] font-mono bg-lg-bg-primary rounded p-2 max-h-28 overflow-auto whitespace-pre-wrap">{text?.theirs || ''}</pre>
-                    </div>
-                  )}
-                  <div className="flex gap-2">
-                    <button onClick={() => resolveFile(c.path, 'ours')} className="px-2 h-6 text-[10px] font-mono border rounded border-lg-border">Accept ours</button>
-                    <button onClick={() => resolveFile(c.path, 'theirs')} className="px-2 h-6 text-[10px] font-mono border rounded border-lg-border">Accept theirs</button>
-                    {done && <span className="text-[10px] font-mono text-lg-success">Resolved with {done}</span>}
-                  </div>
-                </div>
-              )
-            })}
-            <button onClick={finalizeMerge} disabled={Object.keys(resolvedFiles).length < conflicts.length} className="px-3 h-7 rounded text-[11px] font-mono bg-lg-success/20 border border-lg-success/60 text-lg-success disabled:opacity-40">Finalize merge</button>
-          </div>
-        )}
-
         {/* Footer */}
 
         {!loading && !error && (
           <div className="flex items-center justify-between px-4 py-3 border-t border-lg-border shrink-0 gap-3">
             {conflicts.length > 0 && (
               <div className="text-[10px] font-mono text-lg-text-secondary">
-                Conflicting files will need manual resolution after merging.
+                {inConflictResolution
+                  ? allChoicesMade
+                    ? 'All conflicts have a choice — complete the merge to commit.'
+                    : `Pick a side for each file (${Object.keys(preselectedChoices).filter(p => conflicts.some(c => c.path === p)).length}/${conflicts.length} chosen).`
+                  : 'Pick a preferred side for each file before merging.'}
               </div>
             )}
             {conflicts.length === 0 && <div />}
             <div className="flex gap-2 shrink-0">
               <button
                 onClick={inConflictResolution ? abortMerge : onClose}
-                className="px-3 h-7 rounded text-[11px] font-mono border border-lg-border text-lg-text-secondary hover:border-lg-accent hover:text-lg-accent transition-colors"
+                disabled={merging}
+                className="px-3 h-7 rounded text-[11px] font-mono border border-lg-border text-lg-text-secondary hover:border-lg-accent hover:text-lg-accent transition-colors disabled:opacity-40"
               >
                 {inConflictResolution ? 'Abort merge' : 'Cancel'}
               </button>
-              <button
-                onClick={doMerge}
-                disabled={merging || inConflictResolution}
-                className={cn(
-                  'px-3 h-7 rounded text-[11px] font-mono transition-colors disabled:opacity-40',
-                  conflicts.length > 0
-                    ? 'bg-lg-warning/20 border border-lg-warning/60 text-lg-warning hover:bg-lg-warning/30'
-                    : 'bg-lg-success/20 border border-lg-success/60 text-lg-success hover:bg-lg-success/30'
-                )}
-              >
-                {merging ? 'Merging…' : conflicts.length > 0 ? 'Merge anyway' : 'Merge'}
-              </button>
+              {inConflictResolution ? (
+                <button
+                  onClick={finalizeMerge}
+                  disabled={merging || !allChoicesMade}
+                  className="px-3 h-7 rounded text-[11px] font-mono bg-lg-success/20 border border-lg-success/60 text-lg-success hover:bg-lg-success/30 transition-colors disabled:opacity-40"
+                  title={!allChoicesMade ? 'Pick a side for every conflicted file first' : undefined}
+                >
+                  {merging ? 'Completing merge…' : 'Complete merge'}
+                </button>
+              ) : (
+                <button
+                  onClick={doMerge}
+                  disabled={merging}
+                  className={cn(
+                    'px-3 h-7 rounded text-[11px] font-mono transition-colors disabled:opacity-40',
+                    conflicts.length > 0
+                      ? 'bg-lg-warning/20 border border-lg-warning/60 text-lg-warning hover:bg-lg-warning/30'
+                      : 'bg-lg-success/20 border border-lg-success/60 text-lg-success hover:bg-lg-success/30'
+                  )}
+                >
+                  {merging ? 'Merging…' : 'Merge'}
+                </button>
+              )}
             </div>
           </div>
         )}

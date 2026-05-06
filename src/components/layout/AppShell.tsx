@@ -376,6 +376,7 @@ export function AppShell() {
         onClone={handleCloneRepo}
         onAddAccount={() => setShowLoginDialog(true)}
         onSynced={handleRefresh}
+        onMergeConflict={branch => setMergeTarget(branch)}
       />
 
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
