@@ -21,6 +21,7 @@ import {
 } from '@/lib/syncButtonLogic'
 import { getTopBarSyncHandlers, getTopBarSyncSnapshot, onTopBarSyncChanged } from '@/lib/topBarSyncBridge'
 import { FilePathText } from '@/components/ui/FilePathText'
+import { ActionBtn, ActionTab } from '@/components/ui/ActionBtn'
 
 const sessionFetchedRepos = new Set<string>()
 const sessionRemoteUrls   = new Map<string, string | null>()
@@ -247,14 +248,9 @@ export function DashboardPanel({ repoPath, onNavigate }: DashboardPanelProps) {
             {currentBranch || 'no branch'} · {repoName}
           </div>
         </div>
-        <button
-          onClick={reload}
-          style={{ display: 'flex', alignItems: 'center', gap: 5, height: 26, padding: '0 10px', borderRadius: 5, border: '1px solid #1a2030', background: 'transparent', color: '#344057', fontSize: 11, cursor: 'pointer', fontFamily: "'IBM Plex Sans', system-ui" }}
-          onMouseEnter={e => { e.currentTarget.style.borderColor = '#283047'; e.currentTarget.style.color = '#5a6880' }}
-          onMouseLeave={e => { e.currentTarget.style.borderColor = '#1a2030'; e.currentTarget.style.color = '#344057' }}
-        >
+        <ActionBtn onClick={reload} size="sm">
           <RefreshIcon /> Refresh
-        </button>
+        </ActionBtn>
       </div>
 
       {/* ── Stale-pull warning ─────────────────────────────────────────── */}
