@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { ForecastConflict } from '@/ipc'
+import { FilePathText } from '@/components/ui/FilePathText'
 
 interface Props {
   repoPath: string
@@ -97,7 +98,6 @@ export function ForecastPanel({ conflicts, enabled, lastPolledAt, onStart, onSto
         )}
 
         {[...grouped.entries()].map(([filePath, fileConflicts]) => {
-          const fileName = filePath.replace(/\\/g, '/').split('/').pop() ?? filePath
           const maxSeverity = fileConflicts.find(c => c.severity === 'high')?.severity
             ?? fileConflicts.find(c => c.severity === 'medium')?.severity ?? 'low'
           const colors = SEVERITY_COLOR[maxSeverity]
@@ -116,9 +116,7 @@ export function ForecastPanel({ conflicts, enabled, lastPolledAt, onStart, onSto
                   width: 8, height: 8, borderRadius: '50%', background: colors.text, flexShrink: 0,
                 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: '#dde1f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {fileName}
-                  </div>
+                  <FilePathText path={filePath} style={{ display: 'block', fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: '#dde1f0' }} />
                   <div style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10, color: '#4e5870' }}>
                     {fileConflicts.length} remote branch{fileConflicts.length !== 1 ? 'es' : ''} ahead
                   </div>
@@ -133,9 +131,7 @@ export function ForecastPanel({ conflicts, enabled, lastPolledAt, onStart, onSto
 
               {expanded && (
                 <div style={{ padding: '0 16px 10px 32px' }}>
-                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, color: '#2f3a54', marginBottom: 8 }}>
-                    {filePath}
-                  </div>
+                  <FilePathText path={filePath} style={{ display: 'block', fontFamily: "'JetBrains Mono', monospace", fontSize: 9, color: '#2f3a54', marginBottom: 8 }} />
                   {fileConflicts.map((c, i) => (
                     <div key={i} style={{ padding: '6px 0', borderTop: '1px solid #1e2436' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>

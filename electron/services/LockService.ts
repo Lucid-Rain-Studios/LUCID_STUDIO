@@ -8,6 +8,7 @@ import type { Lock } from '../types'
 import { notificationService } from './NotificationService'
 import { webhookService } from './WebhookService'
 import { heatmapService } from './HeatmapService'
+import { gitService } from './GitService'
 
 class LockService {
   private pollTimers  = new Map<string, ReturnType<typeof setInterval>>()
@@ -76,21 +77,40 @@ class LockService {
     }
     const fileExists = fs.existsSync(fullPath)
     if (!resolvedLockId && !fileExists) {
-      throw new Error(`Unable to unlock deleted file "${normalized}": lock id could not be resolved`)
+      await gitService.lfsLocksMaintenance(repoPath, true)
+      const refreshedLocks = await this.listLocks(repoPath)
+      resolvedLockId = refreshedLocks.find(l => l.path === normalized)?.id
+      if (!resolvedLockId) {
+        throw new Error(`Unable to unlock deleted file "${normalized}": lock id could not be resolved after refreshing the Git LFS lock cache`)
+      }
     }
     // Use --id=<id> form for maximum CLI compatibility across Git LFS versions.
     // This also allows owners to unlock deleted files without using admin-only force unlock.
-    const pathArgs = resolvedLockId ? [`--id=${resolvedLockId}`] : [normalized]
     const unlockOpts: string[] = []
     if (force) unlockOpts.push('--force')
-    const args = [...gitAuthArgs(token), 'lfs', 'unlock', ...unlockOpts, ...pathArgs]
+    const makeArgs = (id?: string) => [
+      ...gitAuthArgs(token),
+      'lfs',
+      'unlock',
+      ...unlockOpts,
+      ...(id ? [`--id=${id}`] : [normalized]),
+    ]
     try {
-      await exec(args, repoPath)
+      await exec(makeArgs(resolvedLockId), repoPath)
     } catch (error) {
       const msg = String(error)
       // Treat stale lock records as already unlocked; Git LFS can return
       // "Lock not found" when another client has already released it.
-      if (!/Lock not found/i.test(msg)) throw error
+      if (/Lock not found/i.test(msg)) {
+        // already unlocked
+      } else if (this.isMissingFileUnlockCacheError(msg)) {
+        await gitService.lfsLocksMaintenance(repoPath, true)
+        const refreshedLocks = await this.listLocks(repoPath)
+        const refreshedLockId = refreshedLocks.find(l => l.path === normalized)?.id ?? resolvedLockId
+        await exec(makeArgs(refreshedLockId), repoPath)
+      } else {
+        throw error
+      }
     }
     const now = Date.now()
     const lockedAt = this.lockTimestamps.get(`${repoPath}::${normalized}`) ?? now
@@ -137,6 +157,12 @@ class LockService {
   }
 
   // ── Private ─────────────────────────────────────────────────────────────────
+
+  private isMissingFileUnlockCacheError(message: string): boolean {
+    return /Unable to unlock/i.test(message)
+      && /(CreateFile|open)\s+/i.test(message)
+      && /(cannot find the file|no such file or directory)/i.test(message)
+  }
 
   private async poll(repoPath: string): Promise<void> {
     const current  = await this.listLocks(repoPath)

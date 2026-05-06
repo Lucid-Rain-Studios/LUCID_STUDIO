@@ -17,7 +17,15 @@ export function Tooltip({ content, children, side = 'top', delay = 500, asSvgGro
   const show = useCallback(() => {
     clearTimeout(timer.current)
     timer.current = setTimeout(() => {
-      if (wrapRef.current) setRect((wrapRef.current as Element).getBoundingClientRect())
+      if (!wrapRef.current) return
+      const wrapper = wrapRef.current as Element
+      const wrapperRect = wrapper.getBoundingClientRect()
+      const childRect = wrapper.firstElementChild?.getBoundingClientRect()
+      setRect(
+        wrapperRect.width > 0 || wrapperRect.height > 0
+          ? wrapperRect
+          : childRect ?? wrapperRect
+      )
     }, delay)
   }, [delay])
 

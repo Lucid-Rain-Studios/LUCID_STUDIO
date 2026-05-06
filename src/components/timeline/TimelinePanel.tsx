@@ -10,6 +10,7 @@ import { TextDiff } from '@/components/diff/TextDiff'
 import { FileTree } from '@/components/changes/FileTree'
 import { CommitBox } from '@/components/changes/CommitBox'
 import { StashPanel } from '@/components/changes/StashPanel'
+import { FilePathText } from '@/components/ui/FilePathText'
 import { FileDetailsSidePanel } from '@/components/shared/FileDetailsSidePanel'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -627,6 +628,27 @@ function isLiveOriginBranch(branch: BranchInfo): boolean {
   return branch.isRemote && (branch.remoteName === 'origin' || branch.name.startsWith('origin/'))
 }
 
+function mergeBranchLists(...lists: BranchInfo[][]): BranchInfo[] {
+  const merged = new Map<string, BranchInfo>()
+  for (const list of lists) {
+    for (const branch of list) merged.set(branch.name, branch)
+  }
+  return [...merged.values()]
+}
+
+function selectedGraphBranches(
+  selectedRemoteBranches: Set<string>,
+  allBranches: BranchInfo[],
+  visibleRemoteBranches: BranchInfo[],
+): BranchInfo[] {
+  const selected = visibleRemoteBranches.filter(branch => selectedRemoteBranches.has(branch.name))
+  const current = allBranches.find(branch => branch.current && !branch.isRemote)
+  const upstream = current?.upstream
+    ? allBranches.find(branch => branch.name === current.upstream)
+    : undefined
+  return mergeBranchLists(selected, current ? [current] : [], upstream ? [upstream] : [])
+}
+
 function tlBranchShortName(name: string): string {
   const last = name.split('/').pop() ?? name
   return last.length > 10 ? last.slice(0, 10) + '…' : last
@@ -1104,10 +1126,10 @@ function CommitFileRow({ f, selected, repoPath, commitHash, remoteUrl, onClick }
           fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 700,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>{f.status}</span>
-        <span style={{
+        <FilePathText path={label} displayText={displayLabel} style={{
           fontFamily: "'JetBrains Mono', monospace", fontSize: 11.5,
           color: '#c8cdd8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1,
-        }} title={label}>{displayLabel}</span>
+        }} />
       </div>
 
       {ctx && (
@@ -1508,10 +1530,10 @@ function AssetPanel({ repoPath, filePath, hash }: { repoPath: string; filePath: 
         display: 'flex', alignItems: 'center', gap: 8,
         borderBottom: '1px solid #1e2436', background: '#0d0f15',
       }}>
-        <span style={{
+        <FilePathText path={filePath} style={{
           fontFamily: "'JetBrains Mono', monospace", fontSize: 10.5, color: '#8b94b0',
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1,
-        }} title={filePath}>{fileName}</span>
+        }} />
         {!thumbLoading && !thumbSrc && (
           <span style={{
             fontFamily: "'IBM Plex Sans', system-ui", fontSize: 9, fontWeight: 600,
@@ -1669,14 +1691,15 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
   }, [branches, defaultBranch])
 
   const branchColors = React.useMemo(() => {
+    const colorBranches = mergeBranchLists(filterBranches, branches.filter(b => !b.isRemote))
     const sorted = [
-      ...filterBranches.filter(b => b.displayName === defaultBranch || b.name === defaultBranch),
-      ...filterBranches.filter(b => b.displayName !== defaultBranch && b.name !== defaultBranch),
+      ...colorBranches.filter(b => b.displayName === defaultBranch || b.name === defaultBranch),
+      ...colorBranches.filter(b => b.displayName !== defaultBranch && b.name !== defaultBranch),
     ]
     const map = new Map<string, string>()
     sorted.forEach((b, i) => map.set(b.name, TL_BRANCH_COLORS[i % TL_BRANCH_COLORS.length]))
     return map
-  }, [filterBranches, defaultBranch])
+  }, [filterBranches, branches, defaultBranch])
   const graphColW = React.useMemo(() => {
     if (nodes.length === 0) return GRAPH_PAD * 2 + TL_LANE_W
     const maxLane = nodes.reduce((m, n) => Math.max(m, n.maxLane), 0)
@@ -1803,23 +1826,28 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
   // ── Load history ───────────────────────────────────────────────────────────
   const loadHistory = useCallback(async (
     limit: number,
-    branches?: Set<string>,
+    selectedBranchesOverride?: Set<string>,
     defaultBranchOverride?: string,
     filterBranchesOverride?: BranchInfo[],
+    allBranchesOverride?: BranchInfo[],
   ) => {
     setHistLoading(true)
     try {
-      const active = branches ?? selBranches
+      const active = selectedBranchesOverride ?? selBranches
       const mainBranch = defaultBranchOverride ?? defaultBranch
-      const branchPool = filterBranchesOverride ?? filterBranches
-      const refs = [...active].filter(Boolean)
+      const remoteBranchPool = filterBranchesOverride ?? filterBranches
+      const allBranchPool = allBranchesOverride ?? branches
+      const branchPool = mergeBranchLists(remoteBranchPool, selectedGraphBranches(active, allBranchPool, remoteBranchPool))
+      const refs = selectedGraphBranches(active, branchPool, remoteBranchPool).map(branch => branch.name).filter(Boolean)
       if (refs.length === 0) {
         setNodes([])
         setTotalLoaded(0)
         return
       }
       const commits = await opRun('Loading history…', () => ipc.log(repoPath, { limit, all: !refs, refs }))
-      const defaultRef = branchPool.find(b => active.has(b.name) && (b.displayName === mainBranch || b.name === mainBranch))?.name
+      const defaultRef = branchPool.find(b => !b.isRemote && (b.displayName === mainBranch || b.name === mainBranch))?.name
+        ?? branchPool.find(b => active.has(b.name) && (b.displayName === mainBranch || b.name === mainBranch))?.name
+        ?? branchPool.find(b => b.displayName === mainBranch || b.name === mainBranch)?.name
       const defaultCommits = defaultRef
         ? await ipc.log(repoPath, { limit, all: false, refs: [defaultRef] }).catch(() => [])
         : []
@@ -1861,11 +1889,11 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
       setDefaultBranch(def)
       const originBranches = bl.filter(isLiveOriginBranch)
       const liveBranches = originBranches.length > 0 ? originBranches : bl.filter(b => b.isRemote)
-      fetchBranchTips(liveBranches)
       const nextSel = new Set(liveBranches.map(b => b.name))
+      fetchBranchTips(selectedGraphBranches(nextSel, bl, liveBranches))
       setSelBranches(nextSel)
       limitRef.current = INITIAL_LIMIT
-      loadHistory(INITIAL_LIMIT, nextSel, def, liveBranches)
+      loadHistory(INITIAL_LIMIT, nextSel, def, liveBranches, bl)
     }).catch(() => {})
   }, [repoPath])
 
@@ -1876,8 +1904,18 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
   useEffect(() => {
     if (historyTick === historyTickRef.current) return
     historyTickRef.current = historyTick
-    loadHistoryRef.current(limitRef.current)
-  }, [historyTick])
+    ipc.branchList(repoPath)
+      .then(bl => {
+        setBranches(bl)
+        const originBranches = bl.filter(isLiveOriginBranch)
+        const liveBranches = originBranches.length > 0 ? originBranches : bl.filter(b => b.isRemote)
+        fetchBranchTips(selectedGraphBranches(selBranches, bl, liveBranches))
+        loadHistoryRef.current(limitRef.current, selBranches, defaultBranch, liveBranches, bl)
+      })
+      .catch(() => {
+        loadHistoryRef.current(limitRef.current)
+      })
+  }, [historyTick, repoPath, selBranches, defaultBranch, fetchBranchTips])
 
   useEffect(() => {
     let cancelled = false

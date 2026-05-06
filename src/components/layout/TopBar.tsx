@@ -83,9 +83,15 @@ export function TopBar({ onOpen, onClone, onAddAccount, onSynced }: TopBarProps)
   const [updateDismissed, setUpdateDismissed] = useState(false)
   const [downloading, setDownloading]     = useState(false)
 
-  const loadSync = useCallback(async () => {
-    if (!repoPath) return
-    try { setSync(await ipc.getSyncStatus(repoPath)) } catch { /* no upstream */ }
+  const loadSync = useCallback(async (): Promise<SyncStatus | null> => {
+    if (!repoPath) return null
+    try {
+      const next = await ipc.getSyncStatus(repoPath)
+      setSync(next)
+      return next
+    } catch {
+      return null
+    }
   }, [repoPath])
 
   const refreshRevisionState = async () => {
@@ -97,8 +103,14 @@ export function TopBar({ onOpen, onClone, onAddAccount, onSynced }: TopBarProps)
   useEffect(() => {
     setSync(null); setSyncErr(null)
     setHasFetched(repoPath ? sessionTopBarFetched.has(repoPath) : false)
-    if (repoPath) loadSync()
-  }, [repoPath, currentBranch, syncTick])
+    if (repoPath) {
+      loadSync().then(next => {
+        if (!next?.hasUpstream) return
+        sessionTopBarFetched.add(repoPath)
+        setHasFetched(true)
+      })
+    }
+  }, [repoPath, currentBranch, syncTick, loadSync])
 
   useEffect(() => {
     return onFetchPerformed((path) => {

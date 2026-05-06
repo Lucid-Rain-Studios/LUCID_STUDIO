@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { ipc, BlameEntry, CommitEntry, DiffContent } from '@/ipc'
 import { TextDiff } from '@/components/diff/TextDiff'
+import { FilePathText } from '@/components/ui/FilePathText'
 
 const ASSET_EXTS = new Set([
   'uasset', 'umap', 'upk', 'udk',
@@ -187,9 +188,7 @@ function FileDetails({ repoPath, filePath, hash }: { repoPath: string; filePath:
         <div style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 13, fontWeight: 700, color: '#dde1f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={fileName}>
           {fileName}
         </div>
-        <div style={{ marginTop: 5, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#3a4260', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={filePath}>
-          {filePath}
-        </div>
+        <FilePathText path={filePath} style={{ display: 'block', marginTop: 5, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#3a4260' }} />
       </div>
 
       <DetailRow label="Type" value={assetClass ?? (ext ? `.${ext}` : 'File')} />

@@ -5,6 +5,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { AppCheckbox } from '@/components/ui/AppCheckbox'
 import { useDialogStore } from '@/stores/dialogStore'
 import { useOperationStore } from '@/stores/operationStore'
+import { FilePathText } from '@/components/ui/FilePathText'
 
 interface LockedFilesPanelProps {
   repoPath: string
@@ -621,14 +622,12 @@ function LockRow({
       {/* File info */}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-          <span style={{
+          <FilePathText path={lock.path} style={{
             fontFamily: "'JetBrains Mono', monospace", fontSize: 12.5, fontWeight: 500,
             color: lock.isGhost ? '#5a6880' : isOwn ? '#c8d0e8' : '#8a94aa',
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             textDecoration: lock.isGhost ? 'line-through' : 'none',
-          }} title={lock.path}>
-            {filename}
-          </span>
+          }} />
           {ext && (
             <span style={{
               fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 700,

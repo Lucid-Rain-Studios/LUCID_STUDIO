@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ipc, Lock, CommitFileChange, PresenceFile } from '@/ipc'
 import { useRepoStore } from '@/stores/repoStore'
 import { useAuthStore } from '@/stores/authStore'
+import { FilePathText } from '@/components/ui/FilePathText'
 
 interface RepoMapPanelProps {
   repoPath: string
@@ -552,7 +553,6 @@ function SidePanel({
             Most Active Files
           </div>
           {hotFiles.map(([path, score], i) => {
-            const name = path.split('/').pop()!
             const ratio = hotFiles[0][1] > 0 ? score / hotFiles[0][1] : 0
             return (
               <div key={path} style={{ display: 'flex', alignItems: 'center', gap: 8, height: 30, paddingLeft: 14, paddingRight: 14, borderBottom: '1px solid #1a1f30' }}>
@@ -561,9 +561,7 @@ function SidePanel({
                   <div style={{ height: 3, background: '#1d2235', borderRadius: 2, marginBottom: 3 }}>
                     <div style={{ height: 3, borderRadius: 2, background: heatFill(ratio), width: `${ratio * 100}%` }} />
                   </div>
-                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#8b94b0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={path}>
-                    {name}
-                  </div>
+                  <FilePathText path={path} style={{ display: 'block', fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#8b94b0' }} />
                 </div>
                 <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: ratio > 0.6 ? '#e8622f' : '#4e5870', flexShrink: 0 }}>↑{score}</span>
               </div>
@@ -585,9 +583,7 @@ function SidePanel({
                 <path d="M3.5 5.5V4a2.5 2.5 0 0 1 5 0v1.5" stroke="#f5a832" strokeWidth="1.1" strokeLinecap="round" />
               </svg>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#dde1f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={l.path}>
-                  {l.path.split('/').pop()}
-                </div>
+                <FilePathText path={l.path} style={{ display: 'block', fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#dde1f0' }} />
                 <div style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10, color: '#4e5870', marginTop: 1 }}>
                   {l.owner.name || l.owner.login} · {timeAgoStr(l.lockedAt)}
                 </div>

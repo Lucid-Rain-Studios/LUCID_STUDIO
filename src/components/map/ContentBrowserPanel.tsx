@@ -3,6 +3,7 @@ import { ipc, Lock, BlameEntry } from '@/ipc'
 import { useLockStore } from '@/stores/lockStore'
 import { useAuthStore } from '@/stores/authStore'
 import { FileDetailsSidePanel } from '@/components/shared/FileDetailsSidePanel'
+import { FilePathText } from '@/components/ui/FilePathText'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -270,14 +271,12 @@ function FileRow({ filePath, depth, locked, selected, onSelect, onContextMenu }:
   filePath: string; depth: number; locked: boolean; selected: boolean; onSelect: () => void; onContextMenu: (e: React.MouseEvent) => void
 }) {
   const [hover, setHover] = useState(false)
-  const name = filePath.replace(/\\/g, '/').split('/').pop() ?? filePath
   return (
     <div
       onClick={onSelect}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       onContextMenu={onContextMenu}
-      title={filePath}
       style={{
         display: 'flex', alignItems: 'center', gap: 6,
         height: ROW_HEIGHT, paddingLeft: 10 + depth * 14, paddingRight: 10,
@@ -288,11 +287,11 @@ function FileRow({ filePath, depth, locked, selected, onSelect, onContextMenu }:
       }}
     >
       <FileIcon filePath={filePath} />
-      <span style={{
+      <FilePathText path={filePath} style={{
         fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12,
         color: selected || hover ? '#dde1f0' : '#8b94b0',
         flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-      }}>{name}</span>
+      }} />
       {locked && <LockBadge />}
     </div>
   )

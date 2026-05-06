@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { ipc, CommitEntry, LfsLocksMaintenanceResult } from '@/ipc'
 import { useOperationStore } from '@/stores/operationStore'
 import { useDialogStore } from '@/stores/dialogStore'
+import { FilePathText } from '@/components/ui/FilePathText'
 
 interface ToolsPanelProps {
   repoPath: string
@@ -352,8 +353,6 @@ function RestoreTool({ repoPath, run }: { repoPath: string; run: (label: string,
               ) : (
                 <div style={{ border: '1px solid #252d42', borderRadius: 6, overflow: 'hidden', maxHeight: 240, overflowY: 'auto' }}>
                   {commitFiles.map(f => {
-                    const fname = f.path.split('/').pop() ?? f.path
-                    const dir   = f.path.includes('/') ? f.path.slice(0, f.path.lastIndexOf('/')) : ''
                     const sc    = S_COLOR[f.status] ?? '#8b94b0'
                     const isSelected = selectedFile === f.path && !customPath
                     return (
@@ -368,8 +367,7 @@ function RestoreTool({ repoPath, run }: { repoPath: string; run: (label: string,
                       >
                         <span style={{ width: 18, height: 18, borderRadius: 3, flexShrink: 0, background: `${sc}22`, color: sc, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{f.status}</span>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: '#dde1f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fname}</div>
-                          {dir && <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#4e5870', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dir}</div>}
+                          <FilePathText path={f.path} style={{ display: 'block', fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: '#dde1f0' }} />
                         </div>
                         {isSelected && <span style={{ color: '#2ec573', fontSize: 14 }}>✓</span>}
                       </button>
@@ -398,7 +396,7 @@ function RestoreTool({ repoPath, run }: { repoPath: string; run: (label: string,
             {targetPath && (
               <div style={{ padding: '10px 12px', background: 'rgba(232,98,47,0.06)', border: '1px solid rgba(232,98,47,0.2)', borderRadius: 6, marginBottom: 14 }}>
                 <div style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12, color: '#8b94b0', marginBottom: 2 }}>Will restore:</div>
-                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: '#e8622f' }}>{targetPath}</div>
+                <FilePathText path={targetPath} style={{ display: 'block', fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: '#e8622f' }} />
               </div>
             )}
             <ActionButton label="Restore File" disabled={!targetPath} onClick={doRestore} danger />
@@ -632,7 +630,7 @@ function LfsLocksTool({ repoPath, onRefresh }: { repoPath: string; onRefresh: ()
                   {result.lockCacheFiles.map(file => (
                     <div key={file.path} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderBottom: '1px solid #252d42' }}>
                       <span style={{ width: 58, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: file.integrity === 'ok' ? '#2ec573' : file.integrity === 'corrupt' ? '#e84545' : '#f5a832', textTransform: 'uppercase' }}>{file.integrity}</span>
-                      <span style={{ flex: 1, minWidth: 0, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: '#8b94b0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.path}</span>
+                      <FilePathText path={file.path} style={{ flex: 1, minWidth: 0, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: '#8b94b0' }} />
                       <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#4e5870' }}>{formatBytes(file.sizeBytes)}</span>
                     </div>
                   ))}

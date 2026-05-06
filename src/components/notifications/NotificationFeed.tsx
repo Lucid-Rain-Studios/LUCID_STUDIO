@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { useNotificationStore } from '@/stores/notificationStore'
 import { useLockStore } from '@/stores/lockStore'
 import { ipc, AppNotification } from '@/ipc'
+import { FilePathText } from '@/components/ui/FilePathText'
 
 interface NotificationFeedProps {
   onClose: () => void
@@ -211,19 +212,15 @@ function PRMergedItem({
             {lockedFiles.map(filePath => {
               const isUnlocked  = unlocked.has(filePath)
               const isUnlocking = unlocking.has(filePath)
-              const fileName    = filePath.split(/[/\\]/).pop() ?? filePath
               return (
                 <div
                   key={filePath}
                   className="flex items-center gap-2 px-2.5 py-1.5 border-b border-lg-border/40 last:border-b-0"
-                  title={filePath}
                 >
                   <span className="text-[10px] shrink-0">
                     {isUnlocked ? '🔓' : '🔒'}
                   </span>
-                  <span className={`flex-1 text-[10px] font-mono truncate ${isUnlocked ? 'text-lg-text-secondary line-through' : 'text-lg-text-primary'}`}>
-                    {fileName}
-                  </span>
+                  <FilePathText path={filePath} className={`flex-1 text-[10px] font-mono truncate ${isUnlocked ? 'text-lg-text-secondary line-through' : 'text-lg-text-primary'}`} />
                   {!isUnlocked && (
                     <button
                       onClick={e => { e.stopPropagation(); handleUnlock(filePath) }}

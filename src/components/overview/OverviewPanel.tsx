@@ -8,6 +8,7 @@ import { useRepoStore } from '@/stores/repoStore'
 import { useOperationStore } from '@/stores/operationStore'
 import { useStatusToastStore } from '@/stores/statusToastStore'
 import { markFetchPerformed } from '@/lib/fetchState'
+import { FilePathText } from '@/components/ui/FilePathText'
 
 interface OverviewPanelProps {
   repoPath: string
@@ -596,7 +597,10 @@ function ResolveDialog({
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                     {branchDiff.files.map(f => (
                       <div key={f.path} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontFamily: "'JetBrains Mono', monospace", fontSize: 10.5, color: '#5a6880' }}>
-                        <span style={{ color: '#c8d0e8' }}>{f.status} {f.path}</span>
+                        <span style={{ color: '#c8d0e8', display: 'flex', gap: 4, minWidth: 0, flex: 1 }}>
+                          <span>{f.status}</span>
+                          <FilePathText path={f.path} style={{ flex: 1, minWidth: 0 }} />
+                        </span>
                         <span>+{f.additions} / -{f.deletions}</span>
                       </div>
                     ))}
@@ -629,7 +633,7 @@ function ResolveDialog({
                       padding: '10px 18px', borderBottom: '1px solid #18202e',
                     }}
                   >
-                    <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: '#c8d0e8', marginBottom: 8 }}>{f.path}</div>
+                    <FilePathText path={f.path} style={{ display: 'block', fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: '#c8d0e8', marginBottom: 8 }} />
                     <div style={{ display: 'flex', gap: 6 }}>
                       {(['branch', 'base'] as const).map(side => {
                         const isSelected = (fileChoices[f.path] ?? 'branch') === side
@@ -763,7 +767,21 @@ function AdminPRsCard({ prs, ghSlug, repoPath, loading, error, onRefresh }: {
         onAction={onRefresh}
       >
         <div style={{ overflowY: 'auto', maxHeight: 360 }}>
-          {!ghSlug ? (
+          {loading ? (
+            <div style={{ minHeight: 120, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div
+                aria-label="Loading pull requests"
+                style={{
+                  width: 50,
+                  height: 50,
+                  borderRadius: '50%',
+                  border: '3px solid #1a2030',
+                  borderTopColor: '#a27ef0',
+                  animation: 'spin 0.8s linear infinite',
+                }}
+              />
+            </div>
+          ) : !ghSlug ? (
             <div style={{ padding: '14px 14px', fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12, color: '#344057' }}>
               No GitHub remote configured
             </div>
@@ -886,6 +904,7 @@ export function OverviewPanel({ repoPath, onNavigate, onRefresh }: OverviewPanel
   const [lastUpdate, setLastUpdate] = useState<number | null>(null)
   const [prs,        setPrs]        = useState<PullRequest[]>([])
   const [prsError,   setPrsError]   = useState<string | null>(null)
+  const [prsLoading, setPrsLoading] = useState(true)
   const [ghSlug,     setGhSlug]     = useState<string | null>(null)
   const [sizeLoading, setSizeLoading] = useState(false)
   const mounted = useRef(true)
@@ -898,6 +917,7 @@ export function OverviewPanel({ repoPath, onNavigate, onRefresh }: OverviewPanel
 
   const loadAll = useCallback(async () => {
     setRefreshing(true)
+    setPrsLoading(true)
     const [branchR, syncR, lfsR, locksR, activityR, commitsR, remoteUrlR] = await Promise.allSettled([
       ipc.currentBranch(repoPath),
       ipc.getSyncStatus(repoPath),
@@ -929,8 +949,16 @@ export function OverviewPanel({ repoPath, onNavigate, onRefresh }: OverviewPanel
         } catch (err: any) {
           if (mounted.current) setPrsError(err?.message ?? 'Failed to load pull requests')
         }
+      } else if (mounted.current) {
+        setPrs([])
+        setPrsError(null)
       }
+    } else if (mounted.current) {
+      setGhSlug(null)
+      setPrs([])
+      setPrsError(null)
     }
+    if (mounted.current) setPrsLoading(false)
   }, [repoPath])
 
   // Refresh when history or PR state changes (fetch, pull, push, PR merge/close, branch switch)
@@ -1094,7 +1122,7 @@ export function OverviewPanel({ repoPath, onNavigate, onRefresh }: OverviewPanel
           prs={prs}
           ghSlug={ghSlug}
           repoPath={repoPath}
-          loading={refreshing}
+          loading={prsLoading}
           error={prsError}
           onRefresh={loadAll}
         />

@@ -3,6 +3,7 @@ import { ipc, BranchDiffSummary, ConflictPreviewFile, FileStatus, MergeConflictT
 import { useRepoStore } from '@/stores/repoStore'
 import { useOperationStore } from '@/stores/operationStore'
 import { cn } from '@/lib/utils'
+import { FilePathText } from '@/components/ui/FilePathText'
 
 interface MergePreviewDialogProps {
   targetBranch: string
@@ -315,7 +316,7 @@ export function MergePreviewDialog({ targetBranch, onClose, onMerged }: MergePre
                   {diffSummary.files.map(file => (
                     <div key={file.path} className="px-4 py-1.5 border-b border-lg-border/40 flex items-center gap-3 text-[10px] font-mono">
                       <span className="w-4 shrink-0 text-lg-text-secondary">{file.status}</span>
-                      <span className="flex-1 text-lg-text-primary truncate" title={file.path}>{file.path}</span>
+                      <FilePathText path={file.path} className="flex-1 text-lg-text-primary truncate" />
                       <span className="shrink-0 text-lg-success">+{file.additions}</span>
                       <span className="shrink-0 text-lg-error">-{file.deletions}</span>
                     </div>
@@ -334,23 +335,21 @@ export function MergePreviewDialog({ targetBranch, onClose, onMerged }: MergePre
               </div>
               {conflicts.map(file => (
                 <div key={file.path} className="px-4 py-3 border-b border-lg-border/50">
-                  {/* File name row */}
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-sm">{TYPE_ICON[file.type]}</span>
-                    <span className="flex-1 text-xs font-mono text-lg-text-primary truncate" title={file.path}>
-                      {file.path}
-                    </span>
-                    <span className={cn(
-                      'shrink-0 px-1.5 py-0.5 rounded text-[9px] font-mono',
-                      file.conflictType === 'content'
-                        ? 'bg-lg-warning/20 text-lg-warning'
-                        : file.conflictType === 'delete-modify'
-                          ? 'bg-lg-error/20 text-lg-error'
-                          : 'bg-[#4a9eff]/20 text-[#4a9eff]'
-                    )}>
-                      {CONFLICT_LABEL[file.conflictType]}
-                    </span>
-                  </div>
+                    {/* File name row */}
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-sm">{TYPE_ICON[file.type]}</span>
+                      <FilePathText path={file.path} className="flex-1 text-xs font-mono text-lg-text-primary truncate" />
+                      <span className={cn(
+                        'shrink-0 px-1.5 py-0.5 rounded text-[9px] font-mono',
+                        file.conflictType === 'content'
+                          ? 'bg-lg-warning/20 text-lg-warning'
+                          : file.conflictType === 'delete-modify'
+                            ? 'bg-lg-error/20 text-lg-error'
+                            : 'bg-[#4a9eff]/20 text-[#4a9eff]'
+                      )}>
+                        {CONFLICT_LABEL[file.conflictType]}
+                      </span>
+                    </div>
 
                   {/* Contributor comparison (click a side to preselect resolution) */}
                   <div className="grid grid-cols-2 gap-2">
@@ -389,31 +388,31 @@ export function MergePreviewDialog({ targetBranch, onClose, onMerged }: MergePre
                     ))}
                   </div>
 
-                  <div className="mt-2 flex items-center gap-2">
-                    <span className="text-[10px] font-mono text-lg-text-secondary">Preferred resolution:</span>
-                    <button
-                      onClick={() => setPreselectedChoices(prev => ({ ...prev, [file.path]: 'ours' }))}
-                      className={cn(
-                        'px-2 h-6 text-[10px] font-mono border rounded',
-                        preselectedChoices[file.path] === 'ours'
-                          ? 'border-lg-success text-lg-success bg-lg-success/10'
-                          : 'border-lg-border text-lg-text-secondary'
-                      )}
-                    >
-                      Keep {currentBranch}
-                    </button>
-                    <button
-                      onClick={() => setPreselectedChoices(prev => ({ ...prev, [file.path]: 'theirs' }))}
-                      className={cn(
-                        'px-2 h-6 text-[10px] font-mono border rounded',
-                        preselectedChoices[file.path] === 'theirs'
-                          ? 'border-lg-accent text-lg-accent bg-lg-accent/10'
-                          : 'border-lg-border text-lg-text-secondary'
-                      )}
-                    >
-                      Keep {displayMergeBranch}
-                    </button>
-                  </div>
+                    <div className="mt-2 flex items-center gap-2">
+                      <span className="text-[10px] font-mono text-lg-text-secondary">Preferred resolution:</span>
+                      <button
+                        onClick={() => setPreselectedChoices(prev => ({ ...prev, [file.path]: 'ours' }))}
+                        className={cn(
+                          'px-2 h-6 text-[10px] font-mono border rounded',
+                          preselectedChoices[file.path] === 'ours'
+                            ? 'border-lg-success text-lg-success bg-lg-success/10'
+                            : 'border-lg-border text-lg-text-secondary'
+                        )}
+                      >
+                        Keep {currentBranch}
+                      </button>
+                      <button
+                        onClick={() => setPreselectedChoices(prev => ({ ...prev, [file.path]: 'theirs' }))}
+                        className={cn(
+                          'px-2 h-6 text-[10px] font-mono border rounded',
+                          preselectedChoices[file.path] === 'theirs'
+                            ? 'border-lg-accent text-lg-accent bg-lg-accent/10'
+                            : 'border-lg-border text-lg-text-secondary'
+                        )}
+                      >
+                        Keep {displayMergeBranch}
+                      </button>
+                    </div>
                 </div>
               ))}
             </div>
@@ -428,7 +427,7 @@ export function MergePreviewDialog({ targetBranch, onClose, onMerged }: MergePre
               const text = textByFile[c.path]
               return (
                 <div key={c.path} className="border border-lg-border rounded p-2 space-y-2">
-                  <div className="text-[10px] font-mono text-lg-text-primary">{c.path}</div>
+                  <FilePathText path={c.path} className="block text-[10px] font-mono text-lg-text-primary truncate" />
                   {c.conflictType === 'content' && (
                     <div className="grid grid-cols-2 gap-2">
                       <pre className="text-[9px] font-mono bg-lg-bg-primary rounded p-2 max-h-28 overflow-auto whitespace-pre-wrap">{text?.ours || ''}</pre>

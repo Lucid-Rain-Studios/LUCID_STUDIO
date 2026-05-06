@@ -5,6 +5,7 @@ import { useOperationStore } from '@/stores/operationStore'
 import { useDialogStore } from '@/stores/dialogStore'
 import { usePRStore } from '@/stores/prStore'
 import { cn } from '@/lib/utils'
+import { FilePathText } from '@/components/ui/FilePathText'
 
 
 
@@ -914,9 +915,7 @@ function BranchDiffPreview({ repoPath, base, compare, onSwitch, onClose }: {
                     >
                       {statusLabel(f.status)}
                     </span>
-                    <span className="flex-1 text-[10px] font-mono text-lg-text-secondary truncate" title={f.path}>
-                      {f.path.split('/').pop() ?? f.path}
-                    </span>
+                    <FilePathText path={f.path} className="flex-1 text-[10px] font-mono text-lg-text-secondary truncate" />
                     <span className="shrink-0 text-[9px] font-mono text-lg-success">+{f.additions}</span>
                     <span className="shrink-0 text-[9px] font-mono text-lg-error">-{f.deletions}</span>
                   </div>

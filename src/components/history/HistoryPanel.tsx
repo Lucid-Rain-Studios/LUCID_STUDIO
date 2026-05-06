@@ -6,6 +6,7 @@ import { useRepoStore } from '@/stores/repoStore'
 import { computeGraph, GraphNode, LANE_W, ROW_H, DOT_R, GRAPH_PAD, LineSegment } from './graphLayout'
 import { AppCheckbox } from '@/components/ui/AppCheckbox'
 import { AppTooltip } from '@/components/ui/AppTooltip'
+import { FilePathText } from '@/components/ui/FilePathText'
 import { AppRightSelectionItem, AppRightSelectionOptions, AppRightSelectionSeparator } from '@/components/ui/AppRightSelectionOptions'
 
 function parseGitHubSlug(url: string): string | null {
@@ -656,10 +657,10 @@ function CommitDetail({ commit, files, filesLoading, repoPath, remoteUrl }: {
                   fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>{f.status}</span>
-                <span style={{
+                <FilePathText path={label} style={{
                   fontFamily: "'JetBrains Mono', monospace", fontSize: 12,
                   color: '#dde1f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1,
-                }} title={label}>{label}</span>
+                }} />
               </div>
             )
           })

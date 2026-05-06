@@ -3,6 +3,7 @@ import { ipc, ConflictPreviewFile } from '@/ipc'
 import { useRepoStore } from '@/stores/repoStore'
 import { useOperationStore } from '@/stores/operationStore'
 import { cn } from '@/lib/utils'
+import { FilePathText } from '@/components/ui/FilePathText'
 
 interface MergePreviewDialogProps {
   targetBranch: string
@@ -134,23 +135,21 @@ export function MergePreviewDialog({ targetBranch, onClose, onMerged }: MergePre
               </div>
               {conflicts.map(file => (
                 <div key={file.path} className="px-4 py-3 border-b border-lg-border/50">
-                  {/* File name row */}
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-sm">{TYPE_ICON[file.type]}</span>
-                    <span className="flex-1 text-xs font-mono text-lg-text-primary truncate" title={file.path}>
-                      {file.path}
-                    </span>
-                    <span className={cn(
-                      'shrink-0 px-1.5 py-0.5 rounded text-[9px] font-mono',
-                      file.conflictType === 'content'
-                        ? 'bg-lg-warning/20 text-lg-warning'
-                        : file.conflictType === 'delete-modify'
-                          ? 'bg-lg-error/20 text-lg-error'
-                          : 'bg-[#4a9eff]/20 text-[#4a9eff]'
-                    )}>
-                      {CONFLICT_LABEL[file.conflictType]}
-                    </span>
-                  </div>
+                    {/* File name row */}
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-sm">{TYPE_ICON[file.type]}</span>
+                      <FilePathText path={file.path} className="flex-1 text-xs font-mono text-lg-text-primary truncate" />
+                      <span className={cn(
+                        'shrink-0 px-1.5 py-0.5 rounded text-[9px] font-mono',
+                        file.conflictType === 'content'
+                          ? 'bg-lg-warning/20 text-lg-warning'
+                          : file.conflictType === 'delete-modify'
+                            ? 'bg-lg-error/20 text-lg-error'
+                            : 'bg-[#4a9eff]/20 text-[#4a9eff]'
+                      )}>
+                        {CONFLICT_LABEL[file.conflictType]}
+                      </span>
+                    </div>
 
                   {/* Contributor comparison */}
                   <div className="grid grid-cols-2 gap-2">

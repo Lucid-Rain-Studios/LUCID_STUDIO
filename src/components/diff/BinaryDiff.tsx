@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { FileStatus, CommitEntry, ipc } from '@/ipc'
+import { FilePathText } from '@/components/ui/FilePathText'
 
 interface BinaryDiffProps {
   file: FileStatus
@@ -391,7 +392,6 @@ export function BinaryDiff({ file, repoPath }: BinaryDiffProps) {
   }, [repoPath, file.path, thumbRef, isUEAsset])
 
   const asset    = classifyAsset(file.path)
-  const fileName = file.path.replace(/\\/g, '/').split('/').pop() ?? file.path
   const ext      = file.path.split('.').pop()?.toLowerCase() ?? ''
 
   // Convert absolute path to file:// URL for Electron renderer
@@ -433,11 +433,11 @@ export function BinaryDiff({ file, repoPath }: BinaryDiffProps) {
           color: asset.color, marginBottom: 5, letterSpacing: '0.01em',
         }}>{asset.label}</div>
 
-        <div style={{
+        <FilePathText path={file.path} style={{
           fontFamily: "'JetBrains Mono', monospace", fontSize: 12,
           color: '#8b94b0', marginBottom: 10, textAlign: 'center',
           maxWidth: 360, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-        }} title={file.path}>{fileName}</div>
+        }} />
 
         <div style={{
           fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12,

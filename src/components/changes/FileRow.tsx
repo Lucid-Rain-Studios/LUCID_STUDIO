@@ -7,6 +7,7 @@ import { useDialogStore } from '@/stores/dialogStore'
 import { useAssetViewerStore } from '@/stores/assetViewerStore'
 import { AppCheckbox } from '@/components/ui/AppCheckbox'
 import { AppTooltip } from '@/components/ui/AppTooltip'
+import { FilePathText } from '@/components/ui/FilePathText'
 import { AppRightSelectionItem, AppRightSelectionOptions, AppRightSelectionSeparator } from '@/components/ui/AppRightSelectionOptions'
 
 interface FileRowProps {
@@ -244,10 +245,10 @@ export function FileRow({
             )}
           </div>
           {dir && (
-            <span style={{
+            <FilePathText path={file.path} style={{
               fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#4e5870',
-              display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-            }}>{dir}</span>
+              display: 'block',
+            }} />
           )}
         </div>
       </div>

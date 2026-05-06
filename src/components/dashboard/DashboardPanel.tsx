@@ -20,6 +20,7 @@ import {
   pushDisabledReason,
 } from '@/lib/syncButtonLogic'
 import { getTopBarSyncHandlers, getTopBarSyncSnapshot, onTopBarSyncChanged } from '@/lib/topBarSyncBridge'
+import { FilePathText } from '@/components/ui/FilePathText'
 
 const sessionFetchedRepos = new Set<string>()
 const sessionRemoteUrls   = new Map<string, string | null>()
@@ -724,7 +725,6 @@ function LocalStatusCard({ sync, busy, hasFetched, files, staged, unstaged, onFe
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {preview.map(f => {
               const { char, color } = fileStatusLabel(f)
-              const name = f.path.replace(/\\/g, '/').split('/').pop() ?? f.path
               return (
                 <div key={f.path} style={{ display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden' }}>
                   <span style={{
@@ -732,10 +732,10 @@ function LocalStatusCard({ sync, busy, hasFetched, files, staged, unstaged, onFe
                     color, background: `${color}18`, border: `1px solid ${color}33`,
                     borderRadius: 3, padding: '0 4px', flexShrink: 0, lineHeight: '14px',
                   }}>{char}</span>
-                  <span style={{
+                  <FilePathText path={f.path} style={{
                     fontFamily: "'JetBrains Mono', monospace", fontSize: 10.5, color: '#5a6880',
                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1,
-                  }} title={f.path}>{name}</span>
+                  }} />
                 </div>
               )
             })}
@@ -818,7 +818,6 @@ function LocksCard({ locks, currentLogin, repoPath, unlockFile, isAdmin }: {
           </div>
         ) : (
           shown.map(lock => {
-            const filename  = lock.path.replace(/\\/g, '/').split('/').pop() ?? lock.path
             const isOwn     = currentLogin && lock.owner.login === currentLogin
             const color     = isOwn ? '#4a9eff' : '#7b8499'
             const isBusy    = unlocking === lock.path
@@ -835,9 +834,7 @@ function LocksCard({ locks, currentLogin, repoPath, unlockFile, isAdmin }: {
                   color: authorColor(lock.owner.name),
                 }}>{initials(lock.owner.name)}</div>
                 <div style={{ flex: 1, overflow: 'hidden', minWidth: 0 }}>
-                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10.5, color, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={lock.path}>
-                    {filename}
-                  </div>
+                  <FilePathText path={lock.path} style={{ display: 'block', fontFamily: "'JetBrains Mono', monospace", fontSize: 10.5, color, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} />
                   <div style={{ fontSize: 10, color: '#344057', fontFamily: "'JetBrains Mono', monospace" }}>
                     {lock.owner.login} · {timeAgoStr(lock.lockedAt)}
                   </div>
