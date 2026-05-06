@@ -27,7 +27,6 @@ export const CHANNELS = {
   GIT_MERGE_PREVIEW: 'git:merge-preview',
   GIT_POTENTIAL_MERGE_CONFLICTS: 'git:potential-merge-conflicts',
   GIT_MERGE:         'git:merge',
-  GIT_MERGE_RESOLVE: 'git:merge-resolve',
   GIT_MERGE_GET_CONFLICT_TEXT: 'git:merge-get-conflict-text',
   GIT_MERGE_RESOLVE_TEXT: 'git:merge-resolve-text',
   GIT_MERGE_CONTINUE: 'git:merge-continue',

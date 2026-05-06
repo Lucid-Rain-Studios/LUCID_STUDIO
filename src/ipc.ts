@@ -564,7 +564,6 @@ export interface LucidGitAPI {
     unresolvedFiles: string[]
     conflicts: ConflictPreviewFile[]
   } | null>
-  mergeResolve: (repoPath: string, targetBranch: string, baseBranch: string, fileChoices: Record<string, 'ours' | 'theirs'>) => Promise<void>
 
   // Locks
   listLocks: (repoPath: string) => Promise<Lock[]>

@@ -215,10 +215,25 @@ class GitService {
 
   private shouldRunLfsRecovery(error: unknown): boolean {
     const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase()
+
+    // Never recover (i.e. abort + retry) when git is reporting real merge
+    // conflicts — those need user resolution, and aborting destroys the
+    // conflict state so the user can never resolve them.
+    const looksLikeConflict = (
+      message.includes('automatic merge failed') ||
+      message.includes('merge conflict') ||
+      message.includes('conflict (') ||
+      message.includes('cannot merge binary') ||
+      message.includes('fix conflicts')
+    )
+    if (looksLikeConflict) return false
+
+    // Only retry on signals that are unambiguously LFS-credential / smudge
+    // failures. "unable to write index" was previously included here but is
+    // far too broad — it fires on antivirus locks, OneDrive contention, etc.
     return (
       message.includes('smudge filter lfs failed') ||
-      message.includes('batch response: bad credentials') ||
-      message.includes('unable to write index')
+      message.includes('batch response: bad credentials')
     )
   }
 
@@ -824,10 +839,12 @@ class GitService {
     }
   }
 
-  /** Merge targetBranch into HEAD. Throws if there are conflicts. */
+  /** Merge targetBranch into HEAD. Throws if there are conflicts.
+   *  Uses --no-ff to always create a merge commit, matching GitHub Desktop's
+   *  default and the GitHub PR UI's "Create a merge commit" option. */
   async merge(repoPath: string, targetBranch: string): Promise<void> {
     const targetRef = await this.resolveBranchRef(repoPath, targetBranch)
-    await this.runWithLfsRecovery(repoPath, await this.authenticatedArgs(repoPath, ['merge', targetRef]))
+    await this.runWithLfsRecovery(repoPath, await this.authenticatedArgs(repoPath, ['merge', '--no-ff', targetRef]))
   }
 
 
@@ -968,55 +985,23 @@ class GitService {
     return out
   }
 
-  async resolveMergeIntoBranch(
-    repoPath: string,
-    targetBranch: string,
-    baseBranch: string,
-    fileChoices: Record<string, 'ours' | 'theirs'>,
-  ): Promise<void> {
-    const startBranch = await this.currentBranch(repoPath)
-    const targetRef = await this.resolveBranchRef(repoPath, targetBranch)
-    const baseRef = await this.resolveBranchRef(repoPath, baseBranch)
-    const targetLocal = targetRef.replace(/^origin\//, '')
-    const localBranchExists = (await execSafe(['rev-parse', '--verify', `refs/heads/${targetLocal}`], repoPath)).exitCode === 0
-    const temporaryLocalBranch = !localBranchExists && targetRef.startsWith('origin/')
-
-    try {
-      if (localBranchExists) await this.runWithLfsRecovery(repoPath, await this.authenticatedArgs(repoPath, ['checkout', targetLocal]))
-      else await this.runWithLfsRecovery(repoPath, await this.authenticatedArgs(repoPath, ['checkout', '-b', targetLocal, '--track', targetRef]))
-
-      await execSafe(['merge', '--abort'], repoPath)
-      try {
-        await this.runWithLfsRecovery(repoPath, await this.authenticatedArgs(repoPath, ['merge', '--no-ff', '--no-commit', baseRef]))
-      } catch (error) {
-        if (!this.isMergeConflictError(error)) throw error
-      }
-
-      for (const [file, side] of Object.entries(fileChoices)) {
-        await this.resolveMergeConflictText(repoPath, file, side)
-      }
-
-      // git prepared MERGE_MSG already says "Merge branch '<base>' into <target>".
-      // Use --no-edit so the commit message matches GitHub Desktop / vanilla git.
-      // Fall back to an explicit message only if MERGE_MSG was somehow consumed.
-      try {
-        await exec(['commit', '--no-edit'], repoPath)
-      } catch {
-        await exec(['commit', '-m', `Merge branch '${baseBranch.replace(/^origin\//, '')}' into ${targetLocal}`], repoPath)
-      }
-      await exec(await this.authenticatedArgs(repoPath, ['push', 'origin', targetLocal]), repoPath)
-    } finally {
-      await execSafe(['merge', '--abort'], repoPath)
-      await execSafe(await this.authenticatedArgs(repoPath, ['checkout', startBranch]), repoPath)
-      if (temporaryLocalBranch) await execSafe(['branch', '-D', targetLocal], repoPath)
-    }
-  }
-
+/** Resolve a branch name to a ref usable for merge. Prefers origin/<branch>
+   *  over the local branch — matching GitHub Desktop, which fetches before
+   *  merging and uses the remote-tracking ref so a stale local branch never
+   *  silently merges old commits. If the caller passed an explicit "origin/X"
+   *  ref, we use it directly. */
   private async resolveBranchRef(repoPath: string, targetBranch: string): Promise<string> {
+    if (targetBranch.startsWith('origin/')) {
+      const res = await execSafe(['rev-parse', '--verify', targetBranch], repoPath)
+      if (res.exitCode === 0) return targetBranch
+    }
+
     const defaultBranch = await this.remoteDefaultBranch(repoPath)
+    const bareName = targetBranch.replace(/^origin\//, '')
     const candidates = targetBranch === defaultBranch.name
       ? [defaultBranch.ref, targetBranch]
-      : [targetBranch, `origin/${targetBranch}`]
+      : [`origin/${bareName}`, bareName]
+
     for (const ref of candidates) {
       const res = await execSafe(['rev-parse', '--verify', ref], repoPath)
       if (res.exitCode === 0) return ref

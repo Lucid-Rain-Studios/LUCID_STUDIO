@@ -392,8 +392,6 @@ function CommitsCard({ commits, onNavigate }: { commits: CommitEntry[]; onNaviga
 
 // ── PR Resolve Dialog ─────────────────────────────────────────────────────────
 
-type ConflictChoice = 'branch' | 'base'
-
 function ResolveDialog({
   pr, ghSlug, repoPath, onClose, onDone,
 }: {
@@ -412,7 +410,6 @@ function ResolveDialog({
   const [conflicts, setConflicts] = useState<ConflictPreviewFile[]>([])
   const [conflictLoading, setConflictLoading] = useState(false)
   const [conflictError, setConflictError] = useState<string | null>(null)
-  const [fileChoices, setFileChoices] = useState<Record<string, ConflictChoice>>({})
   const [busy, setBusy] = useState(false)
   const [branchDiff, setBranchDiff] = useState<BranchDiffSummary | null>(null)
   const [branchDiffLoading, setBranchDiffLoading] = useState(false)
@@ -425,9 +422,6 @@ function ResolveDialog({
     ipc.mergePreview(repoPath, pr.headBranch)
       .then(files => {
         setConflicts(files)
-        const defaults: Record<string, ConflictChoice> = {}
-        files.forEach(f => { defaults[f.path] = 'branch' })
-        setFileChoices(defaults)
       })
       .catch((e) => {
         setConflicts([])
@@ -454,16 +448,16 @@ function ResolveDialog({
     setBusy(true)
     try {
       if (choice === 'accept') {
+        // GitHub Desktop never auto-resolves PR conflicts behind the scenes —
+        // it requires the user to switch to the head branch, update from base,
+        // resolve conflicts locally, and push. The previous in-app auto-resolve
+        // flow silently checked out and pushed branches and was the source of
+        // "ended up on wrong branch" / "files merged incorrectly" reports.
         if (conflicts.length > 0) {
-          const resolveMap: Record<string, 'ours' | 'theirs'> = {}
-          for (const f of conflicts) {
-            const selected = fileChoices[f.path] ?? 'branch'
-            // merge order is base -> head; "branch" means keep head changes (ours)
-            resolveMap[f.path] = selected === 'branch' ? 'ours' : 'theirs'
-          }
-          await opRun(`Resolving PR #${pr.number} conflicts…`, () =>
-            ipc.mergeResolve(repoPath, pr.headBranch, pr.baseBranch, resolveMap)
+          showStatusToast(
+            `PR #${pr.number} has conflicts. Switch to "${pr.headBranch}", run "Update from ${pr.baseBranch}", resolve conflicts, push, then merge again.`
           )
+          return
         }
         await opRun(`Merging PR #${pr.number}…`, () => ipc.githubMergePR({ owner, repo, prNumber: pr.number, repoPath }))
         let fetchedMergedPrUpdates = false
@@ -624,42 +618,32 @@ function ResolveDialog({
             ) : (
               <>
                 <div style={{ padding: '10px 18px 4px', fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10.5, fontWeight: 700, color: '#f5a832', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                  {conflicts.length} conflict{conflicts.length !== 1 ? 's' : ''} — choose resolution per file
+                  {conflicts.length} conflict{conflicts.length !== 1 ? 's' : ''} — cannot merge from here
+                </div>
+                <div style={{
+                  margin: '6px 18px 12px',
+                  background: 'rgba(245,168,50,0.07)', border: '1px solid rgba(245,168,50,0.25)',
+                  borderRadius: 8, padding: '12px 14px',
+                  fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12, color: '#c8d0e8', lineHeight: 1.55,
+                }}>
+                  To merge this PR, resolve the conflicts on the <strong style={{ color: '#4a9eff' }}>{pr.headBranch}</strong> branch first:
+                  <ol style={{ margin: '8px 0 0 18px', padding: 0, color: '#5a6880', fontSize: 11.5 }}>
+                    <li>Switch to <strong style={{ color: '#c8d0e8' }}>{pr.headBranch}</strong></li>
+                    <li>Run <strong style={{ color: '#c8d0e8' }}>Update from {pr.baseBranch}</strong></li>
+                    <li>Resolve the conflicts and push</li>
+                    <li>Return here and merge the PR</li>
+                  </ol>
                 </div>
                 {conflicts.map(f => (
                   <div
                     key={f.path}
                     style={{
-                      padding: '10px 18px', borderBottom: '1px solid #18202e',
+                      padding: '8px 18px', borderBottom: '1px solid #18202e',
+                      display: 'flex', alignItems: 'center', gap: 8,
                     }}
                   >
-                    <FilePathText path={f.path} style={{ display: 'block', fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: '#c8d0e8', marginBottom: 8 }} />
-                    <div style={{ display: 'flex', gap: 6 }}>
-                      {(['branch', 'base'] as const).map(side => {
-                        const isSelected = (fileChoices[f.path] ?? 'branch') === side
-                        const contributor = side === 'branch' ? f.theirs : f.ours
-                        const label = side === 'branch' ? `Accept from ${pr.headBranch}` : `Accept from ${pr.baseBranch}`
-                        const col = side === 'branch' ? '#4a9eff' : '#a27ef0'
-                        return (
-                          <button
-                            key={side}
-                            onClick={() => setFileChoices(prev => ({ ...prev, [f.path]: side }))}
-                            style={{
-                              flex: 1, borderRadius: 6, padding: '7px 10px', cursor: 'pointer', textAlign: 'left',
-                              border: isSelected ? `1px solid ${col}55` : '1px solid #1a2030',
-                              background: isSelected ? `${col}10` : 'rgba(255,255,255,0.02)',
-                            }}
-                          >
-                            <div style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 11, fontWeight: 600, color: isSelected ? col : '#5a6880', marginBottom: 2 }}>
-                              {label}
-                            </div>
-                            <div style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10, color: '#344057' }}>
-                              {contributor.lastContributor.name} · {new Date(contributor.lastEditedAt).toLocaleDateString()}
-                            </div>
-                          </button>
-                        )
-                      })}
-                    </div>
+                    <span style={{ color: '#f5a832', fontSize: 11 }}>⚠</span>
+                    <FilePathText path={f.path} style={{ flex: 1, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: '#c8d0e8' }} />
                   </div>
                 ))}
               </>
@@ -696,20 +680,27 @@ function ResolveDialog({
             onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
             onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
           >Cancel</button>
-          <button
-            onClick={handleConfirm}
-            disabled={busy}
-            style={{
-              height: 32, paddingLeft: 16, paddingRight: 16, borderRadius: 6,
-              background: choice === 'accept' ? 'rgba(45,189,110,0.15)' : 'rgba(232,69,69,0.15)',
-              border: `1px solid ${choice === 'accept' ? 'rgba(45,189,110,0.4)' : 'rgba(232,69,69,0.4)'}`,
-              color: choice === 'accept' ? '#2dbd6e' : '#e84545',
-              fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12.5, fontWeight: 600,
-              cursor: busy ? 'not-allowed' : 'pointer', opacity: busy ? 0.6 : 1,
-            }}
-            onMouseEnter={e => { if (!busy) e.currentTarget.style.opacity = '0.8' }}
-            onMouseLeave={e => { if (!busy) e.currentTarget.style.opacity = '1' }}
-          >{busy ? '…' : choice === 'accept' ? 'Merge PR' : 'Close PR'}</button>
+          {(() => {
+            const blockedByConflicts = choice === 'accept' && conflicts.length > 0
+            const disabled = busy || blockedByConflicts
+            return (
+              <button
+                onClick={handleConfirm}
+                disabled={disabled}
+                title={blockedByConflicts ? `Resolve conflicts on ${pr.headBranch} before merging.` : undefined}
+                style={{
+                  height: 32, paddingLeft: 16, paddingRight: 16, borderRadius: 6,
+                  background: choice === 'accept' ? 'rgba(45,189,110,0.15)' : 'rgba(232,69,69,0.15)',
+                  border: `1px solid ${choice === 'accept' ? 'rgba(45,189,110,0.4)' : 'rgba(232,69,69,0.4)'}`,
+                  color: choice === 'accept' ? '#2dbd6e' : '#e84545',
+                  fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12.5, fontWeight: 600,
+                  cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1,
+                }}
+                onMouseEnter={e => { if (!disabled) e.currentTarget.style.opacity = '0.8' }}
+                onMouseLeave={e => { if (!disabled) e.currentTarget.style.opacity = '1' }}
+              >{busy ? '…' : choice === 'accept' ? 'Merge PR' : 'Close PR'}</button>
+            )
+          })()}
         </div>
       </div>
     </div>

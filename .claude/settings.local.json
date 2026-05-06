@@ -47,7 +47,8 @@
       "Bash(git -C H:/LUCID_GIT commit -m \"fix: compute todayKey inline to avoid staleness at midnight\")",
       "Bash(xargs cat *)",
       "Bash(grep -E \"\\\\.tsx?$\")",
-      "Bash(grep -E \"\\\\.ts$\")"
+      "Bash(grep -E \"\\\\.ts$\")",
+      "Bash(npx eslint *)"
     ]
   }
 }
