@@ -61,8 +61,10 @@ autoUpdater.on('update-downloaded', () => {
 })
 
 autoUpdater.on('error', (err) => {
-  logService.error('updater', `Auto-updater error: ${err.message}\nStack:\n${err.stack ?? ''}`)
-  if (isDev) console.error('[updater]', err.message)
+  // Treat update-check failures (private repo, 404, network errors) as benign:
+  // log at info level so the user-facing flow stays silent.
+  logService.info('updater', `Auto-updater check skipped: ${err.message}`)
+  if (isDev) console.info('[updater]', err.message)
 })
 
 process.on('uncaughtException', (error) => {
@@ -227,11 +229,16 @@ function registerUpdaterHandlers() {
 
   handle(CHANNELS.UPDATE_CHECK, async () => {
     if (isDev) return { available: false, version: null as string | null, source: 'dev' as const }
-    const result = await autoUpdater.checkForUpdates()
-    return {
-      available: !!result?.updateInfo?.version,
-      version: result?.updateInfo?.version ?? null,
-      source: 'release' as const,
+    try {
+      const result = await autoUpdater.checkForUpdates()
+      return {
+        available: !!result?.updateInfo?.version,
+        version: result?.updateInfo?.version ?? null,
+        source: 'release' as const,
+      }
+    } catch {
+      // Silent failure (e.g., release feed unreachable or repo is private).
+      return { available: false, version: null as string | null, source: 'unavailable' as const }
     }
   })
 

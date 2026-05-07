@@ -304,7 +304,7 @@ export interface UpdateInfo {
 export interface UpdateCheckResult {
   available: boolean
   version: string | null
-  source: 'dev' | 'release'
+  source: 'dev' | 'release' | 'unavailable'
 }
 
 export type DesktopNotificationEvent =

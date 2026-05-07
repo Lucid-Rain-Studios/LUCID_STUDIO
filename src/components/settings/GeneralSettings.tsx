@@ -111,13 +111,15 @@ export function GeneralSettings() {
     setUpdateStatus('Checking for updates…')
     try {
       const result = await ipc.updateCheck()
-      if (!result.available) {
+      if (result.source === 'unavailable') {
+        setUpdateStatus('No updates found.')
+      } else if (!result.available) {
         setUpdateStatus('You are already on the latest version.')
       } else if (result.version) {
         setUpdateStatus(`Update ${result.version} is available.`)
       }
     } catch {
-      setUpdateStatus('Unable to check for updates right now.')
+      setUpdateStatus('No updates found.')
     } finally {
       setCheckingUpdates(false)
     }

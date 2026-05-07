@@ -153,7 +153,25 @@ class GitService {
 
   /** Stage specific paths (handles additions, modifications, and deletions). */
   async stage(repoPath: string, paths: string[]): Promise<void> {
-    await exec(['add', '-A', '--', ...paths], repoPath)
+    if (paths.length === 0) return
+
+    // git add -A fails with "pathspec did not match" when a path is gone from
+    // both the working tree AND the index (i.e. the deletion is already staged).
+    // Split by on-disk existence and use git rm --cached --ignore-unmatch for the
+    // missing ones, which handles both unstaged deletions and already-staged ones.
+    const existing: string[] = []
+    const missing: string[] = []
+    for (const p of paths) {
+      if (fs.existsSync(path.join(repoPath, p))) existing.push(p)
+      else missing.push(p)
+    }
+
+    if (existing.length > 0) {
+      await exec(['add', '-A', '--', ...existing], repoPath)
+    }
+    if (missing.length > 0) {
+      await exec(['rm', '--cached', '--ignore-unmatch', '-r', '--', ...missing], repoPath)
+    }
   }
 
   /** Unstage specific paths (moves them back to working tree). */
