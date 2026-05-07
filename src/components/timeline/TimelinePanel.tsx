@@ -11,6 +11,7 @@ import { FileTree } from '@/components/changes/FileTree'
 import { CommitBox } from '@/components/changes/CommitBox'
 import { StashPanel } from '@/components/changes/StashPanel'
 import { FilePathText } from '@/components/ui/FilePathText'
+import { compactPath } from '@/lib/pathDisplay'
 import { FileDetailsSidePanel } from '@/components/shared/FileDetailsSidePanel'
 import { ActionBtn } from '@/components/ui/ActionBtn'
 
@@ -71,12 +72,6 @@ function initials(author: string): string {
   const parts = author.trim().split(/\s+/)
   if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
   return author.slice(0, 2).toUpperCase()
-}
-
-function compactFilePath(filePath: string, parentCount = 2): string {
-  const parts = filePath.split(/[\\/]+/).filter(Boolean)
-  if (parts.length <= parentCount + 1) return filePath
-  return `.../${parts.slice(-(parentCount + 1)).join('/')}`
 }
 
 // Shared SVG filter defs; placed once above the list.
@@ -1092,8 +1087,8 @@ function CommitFileRow({ f, selected, repoPath, commitHash, remoteUrl, onClick }
 
   const label = f.oldPath ? `${f.oldPath} → ${f.path}` : f.path
   const displayLabel = f.oldPath
-    ? `${compactFilePath(f.oldPath)} → ${compactFilePath(f.path)}`
-    : compactFilePath(f.path)
+    ? `${compactPath(f.oldPath)} → ${compactPath(f.path)}`
+    : compactPath(f.path)
   const sc = FILE_STATUS_COLOR[f.status] ?? '#8b94b0'
   const sb = FILE_STATUS_BG[f.status]   ?? 'transparent'
 
