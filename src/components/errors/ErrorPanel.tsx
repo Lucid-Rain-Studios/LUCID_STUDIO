@@ -4,6 +4,7 @@ import { useErrorStore } from '@/stores/errorStore'
 import { useRepoStore } from '@/stores/repoStore'
 import { LucidGitError, FixStep, FixAction } from '@/lib/gitErrors'
 import { cn } from '@/lib/utils'
+import { ActionBtn } from '@/components/ui/ActionBtn'
 
 interface ErrorPanelProps {
   onReauth: () => void
@@ -304,22 +305,24 @@ function FixRow({
       <span className="flex-1 opacity-80 truncate">{step.label}</span>
       <div className="flex items-center gap-1 shrink-0">
         {hasCommand && (
-          <button
+          <ActionBtn
             onClick={() => onCopy(step.command!, `cmd-${step.label}`)}
             title={step.command}
-            className="px-1.5 h-5 rounded text-[9px] border border-current/30 hover:border-current/70 transition-colors opacity-70 hover:opacity-100"
+            size="sm"
+            style={{ height: 20, paddingLeft: 6, paddingRight: 6, fontSize: 9 }}
           >
             {copied === `cmd-${step.label}` ? '✓ Copied' : 'Copy'}
-          </button>
+          </ActionBtn>
         )}
         {hasAction && (
-          <button
+          <ActionBtn
             onClick={() => onDispatch(step.action!)}
             disabled={busy}
-            className="px-2 h-5 rounded text-[9px] border border-current/50 bg-current/10 hover:bg-current/20 disabled:opacity-40 transition-colors font-semibold"
+            size="sm"
+            style={{ height: 20, paddingLeft: 8, paddingRight: 8, fontSize: 9, fontWeight: 600 }}
           >
             {busy ? '…' : 'Fix'}
-          </button>
+          </ActionBtn>
         )}
       </div>
     </div>

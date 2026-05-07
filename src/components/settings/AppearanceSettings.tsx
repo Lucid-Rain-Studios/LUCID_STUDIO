@@ -4,6 +4,7 @@ import {
   applyAppearanceSettings,
   THEMES, UI_FONTS, CODE_FONTS, FONT_WEIGHTS, BORDER_RADII, ACCENT_PRESETS,
 } from '@/lib/appearance'
+import { ActionBtn } from '@/components/ui/ActionBtn'
 
 const DEFAULTS: Partial<AppSettings> = {
   fontFamily:     'system-ui',
@@ -71,7 +72,7 @@ export function AppearanceSettings() {
     setSaved(false)
   }
 
-  const accent = settings.accentColor ?? (THEMES.find(t => t.id === settings.theme)?.vars['--lg-accent'] ?? '#e8622f')
+  const accent = settings.accentColor ?? (THEMES.find(t => t.id === settings.theme)?.vars['--lg-accent'] ?? '#4a9eff')
 
   return (
     <div style={{ maxWidth: 600, padding: '20px 24px 32px' }}>
@@ -172,7 +173,7 @@ export function AppearanceSettings() {
             <input
               ref={colorInputRef}
               type="color"
-              value={customAccent || '#e8622f'}
+              value={customAccent || '#4a9eff'}
               onChange={e => {
                 setCustomAccent(e.target.value)
                 update({ accentColor: e.target.value })
@@ -183,17 +184,13 @@ export function AppearanceSettings() {
 
           {/* Clear override */}
           {settings.accentColor && (
-            <button
+            <ActionBtn
               onClick={() => { update({ accentColor: undefined }); setCustomAccent('') }}
-              style={{
-                height: 24, paddingLeft: 8, paddingRight: 8, borderRadius: 4,
-                background: 'transparent', border: '1px solid rgba(255,255,255,0.12)',
-                color: 'var(--lg-text-secondary)', fontFamily: 'var(--lg-font-ui)', fontSize: 10,
-                cursor: 'pointer',
-              }}
+              size="sm"
+              style={{ height: 24, paddingLeft: 8, paddingRight: 8, fontSize: 10 }}
             >
               Reset
-            </button>
+            </ActionBtn>
           )}
         </div>
         <div style={{ marginTop: 6, fontFamily: 'var(--lg-font-ui)', fontSize: 11, color: 'var(--lg-text-secondary)' }}>
@@ -362,58 +359,34 @@ function ChipBtn({ active, onClick, children, title }: {
   active: boolean; onClick: () => void; children: React.ReactNode; title?: string
 }) {
   return (
-    <button
+    <ActionBtn
       onClick={onClick}
       title={title}
-      style={{
-        height: 28, paddingLeft: 12, paddingRight: 12, borderRadius: 'var(--lg-radius)',
-        background: active ? 'rgba(255,255,255,0.07)' : 'transparent',
-        border: `1px solid ${active ? 'var(--lg-accent)' : 'var(--lg-border-strong)'}`,
-        color: active ? 'var(--lg-accent)' : 'var(--lg-text-secondary)',
-        fontFamily: 'var(--lg-font-ui)', fontSize: 12, fontWeight: active ? 600 : 400,
-        cursor: 'pointer', transition: 'all 0.12s',
-      }}
-    >{children}</button>
+      ghost={!active}
+      size="sm"
+      style={{ height: 28, paddingLeft: 12, paddingRight: 12, fontSize: 12, fontWeight: active ? 600 : 400 }}
+    >{children}</ActionBtn>
   )
 }
 
 function SaveBtn({ label, disabled, onClick }: { label: string; disabled: boolean; onClick: () => void }) {
-  const [hover, setHover] = useState(false)
   return (
-    <button
+    <ActionBtn
       onClick={onClick}
       disabled={disabled}
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-      style={{
-        height: 32, paddingLeft: 20, paddingRight: 20, borderRadius: 'var(--lg-radius)',
-        background: hover ? 'rgba(232,98,47,0.2)' : 'rgba(232,98,47,0.12)',
-        border: '1px solid rgba(232,98,47,0.5)',
-        color: 'var(--lg-accent)', fontFamily: 'var(--lg-font-ui)', fontSize: 13, fontWeight: 600,
-        cursor: disabled ? 'not-allowed' : 'pointer',
-        opacity: disabled ? 0.5 : 1, transition: 'all 0.12s',
-      }}
-    >{label}</button>
+      style={{ height: 32, paddingLeft: 20, paddingRight: 20, fontSize: 13, fontWeight: 600 }}
+    >{label}</ActionBtn>
   )
 }
 
 function SecondaryBtn({ label, disabled, onClick }: { label: string; disabled: boolean; onClick: () => void }) {
-  const [hover, setHover] = useState(false)
   return (
-    <button
+    <ActionBtn
       onClick={onClick}
       disabled={disabled}
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-      style={{
-        height: 32, paddingLeft: 14, paddingRight: 14, borderRadius: 'var(--lg-radius)',
-        background: hover ? 'rgba(255,255,255,0.07)' : 'transparent',
-        border: '1px solid var(--lg-border-strong)',
-        color: 'var(--lg-text-secondary)', fontFamily: 'var(--lg-font-ui)', fontSize: 13, fontWeight: 500,
-        cursor: disabled ? 'not-allowed' : 'pointer',
-        opacity: disabled ? 0.5 : 1, transition: 'all 0.12s',
-      }}
-    >{label}</button>
+      ghost
+      style={{ height: 32, paddingLeft: 14, paddingRight: 14, fontSize: 13 }}
+    >{label}</ActionBtn>
   )
 }
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { Treemap, ResponsiveContainer, Tooltip } from 'recharts'
 import { ipc, HeatmapNode, HeatmapTimelineEntry } from '@/ipc'
+import { ActionBtn } from '@/components/ui/ActionBtn'
 
 interface Props {
   repoPath: string
@@ -58,7 +59,7 @@ function HeatCell(props: {
         <text
           x={x + width / 2} y={y + height / 2}
           textAnchor="middle" dominantBaseline="middle"
-          style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: Math.min(11, width / 8), fill: text, pointerEvents: 'none' }}
+          style={{ fontFamily: 'var(--lg-font-mono)', fontSize: Math.min(11, width / 8), fill: text, pointerEvents: 'none' }}
         >
           {label}
         </text>
@@ -135,59 +136,52 @@ export function LockHeatmap({ repoPath }: Props) {
 
         {/* Toolbar */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexShrink: 0 }}>
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: '#e8622f', fontWeight: 700, letterSpacing: '0.05em' }}>
+          <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 11, color: '#e8622f', fontWeight: 700, letterSpacing: '0.05em' }}>
             LOCK HEATMAP
           </span>
           <div style={{ flex: 1 }} />
 
           {/* Time window */}
-          <div style={{ display: 'flex', gap: 2, background: '#0e1120', borderRadius: 5, padding: 2, border: '1px solid #252d42' }}>
+          <div style={{ display: 'flex', gap: 4 }}>
             {WINDOWS.map(w => (
-              <button
+              <ActionBtn
                 key={w.label}
                 onClick={() => setWindowDays(w.days)}
-                style={{
-                  padding: '3px 10px', borderRadius: 4, border: 'none',
-                  background: windowDays === w.days ? '#e8622f' : 'transparent',
-                  color: windowDays === w.days ? '#fff' : '#4e5870',
-                  fontFamily: "'IBM Plex Sans', system-ui", fontSize: 11,
-                  cursor: 'pointer', transition: 'all 0.12s',
-                }}
-              >{w.label}</button>
+                size="sm"
+                ghost={windowDays !== w.days}
+                style={{ height: 24, paddingLeft: 10, paddingRight: 10, fontSize: 11 }}
+              >{w.label}</ActionBtn>
             ))}
           </div>
 
           {/* Group by */}
-          <div style={{ display: 'flex', gap: 2, background: '#0e1120', borderRadius: 5, padding: 2, border: '1px solid #252d42' }}>
+          <div style={{ display: 'flex', gap: 4 }}>
             {(['folder', 'type'] as const).map(g => (
-              <button
+              <ActionBtn
                 key={g}
                 onClick={() => setGroupBy(g)}
-                style={{
-                  padding: '3px 10px', borderRadius: 4, border: 'none',
-                  background: groupBy === g ? '#252d42' : 'transparent',
-                  color: groupBy === g ? '#dde1f0' : '#4e5870',
-                  fontFamily: "'IBM Plex Sans', system-ui", fontSize: 11, cursor: 'pointer',
-                }}
-              >{g.charAt(0).toUpperCase() + g.slice(1)}</button>
+                size="sm"
+                ghost={groupBy !== g}
+                style={{ height: 24, paddingLeft: 10, paddingRight: 10, fontSize: 11 }}
+              >{g.charAt(0).toUpperCase() + g.slice(1)}</ActionBtn>
             ))}
           </div>
 
-          <button onClick={exportSVG} style={{ padding: '4px 10px', borderRadius: 5, border: '1px solid #2f3a54', background: 'transparent', color: '#4e5870', fontFamily: "'IBM Plex Sans', system-ui", fontSize: 11, cursor: 'pointer' }}>
+          <ActionBtn onClick={exportSVG} size="sm" style={{ height: 24, paddingLeft: 10, paddingRight: 10, fontSize: 11 }}>
             Export SVG
-          </button>
-          <button onClick={load} style={{ padding: '4px 10px', borderRadius: 5, border: '1px solid #2f3a54', background: 'transparent', color: '#4e5870', fontFamily: "'IBM Plex Sans', system-ui", fontSize: 11, cursor: 'pointer' }}>
+          </ActionBtn>
+          <ActionBtn onClick={load} size="sm" style={{ height: 24, paddingLeft: 10, paddingRight: 10, fontSize: 11 }}>
             Refresh
-          </button>
+          </ActionBtn>
         </div>
 
         {/* Drill breadcrumb */}
         {drillPath && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10, flexShrink: 0 }}>
-            <button onClick={() => setDrillPath(null)} style={{ background: 'none', border: 'none', color: '#4d9dff', cursor: 'pointer', fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12, padding: 0 }}>
+            <button onClick={() => setDrillPath(null)} style={{ background: 'none', border: 'none', color: '#4d9dff', cursor: 'pointer', fontFamily: 'var(--lg-font-ui)', fontSize: 12, padding: 0 }}>
               ← All
             </button>
-            <span style={{ color: '#4e5870', fontFamily: "'JetBrains Mono', monospace", fontSize: 11 }}>/ {drillPath}</span>
+            <span style={{ color: '#4e5870', fontFamily: 'var(--lg-font-mono)', fontSize: 11 }}>/ {drillPath}</span>
           </div>
         )}
 
@@ -195,13 +189,13 @@ export function LockHeatmap({ repoPath }: Props) {
         <div ref={chartRef} style={{ flex: 1, overflow: 'hidden', borderRadius: 8, border: '1px solid #1e2436' }}>
           {loading && (
             <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: '#4e5870' }}>Loading heatmap…</span>
+              <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 12, color: '#4e5870' }}>Loading heatmap…</span>
             </div>
           )}
           {!loading && !hasData && (
             <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-              <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 14, color: '#4e5870' }}>No lock or conflict data for this time window.</span>
-              <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12, color: '#2f3a54' }}>Lock and unlock files to see heatmap data.</span>
+              <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 14, color: '#4e5870' }}>No lock or conflict data for this time window.</span>
+              <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 12, color: '#2f3a54' }}>Lock and unlock files to see heatmap data.</span>
             </div>
           )}
           {!loading && hasData && (
@@ -227,7 +221,7 @@ export function LockHeatmap({ repoPath }: Props) {
                     return (
                       <div style={{
                         background: '#1d2235', border: '1px solid #2f3a54', borderRadius: 6,
-                        padding: '8px 12px', fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12,
+                        padding: '8px 12px', fontFamily: 'var(--lg-font-ui)', fontSize: 12,
                       }}>
                         <div style={{ color: '#dde1f0', fontWeight: 600, marginBottom: 4 }}>{n.name}</div>
                         <div style={{ color: '#8b94b0' }}>Score: <span style={{ color: scoreToColor(n.score) === '#1a2a3a' ? '#4e5870' : '#f5a832' }}>{n.score}</span></div>
@@ -252,13 +246,13 @@ export function LockHeatmap({ repoPath }: Props) {
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <div style={{ padding: '10px 12px', borderBottom: '1px solid #1e2436', display: 'flex', alignItems: 'center', gap: 8 }}>
               <button onClick={() => { setTimeline(null); setTimelineFile(null) }} style={{ background: 'none', border: 'none', color: '#4e5870', cursor: 'pointer', fontSize: 14, padding: 0 }}>←</button>
-              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#8b94b0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+              <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 10, color: '#8b94b0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
                 {timelineFile.split('/').pop()}
               </span>
             </div>
             <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
-              {!timeline && <div style={{ padding: 16, color: '#4e5870', fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12 }}>Loading…</div>}
-              {timeline?.length === 0 && <div style={{ padding: 16, color: '#4e5870', fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12 }}>No events in this window.</div>}
+              {!timeline && <div style={{ padding: 16, color: '#4e5870', fontFamily: 'var(--lg-font-ui)', fontSize: 12 }}>Loading…</div>}
+              {timeline?.length === 0 && <div style={{ padding: 16, color: '#4e5870', fontFamily: 'var(--lg-font-ui)', fontSize: 12 }}>No events in this window.</div>}
               {timeline?.map((e, i) => (
                 <div key={i} style={{ padding: '6px 12px', borderBottom: '1px solid #1a1e2e' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -267,11 +261,11 @@ export function LockHeatmap({ repoPath }: Props) {
                       background: e.source === 'conflict' ? 'rgba(232,69,69,0.15)' : e.eventType === 'locked' ? 'rgba(46,197,115,0.15)' : 'rgba(139,148,176,0.1)',
                       color: e.source === 'conflict' ? '#e84545' : e.eventType === 'locked' ? '#2ec573' : '#4e5870',
                     }}>{e.eventType}</span>
-                    <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 11, color: '#8b94b0', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.actor}</span>
+                    <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 11, color: '#8b94b0', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.actor}</span>
                   </div>
                   <div style={{ display: 'flex', gap: 8, marginTop: 2 }}>
-                    <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10, color: '#4e5870' }}>{timeAgo(e.timestamp)}</span>
-                    {e.durationMs > 0 && <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#4e5870' }}>{fmtDuration(e.durationMs)}</span>}
+                    <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 10, color: '#4e5870' }}>{timeAgo(e.timestamp)}</span>
+                    {e.durationMs > 0 && <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 10, color: '#4e5870' }}>{fmtDuration(e.durationMs)}</span>}
                   </div>
                 </div>
               ))}
@@ -280,12 +274,12 @@ export function LockHeatmap({ repoPath }: Props) {
         ) : (
           /* Top 10 contended */
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            <div style={{ padding: '10px 12px', borderBottom: '1px solid #1e2436', fontFamily: "'IBM Plex Sans', system-ui", fontSize: 11, color: '#8b94b0', fontWeight: 600, letterSpacing: '0.05em', flexShrink: 0 }}>
+            <div style={{ padding: '10px 12px', borderBottom: '1px solid #1e2436', fontFamily: 'var(--lg-font-ui)', fontSize: 11, color: '#8b94b0', fontWeight: 600, letterSpacing: '0.05em', flexShrink: 0 }}>
               TOP CONTENDED
             </div>
             <div style={{ flex: 1, overflowY: 'auto' }}>
               {top10.length === 0 && (
-                <div style={{ padding: 16, color: '#4e5870', fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12 }}>No data yet.</div>
+                <div style={{ padding: 16, color: '#4e5870', fontFamily: 'var(--lg-font-ui)', fontSize: 12 }}>No data yet.</div>
               )}
               {top10.map((node, i) => (
                 <div
@@ -296,18 +290,18 @@ export function LockHeatmap({ repoPath }: Props) {
                   onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#4e5870', width: 16, textAlign: 'right', flexShrink: 0 }}>{i + 1}.</span>
+                    <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 10, color: '#4e5870', width: 16, textAlign: 'right', flexShrink: 0 }}>{i + 1}.</span>
                     <div style={{ width: 32, height: 4, borderRadius: 2, background: '#1e2436', flexShrink: 0, overflow: 'hidden' }}>
                       <div style={{ height: '100%', width: `${node.score}%`, background: node.score > 75 ? '#e84545' : node.score > 50 ? '#f5a832' : '#4d9dff', borderRadius: 2 }} />
                     </div>
-                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#dde1f0', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 10, color: '#dde1f0', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {node.name}
                     </span>
                   </div>
                   <div style={{ display: 'flex', gap: 10, paddingLeft: 24, marginTop: 2 }}>
-                    <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10, color: '#4e5870' }}>🔒 {node.lockCount}</span>
-                    {node.conflictCount > 0 && <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10, color: '#e84545' }}>⚡ {node.conflictCount}</span>}
-                    <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10, color: '#4e5870' }}>👤 {node.uniqueContributors}</span>
+                    <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 10, color: '#4e5870' }}>🔒 {node.lockCount}</span>
+                    {node.conflictCount > 0 && <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 10, color: '#e84545' }}>⚡ {node.conflictCount}</span>}
+                    <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 10, color: '#4e5870' }}>👤 {node.uniqueContributors}</span>
                   </div>
                 </div>
               ))}

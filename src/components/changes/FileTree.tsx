@@ -6,6 +6,7 @@ import { AppCheckbox } from '@/components/ui/AppCheckbox'
 import { useDialogStore } from '@/stores/dialogStore'
 import { useLockStore } from '@/stores/lockStore'
 import { useAuthStore } from '@/stores/authStore'
+import { ActionBtn as SharedActionBtn } from '@/components/ui/ActionBtn'
 
 // ── Content Browser tree types ────────────────────────────────────────────────
 
@@ -93,11 +94,11 @@ function FolderRow({ name, depth, count, collapsed, onToggle }: {
       </svg>
       <FolderIcon open={!collapsed} />
       <span style={{
-        fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12, color: '#c4cad8',
+        fontFamily: 'var(--lg-font-ui)', fontSize: 12, color: '#c4cad8',
         flex: 1, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
       }}>{name}</span>
       <span style={{
-        fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#4e5870',
+        fontFamily: 'var(--lg-font-mono)', fontSize: 10, color: '#4e5870',
         background: '#1a2030', borderRadius: 8, padding: '1px 5px', flexShrink: 0,
       }}>{count}</span>
     </div>
@@ -140,10 +141,10 @@ function SectionHeader({
       background: '#131a2b', borderTop: '1px solid #252d42', borderBottom: '1px solid #252d42',
     }}>
       <SectionCheckbox allChecked={allChecked} onToggle={onToggleAll} color={color} />
-      <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 11, color: '#8b94b0', textTransform: 'uppercase', letterSpacing: 0.5, flex: 1 }}>
+      <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 11, color: '#8b94b0', textTransform: 'uppercase', letterSpacing: 0.5, flex: 1 }}>
         {label}
       </span>
-      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#4e5870' }}>{count}</span>
+      <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 10, color: '#4e5870' }}>{count}</span>
     </div>
   )
 }
@@ -324,15 +325,15 @@ export function FileTree({
     if (isLoading) {
       return (
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-          <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 13, color: '#4e5870' }}>Loading changes…</span>
+          <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 13, color: '#4e5870' }}>Loading changes…</span>
         </div>
       )
     }
     return (
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
         <span style={{ fontSize: 20, color: '#2ec573' }}>✓</span>
-        <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 13, color: '#2ec573' }}>Working directory clean</span>
-        <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12, color: '#4e5870' }}>No changes detected</span>
+        <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 13, color: '#2ec573' }}>Working directory clean</span>
+        <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 12, color: '#4e5870' }}>No changes detected</span>
       </div>
     )
   }
@@ -525,12 +526,12 @@ export function FileTree({
           height: 30, paddingLeft: 10, paddingRight: 10, flexShrink: 0,
           borderTop: '1px solid #252d42', background: '#0f1220',
         }}>
-          <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 11, color: '#8b94b0', flex: 1 }}>
+          <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 11, color: '#8b94b0', flex: 1 }}>
             {multiPaths.size} files selected
           </span>
           <button
             onClick={() => setMultiPaths(new Set())}
-            style={{ background: 'none', border: 'none', color: '#4e5870', fontSize: 11, cursor: 'pointer', fontFamily: "'IBM Plex Sans', system-ui", padding: '0 2px' }}
+            style={{ background: 'none', border: 'none', color: '#4e5870', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--lg-font-ui)', padding: '0 2px' }}
             onMouseEnter={e => (e.currentTarget.style.color = '#dde1f0')}
             onMouseLeave={e => (e.currentTarget.style.color = '#4e5870')}
           >Clear</button>
@@ -545,7 +546,7 @@ export function FileTree({
           borderRadius: 6, boxShadow: '0 8px 32px rgba(0,0,0,0.55)',
           padding: '4px 0', minWidth: 230,
         }}>
-          <div style={{ padding: '3px 12px 5px', fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10, fontWeight: 700, color: '#3a4260', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+          <div style={{ padding: '3px 12px 5px', fontFamily: 'var(--lg-font-ui)', fontSize: 10, fontWeight: 700, color: '#3a4260', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
             {multiPaths.size} files selected
           </div>
           {multiUnstaged.length > 0 && (
@@ -586,7 +587,7 @@ function BulkCtxItem({ label, onClick, danger }: { label: string; onClick: () =>
       onClick={onClick}
       style={{
         width: '100%', textAlign: 'left', padding: '5px 12px',
-        fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12,
+        fontFamily: 'var(--lg-font-ui)', fontSize: 12,
         background: 'transparent', border: 'none',
         color: danger ? '#e84545' : '#dde1f0',
         cursor: 'pointer',
@@ -626,27 +627,15 @@ function ViewToggleBtn({ active, title, onClick, children }: {
 function ActionBtn({ label, onClick, disabled, danger }: {
   label: string; onClick: () => void; disabled?: boolean; danger?: boolean
 }) {
-  const [hover, setHover] = useState(false)
   return (
-    <button
+    <SharedActionBtn
       onClick={onClick}
       disabled={disabled}
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-      style={{
-        height: 24, paddingLeft: 8, paddingRight: 8, borderRadius: 4,
-        border: `1px solid ${danger
-          ? (hover ? '#e84545' : 'rgba(232,69,69,0.4)')
-          : (hover ? '#2f3a54' : '#252d42')}`,
-        background: danger && hover ? 'rgba(232,69,69,0.1)' : hover ? '#242a3d' : 'transparent',
-        color: danger
-          ? (hover ? '#e84545' : 'rgba(232,69,69,0.7)')
-          : hover ? '#dde1f0' : '#8b94b0',
-        fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12,
-        cursor: disabled ? 'not-allowed' : 'pointer',
-        opacity: disabled ? 0.4 : 1,
-        transition: 'all 0.12s ease',
-      }}
-    >{label}</button>
+      color={danger ? '#e84545' : undefined}
+      size="sm"
+      style={{ height: 24, paddingLeft: 8, paddingRight: 8, fontSize: 12 }}
+    >
+      {label}
+    </SharedActionBtn>
   )
 }

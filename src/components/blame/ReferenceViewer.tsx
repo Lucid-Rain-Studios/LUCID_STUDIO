@@ -175,14 +175,14 @@ export function ReferenceViewer({ nodes, links, width, height, onNodeClick }: Pr
             <text
               y={r + 13}
               textAnchor="middle"
-              style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fill: '#8b94b0', pointerEvents: 'none', userSelect: 'none' }}
+              style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 9, fill: '#8b94b0', pointerEvents: 'none', userSelect: 'none' }}
             >
               {label}
             </text>
             <text
               y={r + 23}
               textAnchor="middle"
-              style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 8, fill: '#4e5870', pointerEvents: 'none', userSelect: 'none' }}
+              style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 8, fill: '#4e5870', pointerEvents: 'none', userSelect: 'none' }}
             >
               {node.assetClass !== 'Unknown' ? node.assetClass : ''}
             </text>

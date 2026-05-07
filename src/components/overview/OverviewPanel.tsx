@@ -9,6 +9,7 @@ import { useOperationStore } from '@/stores/operationStore'
 import { useStatusToastStore } from '@/stores/statusToastStore'
 import { markFetchPerformed } from '@/lib/fetchState'
 import { FilePathText } from '@/components/ui/FilePathText'
+import { ActionBtn } from '@/components/ui/ActionBtn'
 
 interface OverviewPanelProps {
   repoPath: string
@@ -86,20 +87,13 @@ function Card({
       }}>
         <span style={{ color: accentColor ?? '#344057', display: 'flex', flexShrink: 0 }}>{icon}</span>
         <span style={{
-          fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10.5, fontWeight: 700,
+          fontFamily: 'var(--lg-font-ui)', fontSize: 10.5, fontWeight: 700,
           color: '#4a566a', flex: 1, letterSpacing: '0.08em', textTransform: 'uppercase',
         }}>{title}</span>
         {actionLabel && onAction && (
-          <button
-            onClick={onAction}
-            style={{
-              fontFamily: "'IBM Plex Sans', system-ui", fontSize: 11, color: '#4a9eff',
-              background: 'none', border: 'none', cursor: 'pointer',
-              padding: '2px 8px', borderRadius: 4,
-            }}
-            onMouseEnter={e => { e.currentTarget.style.color = '#e8622f'; e.currentTarget.style.background = 'rgba(232,98,47,0.08)' }}
-            onMouseLeave={e => { e.currentTarget.style.color = '#4a9eff'; e.currentTarget.style.background = 'none' }}
-          >{actionLabel} →</button>
+          <ActionBtn onClick={onAction} size="sm" ghost style={{ height: 22, paddingLeft: 8, paddingRight: 8, fontSize: 11 }}>
+            {actionLabel} →
+          </ActionBtn>
         )}
       </div>
       {children}
@@ -114,24 +108,14 @@ function Btn({
 }: {
   label: string; onClick: () => void; loading?: boolean; color?: string; disabled?: boolean
 }) {
-  const [hover, setHover] = useState(false)
-  const c = color ?? '#7b8499'
-  const off = loading || disabled
   return (
-    <button
-      onClick={off ? undefined : onClick}
-      onMouseEnter={() => !off && setHover(true)}
-      onMouseLeave={() => setHover(false)}
-      style={{
-        height: 25, paddingLeft: 13, paddingRight: 13, borderRadius: 5,
-        background: hover ? `${c}14` : 'rgba(255,255,255,0.02)',
-        border: `1px solid ${hover ? c + '55' : '#1a2030'}`,
-        color: off ? '#344057' : hover ? c : '#5a6880',
-        fontFamily: "'IBM Plex Sans', system-ui", fontSize: 11.5, fontWeight: 500,
-        cursor: off ? 'default' : 'pointer', opacity: off ? 0.5 : 1,
-        boxShadow: hover && !off ? `0 0 12px ${c}18` : 'none',
-      }}
-    >{loading ? '…' : label}</button>
+    <ActionBtn
+      onClick={onClick}
+      disabled={loading || disabled}
+      color={color}
+      size="sm"
+      style={{ height: 25, paddingLeft: 13, paddingRight: 13, fontSize: 11.5 }}
+    >{loading ? '…' : label}</ActionBtn>
   )
 }
 
@@ -158,7 +142,7 @@ function StatusChip({
       }}
     >
       <div style={{ width: 6, height: 6, borderRadius: '50%', background: dot, boxShadow: `0 0 5px ${dot}99`, flexShrink: 0 }} />
-      <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 11.5, color: '#5a6880', whiteSpace: 'nowrap' }}>
+      <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 11.5, color: '#5a6880', whiteSpace: 'nowrap' }}>
         {label}
       </span>
     </div>
@@ -170,9 +154,9 @@ function StatusChip({
 function Metric({ label, value, color, sub }: { label: string; value: string | number; color: string; sub?: string }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 9, fontWeight: 700, color: '#344057', letterSpacing: '0.1em', textTransform: 'uppercase' }}>{label}</span>
-      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 21, fontWeight: 700, color, lineHeight: 1, textShadow: `0 0 20px ${color}40` }}>{value}</span>
-      {sub && <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10, color: '#344057', marginTop: 1 }}>{sub}</span>}
+      <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 9, fontWeight: 700, color: '#344057', letterSpacing: '0.1em', textTransform: 'uppercase' }}>{label}</span>
+      <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 21, fontWeight: 700, color, lineHeight: 1, textShadow: `0 0 20px ${color}40` }}>{value}</span>
+      {sub && <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 10, color: '#344057', marginTop: 1 }}>{sub}</span>}
     </div>
   )
 }
@@ -193,7 +177,7 @@ function SizeCard({
   if (!size) return (
     <Card title="Repository Size" icon={<SizeCardIcon />} accentColor="#a27ef0">
       <div style={{ padding: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-        <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12, color: '#344057' }}>
+        <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 12, color: '#344057' }}>
           {sizeLoading ? 'Measuring…' : 'Size data not measured'}
         </span>
         <Btn label="Refresh" onClick={onRefresh} loading={sizeLoading} disabled={sizeLoading} color="#a27ef0" />
@@ -232,8 +216,8 @@ function SizeCard({
           {bars.map(b => (
             <div key={b.label}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 11, color: '#5a6880' }}>{b.label}</span>
-                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: '#344057' }}>{fmtBytes(b.bytes)}</span>
+                <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 11, color: '#5a6880' }}>{b.label}</span>
+                <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 11, color: '#344057' }}>{fmtBytes(b.bytes)}</span>
               </div>
               <div style={{ height: 4, background: 'rgba(255,255,255,0.05)', borderRadius: 2 }}>
                 <div style={{
@@ -250,7 +234,7 @@ function SizeCard({
           <div style={{
             background: 'rgba(245,168,50,0.08)', border: '1px solid rgba(245,168,50,0.25)',
             borderRadius: 6, padding: '8px 10px',
-            fontFamily: "'IBM Plex Sans', system-ui", fontSize: 11, color: '#f5a832',
+            fontFamily: 'var(--lg-font-ui)', fontSize: 11, color: '#f5a832',
           }}>
             Repository is getting large. Run cleanup to reclaim space.
           </div>
@@ -275,7 +259,7 @@ function ActivityCard({ activity, onNavigate }: { activity: BranchActivity[]; on
       style={{ height: COMMITS_HEIGHT + 34 }}
     >
       {activity.length === 0 ? (
-        <div style={{ padding: '16px 14px', fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12, color: '#344057' }}>
+        <div style={{ padding: '16px 14px', fontFamily: 'var(--lg-font-ui)', fontSize: 12, color: '#344057' }}>
           No recent branch activity
         </div>
       ) : (
@@ -300,14 +284,14 @@ function ActivityCard({ activity, onNavigate }: { activity: BranchActivity[]; on
                   background: `linear-gradient(135deg, ${col}88, ${col}44)`,
                   border: `1px solid ${col}55`,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontFamily: "'JetBrains Mono', monospace", fontSize: 7, fontWeight: 700, color: col,
+                  fontFamily: 'var(--lg-font-mono)', fontSize: 7, fontWeight: 700, color: col,
                 }}>{ini}</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#4a9eff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 130 }}>{branch}</span>
-                    <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10, color: '#344057', flexShrink: 0 }}>{timeAgoStr(item.date)}</span>
+                    <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 10, color: '#4a9eff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 130 }}>{branch}</span>
+                    <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 10, color: '#344057', flexShrink: 0 }}>{timeAgoStr(item.date)}</span>
                   </div>
-                  <div style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 11, color: '#5a6880', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <div style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 11, color: '#5a6880', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {item.message}
                   </div>
                 </div>
@@ -333,7 +317,7 @@ function CommitsCard({ commits, onNavigate }: { commits: CommitEntry[]; onNaviga
       style={{ height: COMMITS_HEIGHT + 34 }}
     >
       {commits.length === 0 ? (
-        <div style={{ padding: '16px 14px', fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12, color: '#344057' }}>No commits yet</div>
+        <div style={{ padding: '16px 14px', fontFamily: 'var(--lg-font-ui)', fontSize: 12, color: '#344057' }}>No commits yet</div>
       ) : (
         <div style={{ overflowY: 'auto', height: COMMITS_HEIGHT }}>
           {commits.map(c => {
@@ -356,12 +340,12 @@ function CommitsCard({ commits, onNavigate }: { commits: CommitEntry[]; onNaviga
                   background: `linear-gradient(135deg, ${col}88, ${col}44)`,
                   border: `1px solid ${col}55`,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontFamily: "'JetBrains Mono', monospace", fontSize: 8, fontWeight: 700, color: col,
+                  fontFamily: 'var(--lg-font-mono)', fontSize: 8, fontWeight: 700, color: col,
                 }}>{ini}</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
                     <span style={{
-                      fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12, fontWeight: 500, color: '#e2e6f4',
+                      fontFamily: 'var(--lg-font-ui)', fontSize: 12, fontWeight: 500, color: '#e2e6f4',
                       overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1,
                     }}>{c.message}</span>
                     {isMerge && (
@@ -369,16 +353,16 @@ function CommitsCard({ commits, onNavigate }: { commits: CommitEntry[]; onNaviga
                         background: 'rgba(162,126,240,0.15)', color: '#a27ef0',
                         border: '1px solid rgba(162,126,240,0.3)',
                         borderRadius: 4, padding: '1px 5px',
-                        fontFamily: "'JetBrains Mono', monospace", fontSize: 9, flexShrink: 0,
+                        fontFamily: 'var(--lg-font-mono)', fontSize: 9, flexShrink: 0,
                       }}>MERGE</span>
                     )}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10, color: '#5a6880' }}>{c.author}</span>
-                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#344057' }}>{timeAgoMs(c.timestamp)}</span>
+                    <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 10, color: '#5a6880' }}>{c.author}</span>
+                    <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 10, color: '#344057' }}>{timeAgoMs(c.timestamp)}</span>
                   </div>
                 </div>
-                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#344057', flexShrink: 0 }}>
+                <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 10, color: '#344057', flexShrink: 0 }}>
                   {c.hash.slice(0, 7)}
                 </span>
               </div>
@@ -508,13 +492,13 @@ function ResolveDialog({
           padding: '16px 18px 14px', borderBottom: '1px solid #18202e', flexShrink: 0,
         }}>
           <span style={{
-            fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700,
+            fontFamily: 'var(--lg-font-mono)', fontSize: 11, fontWeight: 700,
             color: '#a27ef0', background: 'rgba(162,126,240,0.12)',
             border: '1px solid rgba(162,126,240,0.25)',
             borderRadius: 4, padding: '2px 7px', flexShrink: 0,
           }}>#{pr.number}</span>
           <span style={{
-            fontFamily: "'IBM Plex Sans', system-ui", fontSize: 13, fontWeight: 600,
+            fontFamily: 'var(--lg-font-ui)', fontSize: 13, fontWeight: 600,
             color: '#c8d0e8', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           }}>{pr.title}</span>
           <button
@@ -527,16 +511,16 @@ function ResolveDialog({
 
         {/* Branch info */}
         <div style={{ padding: '10px 18px', borderBottom: '1px solid #18202e', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10.5, color: '#4a9eff' }}>{pr.headBranch}</span>
+          <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 10.5, color: '#4a9eff' }}>{pr.headBranch}</span>
           <span style={{ color: '#344057', fontSize: 11 }}>→</span>
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10.5, color: '#5a6880' }}>{pr.baseBranch}</span>
+          <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 10.5, color: '#5a6880' }}>{pr.baseBranch}</span>
           <span style={{ color: '#283047', marginLeft: 4 }}>·</span>
-          <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 11, color: '#344057' }}>by {pr.author}</span>
+          <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 11, color: '#344057' }}>by {pr.author}</span>
         </div>
 
         {/* Accept / Decline choice */}
         <div style={{ padding: '14px 18px', borderBottom: '1px solid #18202e', flexShrink: 0 }}>
-          <div style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10.5, fontWeight: 700, color: '#344057', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 10 }}>
+          <div style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 10.5, fontWeight: 700, color: '#344057', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 10 }}>
             Action
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
@@ -546,7 +530,7 @@ function ResolveDialog({
                 onClick={() => setChoice(opt)}
                 style={{
                   flex: 1, height: 34, borderRadius: 7, cursor: 'pointer',
-                  fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12.5, fontWeight: 600,
+                  fontFamily: 'var(--lg-font-ui)', fontSize: 12.5, fontWeight: 600,
                   border: choice === opt
                     ? `1px solid ${opt === 'accept' ? 'rgba(45,189,110,0.5)' : 'rgba(232,69,69,0.5)'}`
                     : '1px solid #1a2030',
@@ -568,29 +552,29 @@ function ResolveDialog({
         {choice === 'accept' && (
           <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
             <div style={{ padding: '12px 18px', borderBottom: '1px solid #18202e' }}>
-              <div style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10.5, fontWeight: 700, color: '#344057', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>
+              <div style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 10.5, fontWeight: 700, color: '#344057', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>
                 Commits and file changes
               </div>
               {branchDiffLoading ? (
-                <div style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12, color: '#344057' }}>Loading commit details…</div>
+                <div style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 12, color: '#344057' }}>Loading commit details…</div>
               ) : branchDiffError ? (
-                <div style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12, color: '#e84545' }}>{branchDiffError}</div>
+                <div style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 12, color: '#e84545' }}>{branchDiffError}</div>
               ) : branchDiff ? (
                 <>
-                  <div style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12, color: '#5a6880', marginBottom: 8 }}>
+                  <div style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 12, color: '#5a6880', marginBottom: 8 }}>
                     {branchDiff.aheadCommits.length} commit{branchDiff.aheadCommits.length !== 1 ? 's' : ''} · +{branchDiff.totalAdditions} / -{branchDiff.totalDeletions}
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 8 }}>
                     {branchDiff.aheadCommits.map(c => (
                       <div key={c.hash} style={{ border: '1px solid #1a2030', borderRadius: 6, padding: '7px 8px', background: 'rgba(255,255,255,0.02)' }}>
-                        <div style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12, color: '#c8d0e8' }}>{c.message}</div>
-                        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#4a566a', marginTop: 3 }}>{c.hash.slice(0,7)} · {c.author}</div>
+                        <div style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 12, color: '#c8d0e8' }}>{c.message}</div>
+                        <div style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 10, color: '#4a566a', marginTop: 3 }}>{c.hash.slice(0,7)} · {c.author}</div>
                       </div>
                     ))}
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                     {branchDiff.files.map(f => (
-                      <div key={f.path} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontFamily: "'JetBrains Mono', monospace", fontSize: 10.5, color: '#5a6880' }}>
+                      <div key={f.path} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontFamily: 'var(--lg-font-mono)', fontSize: 10.5, color: '#5a6880' }}>
                         <span style={{ color: '#c8d0e8', display: 'flex', gap: 4, minWidth: 0, flex: 1 }}>
                           <span>{f.status}</span>
                           <FilePathText path={f.path} style={{ flex: 1, minWidth: 0 }} />
@@ -603,28 +587,28 @@ function ResolveDialog({
               ) : null}
             </div>
             {conflictLoading ? (
-              <div style={{ padding: '16px 18px', fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12, color: '#344057' }}>
+              <div style={{ padding: '16px 18px', fontFamily: 'var(--lg-font-ui)', fontSize: 12, color: '#344057' }}>
                 Checking for conflicts…
               </div>
             ) : conflictError ? (
-              <div style={{ padding: '16px 18px', fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12, color: '#e84545' }}>
+              <div style={{ padding: '16px 18px', fontFamily: 'var(--lg-font-ui)', fontSize: 12, color: '#e84545' }}>
                 {conflictError}
               </div>
             ) : conflicts.length === 0 ? (
               <div style={{ padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ color: '#2dbd6e', fontSize: 14 }}>✓</span>
-                <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12, color: '#344057' }}>No merge conflicts detected</span>
+                <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 12, color: '#344057' }}>No merge conflicts detected</span>
               </div>
             ) : (
               <>
-                <div style={{ padding: '10px 18px 4px', fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10.5, fontWeight: 700, color: '#f5a832', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                <div style={{ padding: '10px 18px 4px', fontFamily: 'var(--lg-font-ui)', fontSize: 10.5, fontWeight: 700, color: '#f5a832', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
                   {conflicts.length} conflict{conflicts.length !== 1 ? 's' : ''} — cannot merge from here
                 </div>
                 <div style={{
                   margin: '6px 18px 12px',
                   background: 'rgba(245,168,50,0.07)', border: '1px solid rgba(245,168,50,0.25)',
                   borderRadius: 8, padding: '12px 14px',
-                  fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12, color: '#c8d0e8', lineHeight: 1.55,
+                  fontFamily: 'var(--lg-font-ui)', fontSize: 12, color: '#c8d0e8', lineHeight: 1.55,
                 }}>
                   To merge this PR, resolve the conflicts on the <strong style={{ color: '#4a9eff' }}>{pr.headBranch}</strong> branch first:
                   <ol style={{ margin: '8px 0 0 18px', padding: 0, color: '#5a6880', fontSize: 11.5 }}>
@@ -643,7 +627,7 @@ function ResolveDialog({
                     }}
                   >
                     <span style={{ color: '#f5a832', fontSize: 11 }}>⚠</span>
-                    <FilePathText path={f.path} style={{ flex: 1, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: '#c8d0e8' }} />
+                    <FilePathText path={f.path} style={{ flex: 1, fontFamily: 'var(--lg-font-mono)', fontSize: 11, color: '#c8d0e8' }} />
                   </div>
                 ))}
               </>
@@ -656,7 +640,7 @@ function ResolveDialog({
             <div style={{
               background: 'rgba(232,69,69,0.07)', border: '1px solid rgba(232,69,69,0.2)',
               borderRadius: 8, padding: '12px 14px',
-              fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12, color: '#e84545', lineHeight: 1.5,
+              fontFamily: 'var(--lg-font-ui)', fontSize: 12, color: '#e84545', lineHeight: 1.5,
             }}>
               This will close PR #{pr.number} without merging. The branch will remain intact.
             </div>
@@ -674,7 +658,7 @@ function ResolveDialog({
             style={{
               height: 32, paddingLeft: 16, paddingRight: 16, borderRadius: 6,
               background: 'transparent', border: '1px solid #1a2030',
-              color: '#5a6880', fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12.5,
+              color: '#5a6880', fontFamily: 'var(--lg-font-ui)', fontSize: 12.5,
               cursor: 'pointer',
             }}
             onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
@@ -693,7 +677,7 @@ function ResolveDialog({
                   background: choice === 'accept' ? 'rgba(45,189,110,0.15)' : 'rgba(232,69,69,0.15)',
                   border: `1px solid ${choice === 'accept' ? 'rgba(45,189,110,0.4)' : 'rgba(232,69,69,0.4)'}`,
                   color: choice === 'accept' ? '#2dbd6e' : '#e84545',
-                  fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12.5, fontWeight: 600,
+                  fontFamily: 'var(--lg-font-ui)', fontSize: 12.5, fontWeight: 600,
                   cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1,
                 }}
                 onMouseEnter={e => { if (!disabled) e.currentTarget.style.opacity = '0.8' }}
@@ -773,21 +757,21 @@ function AdminPRsCard({ prs, ghSlug, repoPath, loading, error, onRefresh }: {
               />
             </div>
           ) : !ghSlug ? (
-            <div style={{ padding: '14px 14px', fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12, color: '#344057' }}>
+            <div style={{ padding: '14px 14px', fontFamily: 'var(--lg-font-ui)', fontSize: 12, color: '#344057' }}>
               No GitHub remote configured
             </div>
           ) : error ? (
-            <div style={{ padding: '14px 14px', fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12, color: '#e84545' }}>
+            <div style={{ padding: '14px 14px', fontFamily: 'var(--lg-font-ui)', fontSize: 12, color: '#e84545' }}>
               {error}
             </div>
           ) : loading && visiblePRs.length === 0 ? (
-            <div style={{ padding: '14px 14px', fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12, color: '#344057' }}>
+            <div style={{ padding: '14px 14px', fontFamily: 'var(--lg-font-ui)', fontSize: 12, color: '#344057' }}>
               Loading pull requests…
             </div>
           ) : visiblePRs.length === 0 ? (
             <div style={{ padding: '14px 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ color: '#2dbd6e', fontSize: 14 }}>✓</span>
-              <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12, color: '#344057' }}>
+              <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 12, color: '#344057' }}>
                 {Object.keys(pendingPRs).length > 0 ? 'Updating pull requests…' : 'No open pull requests'}
               </span>
             </div>
@@ -804,27 +788,27 @@ function AdminPRsCard({ prs, ghSlug, repoPath, loading, error, onRefresh }: {
                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
               >
                 <span style={{
-                  fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 700,
+                  fontFamily: 'var(--lg-font-mono)', fontSize: 10, fontWeight: 700,
                   color: '#a27ef0', background: 'rgba(162,126,240,0.12)',
                   border: '1px solid rgba(162,126,240,0.25)',
                   borderRadius: 4, padding: '2px 6px', flexShrink: 0,
                 }}>#{pr.number}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{
-                    fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12, fontWeight: 500,
+                    fontFamily: 'var(--lg-font-ui)', fontSize: 12, fontWeight: 500,
                     color: '#c8d0e8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                   }}>{pr.title}</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
-                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9.5, color: '#4a9eff' }}>{pr.headBranch}</span>
+                    <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 9.5, color: '#4a9eff' }}>{pr.headBranch}</span>
                     <span style={{ fontSize: 9.5, color: '#283047' }}>→</span>
-                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9.5, color: '#344057' }}>{pr.baseBranch}</span>
+                    <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 9.5, color: '#344057' }}>{pr.baseBranch}</span>
                     <span style={{ color: '#283047', fontSize: 9.5 }}>·</span>
-                    <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10, color: '#344057' }}>{pr.author}</span>
+                    <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 10, color: '#344057' }}>{pr.author}</span>
                     <span style={{ color: '#283047', fontSize: 9.5 }}>·</span>
-                    <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10, color: '#344057' }}>{timeAgoStr(pr.updatedAt)}</span>
+                    <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 10, color: '#344057' }}>{timeAgoStr(pr.updatedAt)}</span>
                     {pr.draft && (
                       <span style={{
-                        fontFamily: "'IBM Plex Sans', system-ui", fontSize: 9, fontWeight: 600,
+                        fontFamily: 'var(--lg-font-ui)', fontSize: 9, fontWeight: 600,
                         background: 'rgba(90,104,128,0.15)', color: '#5a6880',
                         border: '1px solid rgba(90,104,128,0.25)', borderRadius: 3,
                         padding: '0 4px', letterSpacing: '0.05em',
@@ -1040,21 +1024,21 @@ export function OverviewPanel({ repoPath, onNavigate, onRefresh }: OverviewPanel
         {/* ── Header ───────────────────────────────────────────────────────── */}
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 17, fontWeight: 700, color: '#e2e6f4', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', letterSpacing: '-0.02em' }}>
+            <div style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 17, fontWeight: 700, color: '#e2e6f4', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', letterSpacing: '-0.02em' }}>
               {repoName}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 3 }}>
               <svg width="10" height="10" viewBox="0 0 12 12" fill="none"><circle cx="3" cy="3" r="2" stroke="#4a9eff" strokeWidth="1.2"/><circle cx="3" cy="9" r="2" stroke="#4a9eff" strokeWidth="1.2"/><path d="M3 5v2M9 6c0-1.7-1.3-3-3-3" stroke="#4a9eff" strokeWidth="1.1" strokeLinecap="round"/></svg>
-              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: '#4a9eff' }}>{branch || '—'}</span>
-              <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 11, color: '#1e2a3a' }}>·</span>
-              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10.5, color: '#283047', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 11, color: '#4a9eff' }}>{branch || '—'}</span>
+              <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 11, color: '#1e2a3a' }}>·</span>
+              <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 10.5, color: '#283047', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {repoPath}
               </span>
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
             {lastUpdate && (
-              <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 11, color: '#283047' }}>
+              <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 11, color: '#283047' }}>
                 {timeAgoMs(lastUpdate)}
               </span>
             )}
@@ -1065,7 +1049,7 @@ export function OverviewPanel({ repoPath, onNavigate, onRefresh }: OverviewPanel
                 height: 28, paddingLeft: 12, paddingRight: 12, borderRadius: 6,
                 background: 'rgba(255,255,255,0.02)', border: '1px solid #1a2030',
                 color: refreshing ? '#344057' : '#5a6880',
-                fontFamily: "'IBM Plex Sans', system-ui", fontSize: 11.5,
+                fontFamily: 'var(--lg-font-ui)', fontSize: 11.5,
                 cursor: refreshing ? 'default' : 'pointer',
                 display: 'flex', alignItems: 'center', gap: 5,
               }}
@@ -1102,7 +1086,7 @@ export function OverviewPanel({ repoPath, onNavigate, onRefresh }: OverviewPanel
                   <path d="M8 6.5v3.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
                   <circle cx="8" cy="11.5" r="0.8" fill="currentColor" />
                 </svg>
-                <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 11.5, color: w.color }}>{w.msg}</span>
+                <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 11.5, color: w.color }}>{w.msg}</span>
               </div>
             ))}
           </div>

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { ipc, TeamConfig } from '@/ipc'
 import { cn } from '@/lib/utils'
+import { ActionBtn } from '@/components/ui/ActionBtn'
 
 interface TeamConfigPanelProps {
   repoPath: string
@@ -101,16 +102,14 @@ export function TeamConfigPanel({ repoPath }: TeamConfigPanelProps) {
         </div>
 
         <div className="px-3 py-3 flex items-center gap-3">
-          <button
+          <ActionBtn
             onClick={handleSave}
             disabled={saving}
-            className={cn(
-              'px-4 h-7 rounded text-[10px] font-mono border transition-colors disabled:opacity-40',
-              'border-lg-accent text-lg-accent hover:bg-lg-accent/10'
-            )}
+            size="sm"
+            style={{ height: 28, paddingLeft: 16, paddingRight: 16, fontSize: 10, fontFamily: 'var(--lg-font-mono)', fontWeight: 600 }}
           >
             {saving ? 'Saving…' : 'Save & commit-ready'}
-          </button>
+          </ActionBtn>
           {saved && <span className="text-[10px] font-mono text-lg-success">✓ Saved — remember to commit .lucid-git/team-config.json</span>}
         </div>
 

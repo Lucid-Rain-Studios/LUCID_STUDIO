@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { ipc, WebhookConfig } from '@/ipc'
 import { cn } from '@/lib/utils'
+import { ActionBtn } from '@/components/ui/ActionBtn'
 
 interface WebhookPanelProps {
   repoPath: string
@@ -142,13 +143,14 @@ export function WebhookPanel({ repoPath }: WebhookPanelProps) {
               onChange={e => { setConfig(c => ({ ...c, url: e.target.value })); setSaved(false) }}
               className="flex-1 bg-lg-bg-primary border border-lg-border rounded px-2 py-1 text-[11px] font-mono text-lg-text-primary placeholder-lg-text-secondary/40 focus:outline-none focus:border-lg-accent transition-colors"
             />
-            <button
+            <ActionBtn
               onClick={handleTest}
               disabled={testing || !config.url.trim()}
-              className="px-2.5 h-7 rounded text-[10px] font-mono border border-lg-border text-lg-text-secondary hover:border-lg-accent hover:text-lg-accent disabled:opacity-40 transition-colors shrink-0"
+              size="sm"
+              style={{ height: 28, paddingLeft: 10, paddingRight: 10, fontSize: 10, fontFamily: 'var(--lg-font-mono)', flexShrink: 0 }}
             >
               {testing ? '…' : 'Test'}
-            </button>
+            </ActionBtn>
           </div>
 
           {testOk === true  && <p className="text-[10px] font-mono text-lg-success">✓ Test message sent successfully</p>}
@@ -236,16 +238,14 @@ export function WebhookPanel({ repoPath }: WebhookPanelProps) {
 
         {/* ── Save ───────────────────────────────────────────────────────────── */}
         <div className="px-3 py-3 flex items-center gap-3">
-          <button
+          <ActionBtn
             onClick={handleSave}
             disabled={saving}
-            className={cn(
-              'px-4 h-7 rounded text-[10px] font-mono border transition-colors disabled:opacity-40',
-              'border-lg-accent text-lg-accent hover:bg-lg-accent/10'
-            )}
+            size="sm"
+            style={{ height: 28, paddingLeft: 16, paddingRight: 16, fontSize: 10, fontFamily: 'var(--lg-font-mono)', fontWeight: 600 }}
           >
             {saving ? 'Saving…' : 'Save settings'}
-          </button>
+          </ActionBtn>
           {saved && (
             <span className="text-[10px] font-mono text-lg-success">✓ Saved</span>
           )}

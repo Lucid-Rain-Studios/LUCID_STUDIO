@@ -77,7 +77,7 @@ export function DisabledButtonTooltip() {
         borderRadius: 5,
         padding: '4px 9px',
         color: '#c4cad8',
-        fontFamily: "'IBM Plex Sans', system-ui",
+        fontFamily: 'var(--lg-font-ui)',
         fontSize: 11,
         lineHeight: 1.4,
         pointerEvents: 'none',

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { ipc, AppSettings, UpdateInfo } from '@/ipc'
 import { cn } from '@/lib/utils'
+import { ActionBtn } from '@/components/ui/ActionBtn'
 
 const CONFIRM_BRANCH_KEY = 'lucid-git:confirm-branch-switch'
 
@@ -253,44 +254,39 @@ export function GeneralSettings() {
             label="Check for updates"
             hint="Check GitHub Releases for a newer installed build."
           >
-            <button
+            <ActionBtn
               onClick={handleCheckUpdates}
               disabled={checkingUpdates}
-              className={cn(
-                'px-3 h-7 rounded text-[10px] font-mono border transition-colors disabled:opacity-40',
-                'border-lg-border text-lg-text-primary hover:border-lg-accent hover:text-lg-accent'
-              )}
+              size="sm"
+              style={{ height: 28, paddingLeft: 12, paddingRight: 12, fontSize: 10, fontFamily: 'var(--lg-font-mono)' }}
             >
               {checkingUpdates ? 'Checking…' : 'Check now'}
-            </button>
+            </ActionBtn>
           </Row>
 
           {updateInfo && !updateReady && (
             <Row label={`Update ${updateInfo.version} available`}>
-              <button
+              <ActionBtn
                 onClick={handleDownloadUpdate}
                 disabled={downloadingUpdate}
-                className={cn(
-                  'px-3 h-7 rounded text-[10px] font-mono border transition-colors disabled:opacity-40',
-                  'border-lg-accent text-lg-accent hover:bg-lg-accent/10'
-                )}
+                size="sm"
+                style={{ height: 28, paddingLeft: 12, paddingRight: 12, fontSize: 10, fontFamily: 'var(--lg-font-mono)' }}
               >
                 {downloadingUpdate ? 'Downloading…' : 'Download update'}
-              </button>
+              </ActionBtn>
             </Row>
           )}
 
           {updateReady && (
             <Row label="Update ready to install">
-              <button
+              <ActionBtn
                 onClick={() => ipc.updateInstall()}
-                className={cn(
-                  'px-3 h-7 rounded text-[10px] font-mono border transition-colors',
-                  'border-lg-success text-lg-success hover:bg-lg-success/10'
-                )}
+                color="#2dbd6e"
+                size="sm"
+                style={{ height: 28, paddingLeft: 12, paddingRight: 12, fontSize: 10, fontFamily: 'var(--lg-font-mono)' }}
               >
                 Restart & install
-              </button>
+              </ActionBtn>
             </Row>
           )}
 
@@ -300,16 +296,14 @@ export function GeneralSettings() {
         </Section>
 
         <div className="px-3 py-3 flex items-center gap-3">
-          <button
+          <ActionBtn
             onClick={handleSave}
             disabled={saving}
-            className={cn(
-              'px-4 h-7 rounded text-[10px] font-mono border transition-colors disabled:opacity-40',
-              'border-lg-accent text-lg-accent hover:bg-lg-accent/10'
-            )}
+            size="sm"
+            style={{ height: 28, paddingLeft: 16, paddingRight: 16, fontSize: 10, fontFamily: 'var(--lg-font-mono)', fontWeight: 600 }}
           >
             {saving ? 'Saving…' : 'Save settings'}
-          </button>
+          </ActionBtn>
           {saved && <span className="text-[10px] font-mono text-lg-success">✓ Saved</span>}
         </div>
 

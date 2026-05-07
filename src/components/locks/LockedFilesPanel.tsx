@@ -6,6 +6,7 @@ import { AppCheckbox } from '@/components/ui/AppCheckbox'
 import { useDialogStore } from '@/stores/dialogStore'
 import { useOperationStore } from '@/stores/operationStore'
 import { FilePathText } from '@/components/ui/FilePathText'
+import { ActionBtn } from '@/components/ui/ActionBtn'
 
 interface LockedFilesPanelProps {
   repoPath: string
@@ -242,7 +243,7 @@ export function LockedFilesPanel({ repoPath, resolveRequest, onResolvedViewed }:
   const mergedResolution = resolveRequest && resolveRequest.repoPath === repoPath ? resolveRequest : null
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#0d0f15', overflow: 'hidden', fontFamily: "'IBM Plex Sans', system-ui" }}>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#0d0f15', overflow: 'hidden', fontFamily: 'var(--lg-font-ui)' }}>
 
       {/* ── Header ── */}
       {mergedResolution && (
@@ -260,7 +261,7 @@ export function LockedFilesPanel({ repoPath, resolveRequest, onResolvedViewed }:
             </div>
           </div>
           <div style={{ marginTop: 10 }}>
-            <button onClick={() => onResolvedViewed?.()} style={{ height: 26, padding: '0 10px', borderRadius: 6, border: '1px solid #2f3a54', background: 'transparent', color: '#9aa3b7', fontSize: 11 }}>Dismiss</button>
+            <ActionBtn onClick={() => onResolvedViewed?.()} size="sm" style={{ height: 26, fontSize: 11 }}>Dismiss</ActionBtn>
           </div>
         </div>
       )}
@@ -272,28 +273,14 @@ export function LockedFilesPanel({ repoPath, resolveRequest, onResolvedViewed }:
           <div style={{ fontSize: 18, fontWeight: 700, color: '#c8d0e8', letterSpacing: '-0.03em', lineHeight: 1 }}>
             Locked Files
           </div>
-          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: '#344057', marginTop: 4 }}>
+          <div style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 11, color: '#344057', marginTop: 4 }}>
             {locks.length} lock{locks.length !== 1 ? 's' : ''} active across repository
           </div>
         </div>
-        <button
-          onClick={handleRefresh}
-          disabled={refreshing}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 5,
-            height: 28, padding: '0 12px', borderRadius: 6,
-            border: '1px solid #1a2030', background: 'transparent',
-            color: refreshing ? '#344057' : '#5a6880', fontSize: 11.5,
-            cursor: refreshing ? 'default' : 'pointer',
-            fontFamily: "'IBM Plex Sans', system-ui",
-            opacity: refreshing ? 0.5 : 1,
-          }}
-          onMouseEnter={e => { if (!refreshing) { e.currentTarget.style.borderColor = '#283047'; e.currentTarget.style.color = '#8a94aa' } }}
-          onMouseLeave={e => { e.currentTarget.style.borderColor = '#1a2030'; e.currentTarget.style.color = refreshing ? '#344057' : '#5a6880' }}
-        >
+        <ActionBtn onClick={handleRefresh} disabled={refreshing}>
           <RefreshIcon spinning={refreshing} />
           {refreshing ? 'Refreshing…' : 'Refresh'}
-        </button>
+        </ActionBtn>
       </div>
 
       {/* ── Tabs + Search ── */}
@@ -315,7 +302,7 @@ export function LockedFilesPanel({ repoPath, resolveRequest, onResolvedViewed }:
                   borderRadius: 6, border: 'none', cursor: 'pointer',
                   background: active ? '#1d2437' : 'transparent',
                   color: active ? '#dde1f0' : '#4a566a',
-                  fontFamily: "'IBM Plex Sans', system-ui",
+                  fontFamily: 'var(--lg-font-ui)',
                   fontSize: 12, fontWeight: active ? 600 : 400,
                   boxShadow: active ? '0 1px 4px rgba(0,0,0,0.4)' : 'none',
                   transition: 'all 0.12s',
@@ -324,7 +311,7 @@ export function LockedFilesPanel({ repoPath, resolveRequest, onResolvedViewed }:
               >
                 {t === 'mine' ? 'My Locks' : 'Team Locks'}
                 <span style={{
-                  fontFamily: "'JetBrains Mono', monospace", fontSize: 10,
+                  fontFamily: 'var(--lg-font-mono)', fontSize: 10,
                   background: active ? 'rgba(232,98,47,0.2)' : '#1a2030',
                   color: active ? '#e8622f' : '#4a566a',
                   borderRadius: 6, padding: '1px 5px',
@@ -348,7 +335,7 @@ export function LockedFilesPanel({ repoPath, resolveRequest, onResolvedViewed }:
             style={{
               width: '100%', height: 32, paddingLeft: 30, paddingRight: 10,
               background: '#131720', border: '1px solid #1a2030', borderRadius: 7,
-              color: '#c8d0e8', fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12,
+              color: '#c8d0e8', fontFamily: 'var(--lg-font-ui)', fontSize: 12,
               outline: 'none', boxSizing: 'border-box',
             }}
             onFocus={e => { e.currentTarget.style.borderColor = '#283047' }}
@@ -372,22 +359,17 @@ export function LockedFilesPanel({ repoPath, resolveRequest, onResolvedViewed }:
         </div>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 24px 0', flexShrink: 0 }}>
-        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#4a566a' }}>
+        <div style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 10, color: '#4a566a' }}>
           {selectedLocks.length} selected · Shift+Click to multi-select
         </div>
-        <button
+        <ActionBtn
           onClick={doBulkUnlock}
           disabled={selectedLocks.length === 0 || isAnyUnlocking}
-          style={{
-            height: 26, padding: '0 12px', borderRadius: 5, flexShrink: 0,
-            background: 'transparent', border: '1px solid rgba(74,158,255,0.3)', color: '#4a9eff',
-            fontFamily: "'IBM Plex Sans', system-ui", fontSize: 11, fontWeight: 600,
-            cursor: selectedLocks.length === 0 || isAnyUnlocking ? 'default' : 'pointer',
-            opacity: selectedLocks.length === 0 || isAnyUnlocking ? 0.45 : 1,
-          }}
+          size="sm"
+          style={{ height: 26, fontSize: 11, fontWeight: 600 }}
         >
           {unlocking === '__bulk__' ? 'Unlocking…' : 'Unlock Selected'}
-        </button>
+        </ActionBtn>
       </div>
 
       {/* ── Stats bar ── */}
@@ -475,22 +457,22 @@ export function LockedFilesPanel({ repoPath, resolveRequest, onResolvedViewed }:
                       width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
                       background: `${color}18`, border: `1.5px solid ${color}44`,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontFamily: "'JetBrains Mono', monospace", fontSize: 9.5, fontWeight: 700, color,
+                      fontFamily: 'var(--lg-font-mono)', fontSize: 9.5, fontWeight: 700, color,
                     }}>
                       {initials(group.name)}
                     </div>
                     <div style={{ flex: 1, textAlign: 'left', minWidth: 0 }}>
                       <div style={{
-                        fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12.5, fontWeight: 600,
+                        fontFamily: 'var(--lg-font-ui)', fontSize: 12.5, fontWeight: 600,
                         color: '#c8d0e8',
                         overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                       }}>{group.name}</div>
                       <div style={{
-                        fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#344057',
+                        fontFamily: 'var(--lg-font-mono)', fontSize: 10, color: '#344057',
                       }}>{group.login}</div>
                     </div>
                     <span style={{
-                      fontFamily: "'JetBrains Mono', monospace", fontSize: 10,
+                      fontFamily: 'var(--lg-font-mono)', fontSize: 10,
                       background: `${color}18`, color,
                       border: `1px solid ${color}33`, borderRadius: 6,
                       padding: '2px 7px', flexShrink: 0,
@@ -614,7 +596,7 @@ function LockRow({
         width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
         background: `${color}18`, border: `1.5px solid ${color}44`,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 700, color,
+        fontFamily: 'var(--lg-font-mono)', fontSize: 10, fontWeight: 700, color,
       }}>
         {initials(lock.owner.name)}
       </div>
@@ -623,14 +605,14 @@ function LockRow({
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
           <FilePathText path={lock.path} style={{
-            fontFamily: "'JetBrains Mono', monospace", fontSize: 12.5, fontWeight: 500,
+            fontFamily: 'var(--lg-font-mono)', fontSize: 12.5, fontWeight: 500,
             color: lock.isGhost ? '#5a6880' : isOwn ? '#c8d0e8' : '#8a94aa',
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             textDecoration: lock.isGhost ? 'line-through' : 'none',
           }} />
           {ext && (
             <span style={{
-              fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 700,
+              fontFamily: 'var(--lg-font-mono)', fontSize: 9, fontWeight: 700,
               background: 'rgba(90,104,128,0.15)', color: '#5a6880',
               border: '1px solid rgba(90,104,128,0.2)', borderRadius: 3,
               padding: '0 4px', lineHeight: '14px', flexShrink: 0,
@@ -638,7 +620,7 @@ function LockRow({
           )}
           {lock.isGhost && (
             <span style={{
-              fontFamily: "'IBM Plex Sans', system-ui", fontSize: 9.5, fontWeight: 600,
+              fontFamily: 'var(--lg-font-ui)', fontSize: 9.5, fontWeight: 600,
               background: 'rgba(232,98,47,0.1)', color: '#e8622f',
               border: '1px solid rgba(232,98,47,0.25)', borderRadius: 4,
               padding: '1px 6px', flexShrink: 0,
@@ -646,7 +628,7 @@ function LockRow({
           )}
           {isOwn && !lock.isGhost && (
             <span style={{
-              fontFamily: "'IBM Plex Sans', system-ui", fontSize: 9.5, fontWeight: 600,
+              fontFamily: 'var(--lg-font-ui)', fontSize: 9.5, fontWeight: 600,
               background: 'rgba(74,158,255,0.12)', color: '#4a9eff',
               border: '1px solid rgba(74,158,255,0.25)', borderRadius: 4,
               padding: '1px 6px', flexShrink: 0,
@@ -656,18 +638,18 @@ function LockRow({
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 2 }}>
           {dir && (
             <span style={{
-              fontFamily: "'JetBrains Mono', monospace", fontSize: 9.5, color: '#344057',
+              fontFamily: 'var(--lg-font-mono)', fontSize: 9.5, color: '#344057',
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1,
             }} title={dir}>{dir}/</span>
           )}
           {!dir && <span style={{ flex: 1 }} />}
-          <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10.5, color: '#4a566a', flexShrink: 0 }}>
+          <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 10.5, color: '#4a566a', flexShrink: 0 }}>
             {lock.owner.login}
           </span>
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9.5, color: '#283047', flexShrink: 0 }}>
+          <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 9.5, color: '#283047', flexShrink: 0 }}>
             ·
           </span>
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9.5, color: '#283047', flexShrink: 0 }}>
+          <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 9.5, color: '#283047', flexShrink: 0 }}>
             {timeAgoStr(lock.lockedAt)}
           </span>
         </div>
@@ -678,13 +660,13 @@ function LockRow({
         {/* Copy path */}
         {hover && (
           <>
-            <ActionBtn
+            <IconBtn
               title="Copy File Path"
               onClick={() => onCopyPath(lock)}
               icon={<CopyIcon />}
             />
             {!lock.isGhost && (
-              <ActionBtn
+              <IconBtn
                 title="Show in Explorer"
                 onClick={() => onShowInExplorer(lock)}
                 icon={<ExplorerIcon />}
@@ -695,23 +677,15 @@ function LockRow({
 
         {/* Unlock button */}
         {canUnlock ? (
-          <button
+          <ActionBtn
             onClick={() => onUnlock(lock, force)}
             disabled={isBusy}
-            style={{
-              height: 26, padding: '0 12px', borderRadius: 5, flexShrink: 0,
-              background: 'transparent',
-              border: `1px solid ${force ? 'rgba(232,69,69,0.3)' : 'rgba(74,158,255,0.3)'}`,
-              color: force ? '#e84545' : '#4a9eff',
-              fontFamily: "'IBM Plex Sans', system-ui", fontSize: 11, fontWeight: 600,
-              cursor: isBusy ? 'default' : 'pointer', opacity: isBusy ? 0.5 : 1,
-              transition: 'all 0.1s',
-            }}
-            onMouseEnter={e => { if (!isBusy) e.currentTarget.style.background = force ? 'rgba(232,69,69,0.08)' : 'rgba(74,158,255,0.08)' }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+            color={force ? '#e84545' : undefined}
+            size="sm"
+            style={{ height: 26, fontSize: 11, fontWeight: 600 }}
           >
             {isBusy ? '…' : force ? 'Force Unlock' : 'Unlock'}
-          </button>
+          </ActionBtn>
         ) : (
           <span style={{
             fontSize: 9, fontWeight: 700, letterSpacing: '0.06em',
@@ -749,7 +723,7 @@ function EmptyState({ tab, hasSearch, onClearSearch }: {
         </svg>
       </div>
       <div style={{ textAlign: 'center' }}>
-        <div style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 13, color: '#4a566a', fontWeight: 500 }}>
+        <div style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 13, color: '#4a566a', fontWeight: 500 }}>
           {hasSearch
             ? 'No locks match your filter'
             : tab === 'mine'
@@ -757,7 +731,7 @@ function EmptyState({ tab, hasSearch, onClearSearch }: {
               : 'No team locks'
           }
         </div>
-        <div style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 11.5, color: '#283047', marginTop: 4 }}>
+        <div style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 11.5, color: '#283047', marginTop: 4 }}>
           {hasSearch
             ? 'Try a different search term'
             : tab === 'mine'
@@ -767,19 +741,7 @@ function EmptyState({ tab, hasSearch, onClearSearch }: {
         </div>
       </div>
       {hasSearch && (
-        <button
-          onClick={onClearSearch}
-          style={{
-            height: 28, padding: '0 14px', borderRadius: 6,
-            background: 'transparent', border: '1px solid #1a2030',
-            color: '#5a6880', fontFamily: "'IBM Plex Sans', system-ui",
-            fontSize: 11.5, cursor: 'pointer',
-          }}
-          onMouseEnter={e => { e.currentTarget.style.borderColor = '#283047'; e.currentTarget.style.color = '#8a94aa' }}
-          onMouseLeave={e => { e.currentTarget.style.borderColor = '#1a2030'; e.currentTarget.style.color = '#5a6880' }}
-        >
-          Clear filter
-        </button>
+        <ActionBtn onClick={onClearSearch}>Clear filter</ActionBtn>
       )}
     </div>
   )
@@ -791,11 +753,11 @@ function StatChip({ label, value, color }: { label: string; value: number; color
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
       <span style={{
-        fontFamily: "'JetBrains Mono', monospace", fontSize: 16, fontWeight: 700,
+        fontFamily: 'var(--lg-font-mono)', fontSize: 16, fontWeight: 700,
         color, lineHeight: 1, textShadow: `0 0 14px ${color}30`,
       }}>{value}</span>
       <span style={{
-        fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10.5,
+        fontFamily: 'var(--lg-font-ui)', fontSize: 10.5,
         color: '#344057', textTransform: 'uppercase', letterSpacing: '0.08em',
       }}>{label}</span>
     </div>
@@ -804,24 +766,15 @@ function StatChip({ label, value, color }: { label: string; value: number; color
 
 // ── Action Button ─────────────────────────────────────────────────────────────
 
-function ActionBtn({ title, onClick, icon }: { title: string; onClick: () => void; icon: React.ReactNode }) {
+function IconBtn({ title, onClick, icon }: { title: string; onClick: () => void; icon: React.ReactNode }) {
   return (
-    <button
-      className="lg-toolbar-control lg-icon-control lg-compact-icon-button"
+    <ActionBtn
       title={title}
-      aria-label={title}
       onClick={onClick}
-      style={{
-        width: 26, height: 26, minHeight: 26, padding: 0, borderRadius: 5, flexShrink: 0,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: 'transparent', border: '1px solid #1a2030',
-        color: '#4a566a', cursor: 'pointer',
-      }}
-      onMouseEnter={e => { e.currentTarget.style.borderColor = '#283047'; e.currentTarget.style.color = '#8a94aa'; e.currentTarget.style.background = '#1a2030' }}
-      onMouseLeave={e => { e.currentTarget.style.borderColor = '#1a2030'; e.currentTarget.style.color = '#4a566a'; e.currentTarget.style.background = 'transparent' }}
+      style={{ width: 26, height: 26, minHeight: 26, paddingLeft: 0, paddingRight: 0, justifyContent: 'center' }}
     >
       {icon}
-    </button>
+    </ActionBtn>
   )
 }
 

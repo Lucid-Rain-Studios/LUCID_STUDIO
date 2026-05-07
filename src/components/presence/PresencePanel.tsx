@@ -47,7 +47,7 @@ function UserAvatar({ login, size, color, stale }: { login: string; size: number
         background: `linear-gradient(135deg, ${color}88, ${color}44)`,
         border: `1.5px solid ${stale ? '#252d42' : color + '55'}`,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontFamily: "'JetBrains Mono', monospace", fontSize, fontWeight: 700, color,
+        fontFamily: 'var(--lg-font-mono)', fontSize, fontWeight: 700, color,
       }}>
         {ini}
       </div>
@@ -78,12 +78,12 @@ function SectionHeader({ label, count }: { label: string; count?: number }) {
       background: '#10131c', flexShrink: 0,
     }}>
       <span style={{
-        fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10, fontWeight: 600,
+        fontFamily: 'var(--lg-font-ui)', fontSize: 10, fontWeight: 600,
         color: '#4e5870', letterSpacing: '0.1em', textTransform: 'uppercase', flex: 1,
       }}>{label}</span>
       {count !== undefined && (
         <span style={{
-          fontFamily: "'JetBrains Mono', monospace", fontSize: 10,
+          fontFamily: 'var(--lg-font-mono)', fontSize: 10,
           background: '#1d2235', color: '#4e5870', borderRadius: 8, padding: '1px 6px',
         }}>{count}</span>
       )}
@@ -119,7 +119,7 @@ function PresenceCard({ entry, isMe }: { entry: PresenceEntry; isMe: boolean }) 
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <span style={{
-              fontFamily: "'IBM Plex Sans', system-ui", fontSize: 13, fontWeight: 600,
+              fontFamily: 'var(--lg-font-ui)', fontSize: 13, fontWeight: 600,
               color: isStale ? '#4e5870' : '#dde1f0',
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             }}>
@@ -127,24 +127,24 @@ function PresenceCard({ entry, isMe }: { entry: PresenceEntry; isMe: boolean }) 
             </span>
             {isMe && (
               <span style={{
-                fontFamily: "'IBM Plex Sans', system-ui", fontSize: 9, fontWeight: 600,
+                fontFamily: 'var(--lg-font-ui)', fontSize: 9, fontWeight: 600,
                 background: 'rgba(77,157,255,0.12)', color: '#4d9dff',
                 border: '1px solid rgba(77,157,255,0.25)', borderRadius: 3, padding: '1px 5px', flexShrink: 0,
               }}>you</span>
             )}
             {isStale && (
               <span style={{
-                fontFamily: "'IBM Plex Sans', system-ui", fontSize: 9,
+                fontFamily: 'var(--lg-font-ui)', fontSize: 9,
                 color: '#4e5870', flexShrink: 0,
               }}>away</span>
             )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
             <span style={{
-              fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#4d9dff',
+              fontFamily: 'var(--lg-font-mono)', fontSize: 10, color: '#4d9dff',
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             }}>{entry.branch}</span>
-            <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10, color: '#4e5870', flexShrink: 0 }}>
+            <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 10, color: '#4e5870', flexShrink: 0 }}>
               {timeAgo(entry.lastSeen)}
             </span>
           </div>
@@ -154,7 +154,7 @@ function PresenceCard({ entry, isMe }: { entry: PresenceEntry; isMe: boolean }) 
         {entry.modifiedCount > 0 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
             <span style={{
-              fontFamily: "'JetBrains Mono', monospace", fontSize: 10,
+              fontFamily: 'var(--lg-font-mono)', fontSize: 10,
               background: 'rgba(245,168,50,0.15)', color: '#f5a832',
               border: '1px solid rgba(245,168,50,0.3)',
               borderRadius: 8, padding: '1px 7px',
@@ -171,7 +171,7 @@ function PresenceCard({ entry, isMe }: { entry: PresenceEntry; isMe: boolean }) 
         {/* Last push */}
         {entry.lastPush && (
           <span style={{
-            fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10,
+            fontFamily: 'var(--lg-font-ui)', fontSize: 10,
             color: '#4e5870', flexShrink: 0,
           }}>pushed {timeAgo(entry.lastPush)}</span>
         )}
@@ -187,7 +187,7 @@ function PresenceCard({ entry, isMe }: { entry: PresenceEntry; isMe: boolean }) 
                 display: 'flex', alignItems: 'center',
                 height: 26, paddingLeft: 54, paddingRight: 16,
                 borderBottom: '1px solid #1d2235',
-                fontFamily: "'JetBrains Mono', monospace", fontSize: 11,
+                fontFamily: 'var(--lg-font-mono)', fontSize: 11,
                 color: '#8b94b0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
               }}
               title={f}
@@ -196,7 +196,7 @@ function PresenceCard({ entry, isMe }: { entry: PresenceEntry; isMe: boolean }) 
           {entry.modifiedFiles.length > 20 && (
             <div style={{
               height: 26, paddingLeft: 54, display: 'flex', alignItems: 'center',
-              fontFamily: "'IBM Plex Sans', system-ui", fontSize: 11, color: '#4e5870',
+              fontFamily: 'var(--lg-font-ui)', fontSize: 11, color: '#4e5870',
             }}>+{entry.modifiedFiles.length - 20} more</div>
           )}
         </div>
@@ -227,27 +227,27 @@ function ActivityRow({ item }: { item: BranchActivity }) {
         background: `linear-gradient(135deg, ${col}88, ${col}44)`,
         border: `1px solid ${col}55`,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontFamily: "'JetBrains Mono', monospace", fontSize: 8, fontWeight: 700, color: col,
+        fontFamily: 'var(--lg-font-mono)', fontSize: 8, fontWeight: 700, color: col,
       }}>{ini}</div>
 
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 1 }}>
           <span style={{
-            fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: '#4d9dff',
+            fontFamily: 'var(--lg-font-mono)', fontSize: 11, color: '#4d9dff',
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 140,
           }}>{branch}</span>
-          <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 11, color: '#8b94b0', flexShrink: 0 }}>
+          <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 11, color: '#8b94b0', flexShrink: 0 }}>
             {item.author}
           </span>
         </div>
         <div style={{
-          fontFamily: "'IBM Plex Sans', system-ui", fontSize: 11, color: '#4e5870',
+          fontFamily: 'var(--lg-font-ui)', fontSize: 11, color: '#4e5870',
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         }}>{item.message}</div>
       </div>
 
       <span style={{
-        fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#4e5870',
+        fontFamily: 'var(--lg-font-mono)', fontSize: 10, color: '#4e5870',
         flexShrink: 0,
       }}>{timeAgo(item.date)}</span>
     </div>
@@ -259,7 +259,7 @@ function ActivityRow({ item }: { item: BranchActivity }) {
 function EmptyState({ message }: { message: string }) {
   return (
     <div style={{ padding: '24px 16px', textAlign: 'center' }}>
-      <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12, color: '#4e5870' }}>
+      <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 12, color: '#4e5870' }}>
         {message}
       </span>
     </div>
@@ -341,7 +341,7 @@ export function PresencePanel({ repoPath }: PresencePanelProps) {
               background: tab === t ? 'rgba(232,98,47,0.15)' : 'transparent',
               border: `1px solid ${tab === t ? 'rgba(232,98,47,0.4)' : 'transparent'}`,
               color: tab === t ? '#e8622f' : '#8b94b0',
-              fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12, fontWeight: tab === t ? 600 : 400,
+              fontFamily: 'var(--lg-font-ui)', fontSize: 12, fontWeight: tab === t ? 600 : 400,
               cursor: 'pointer', transition: 'all 0.12s',
               textTransform: 'capitalize',
             }}
@@ -390,11 +390,11 @@ export function PresencePanel({ repoPath }: PresencePanelProps) {
             margin: '12px 16px', padding: '10px 14px', borderRadius: 8,
             background: 'rgba(77,157,255,0.06)', border: '1px solid rgba(77,157,255,0.15)',
           }}>
-            <div style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 11, color: '#4d9dff', fontWeight: 600, marginBottom: 4 }}>
+            <div style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 11, color: '#4d9dff', fontWeight: 600, marginBottom: 4 }}>
               How presence works
             </div>
-            <div style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 11, color: '#8b94b0', lineHeight: 1.6 }}>
-              Presence is shared via <code style={{ fontFamily: "'JetBrains Mono', monospace", background: '#1d2235', padding: '0 3px', borderRadius: 2 }}>.lucid-git/presence.json</code>.
+            <div style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 11, color: '#8b94b0', lineHeight: 1.6 }}>
+              Presence is shared via <code style={{ fontFamily: 'var(--lg-font-mono)', background: '#1d2235', padding: '0 3px', borderRadius: 2 }}>.lucid-git/presence.json</code>.
               Push this file to your remote so teammates can see each other. It is excluded from git commits automatically.
             </div>
           </div>

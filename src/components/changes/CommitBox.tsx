@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 import { useErrorStore } from '@/stores/errorStore'
 import { useDialogStore } from '@/stores/dialogStore'
 import { markFetchPerformed } from '@/lib/fetchState'
+import { ActionBtn } from '@/components/ui/ActionBtn'
 
 type HookState = 'idle' | 'running' | 'passed' | 'failed'
 
@@ -154,13 +155,15 @@ export function CommitBox({ deferredStagePaths }: CommitBoxProps = {}) {
               {hookOutput}
             </pre>
           )}
-          <button
+          <ActionBtn
             onClick={handleBypass}
             disabled={isCommitting}
-            className="w-full h-6 rounded text-[10px] font-mono border border-lg-warning/60 text-lg-warning hover:bg-lg-warning/10 disabled:opacity-40 transition-colors"
+            color="#f5a832"
+            size="sm"
+            style={{ width: '100%', height: 24, fontSize: 10, fontFamily: 'var(--lg-font-mono)' }}
           >
             Bypass hook (confirm required)
-          </button>
+          </ActionBtn>
         </div>
       )}
 
@@ -176,10 +179,12 @@ export function CommitBox({ deferredStagePaths }: CommitBoxProps = {}) {
 
       {/* ── Commit button (hidden when hook failed — bypass is shown) ── */}
       {hookState !== 'failed' && (
-        <button
+        <ActionBtn
           onClick={handleCommit}
           disabled={!canCommit || hookState === 'running'}
-          className="w-full h-7 bg-lg-accent rounded text-[11px] font-mono text-white hover:bg-lg-accent/80 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          color="#2dbd6e"
+          size="sm"
+          style={{ width: '100%', height: 28, fontSize: 11, fontFamily: 'var(--lg-font-mono)', fontWeight: 600 }}
         >
           {isCommitting
             ? 'Committing…'
@@ -188,7 +193,7 @@ export function CommitBox({ deferredStagePaths }: CommitBoxProps = {}) {
               : selectedCount > 0
                 ? `Commit ${selectedCount} file${selectedCount !== 1 ? 's' : ''}`
                 : 'Commit'}
-        </button>
+        </ActionBtn>
       )}
     </div>
   )

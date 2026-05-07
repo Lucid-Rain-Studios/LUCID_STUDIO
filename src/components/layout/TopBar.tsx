@@ -22,6 +22,7 @@ import {
 } from '@/lib/syncButtonLogic'
 import { useStatusToastStore } from '@/stores/statusToastStore'
 import { setTopBarSyncHandlers, updateTopBarSyncSnapshot } from '@/lib/topBarSyncBridge'
+import { ActionBtn } from '@/components/ui/ActionBtn'
 
 interface TopBarProps {
   onOpen:           () => void
@@ -306,7 +307,7 @@ export function TopBar({ onOpen, onClone, onAddAccount, onSynced, onMergeConflic
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           padding: '0 16px', height: 28, fontSize: 11,
-          fontFamily: "'JetBrains Mono', monospace", flexShrink: 0,
+          fontFamily: 'var(--lg-font-mono)', flexShrink: 0,
           background: 'rgba(245,168,50,0.08)',
           borderBottom: '1px solid rgba(245,168,50,0.2)',
           color: '#f5a832',
@@ -331,7 +332,7 @@ export function TopBar({ onOpen, onClone, onAddAccount, onSynced, onMergeConflic
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           padding: '0 16px', height: 28, fontSize: 11,
-          fontFamily: "'JetBrains Mono', monospace", flexShrink: 0,
+          fontFamily: 'var(--lg-font-mono)', flexShrink: 0,
           background: 'rgba(167,139,250,0.08)',
           borderBottom: '1px solid rgba(167,139,250,0.2)',
           color: '#a78bfa',
@@ -358,7 +359,7 @@ export function TopBar({ onOpen, onClone, onAddAccount, onSynced, onMergeConflic
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           padding: '0 16px', height: 28, fontSize: 11,
-          fontFamily: "'JetBrains Mono', monospace", flexShrink: 0,
+          fontFamily: 'var(--lg-font-mono)', flexShrink: 0,
           background: updateReady ? 'rgba(45,189,110,0.1)' : 'rgba(74,158,255,0.1)',
           borderBottom: `1px solid ${updateReady ? 'rgba(45,189,110,0.2)' : 'rgba(74,158,255,0.2)'}`,
           color: updateReady ? '#2dbd6e' : '#4a9eff',
@@ -455,11 +456,11 @@ export function TopBar({ onOpen, onClone, onAddAccount, onSynced, onMergeConflic
                         padding: '9px 12px 7px',
                         borderBottom: '1px solid var(--lg-border)',
                       }}>
-                        <div style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10, fontWeight: 700, color: '#344057', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 3 }}>
+                        <div style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 10, fontWeight: 700, color: '#344057', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 3 }}>
                           Current repository
                         </div>
                         <div style={{
-                          fontFamily: "'JetBrains Mono', monospace", fontSize: 10.5,
+                          fontFamily: 'var(--lg-font-mono)', fontSize: 10.5,
                           color: '#4a566a',
                           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                           maxWidth: 230,
@@ -487,7 +488,7 @@ export function TopBar({ onOpen, onClone, onAddAccount, onSynced, onMergeConflic
                       {recentRepos.filter(p => p !== repoPath).length > 0 && (
                         <>
                           <div style={{ height: 1, background: 'var(--lg-border)' }} />
-                          <div style={{ padding: '7px 12px 3px', fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10, fontWeight: 700, color: '#344057', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+                          <div style={{ padding: '7px 12px 3px', fontFamily: 'var(--lg-font-ui)', fontSize: 10, fontWeight: 700, color: '#344057', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
                             Recent
                           </div>
                           <div style={{ padding: '2px 0 4px' }}>
@@ -528,7 +529,7 @@ export function TopBar({ onOpen, onClone, onAddAccount, onSynced, onMergeConflic
                   >
                     <BranchIconSm />
                     <span style={{
-                      fontFamily: "'JetBrains Mono', monospace", fontSize: 11.5,
+                      fontFamily: 'var(--lg-font-mono)', fontSize: 11.5,
                       color: '#4a9eff', fontWeight: 500, letterSpacing: '0.01em',
                     }}>
                       {currentBranch}
@@ -551,7 +552,7 @@ export function TopBar({ onOpen, onClone, onAddAccount, onSynced, onMergeConflic
                         {/* Local */}
                         <BranchGroupHeader label="Local" />
                         {localBranches.length === 0 ? (
-                          <div style={{ padding: '6px 12px 8px', fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12, color: '#4a566a' }}>No local branches</div>
+                          <div style={{ padding: '6px 12px 8px', fontFamily: 'var(--lg-font-ui)', fontSize: 12, color: '#4a566a' }}>No local branches</div>
                         ) : (
                           <div style={{ padding: '2px 0 4px' }}>
                             {localBranches.map(b => (
@@ -593,7 +594,7 @@ export function TopBar({ onOpen, onClone, onAddAccount, onSynced, onMergeConflic
               )}
             </>
           ) : (
-            <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 13, color: '#344057' }}>
+            <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 13, color: '#344057' }}>
               No repository open
             </span>
           )}
@@ -681,14 +682,9 @@ export function TopBar({ onOpen, onClone, onAddAccount, onSynced, onMergeConflic
               onSignOut={() => useAuthStore.getState().logout(currentAccount.userId)}
             />
           ) : (
-            <button className="lg-toolbar-control" onClick={onAddAccount} style={{
-              height: 28, paddingLeft: 12, paddingRight: 12,
-              borderRadius: 5, border: '1px solid #1d2535',
-              background: 'rgba(255,255,255,0.04)', color: '#7b8499',
-              fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12.5, fontWeight: 500, cursor: 'pointer',
-            }}>
+            <ActionBtn onClick={onAddAccount}>
               Sign in
-            </button>
+            </ActionBtn>
           )}
 
           {/* Window controls */}
@@ -716,7 +712,7 @@ function AccountAvatar({ login, avatarUrl, size = 24 }: { login: string; avatarU
         width: size, height: size, borderRadius: '50%',
         background: 'linear-gradient(135deg, #4a9eff, #a27ef0)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontFamily: "'JetBrains Mono', monospace", fontSize: Math.round(size * 0.37), fontWeight: 700, color: '#fff',
+        fontFamily: 'var(--lg-font-mono)', fontSize: Math.round(size * 0.37), fontWeight: 700, color: '#fff',
         flexShrink: 0, boxShadow: '0 0 0 1.5px rgba(74,158,255,0.3)',
       }}>
         {login.slice(0, 2).toUpperCase()}
@@ -748,7 +744,7 @@ function GhAvatar({ login, size = 20 }: { login: string; size?: number }) {
           background: `linear-gradient(135deg, ${col}88, ${col}44)`,
           border: `1.5px solid var(--lg-bg-elevated)`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontFamily: "'JetBrains Mono', monospace", fontSize: Math.round(size * 0.38), fontWeight: 700, color: col,
+          fontFamily: 'var(--lg-font-mono)', fontSize: Math.round(size * 0.38), fontWeight: 700, color: col,
         }}
       >
         {login.slice(0, 2).toUpperCase()}
@@ -802,7 +798,7 @@ function LogoWordmark({ hasRepo, onClick }: { hasRepo: boolean; onClick: () => v
 
 function BranchGroupHeader({ label }: { label: string }) {
   return (
-    <div style={{ padding: '7px 12px 3px', fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10, fontWeight: 700, color: '#344057', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+    <div style={{ padding: '7px 12px 3px', fontFamily: 'var(--lg-font-ui)', fontSize: 10, fontWeight: 700, color: '#344057', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
       {label}
     </div>
   )
@@ -844,7 +840,7 @@ function BranchMenuItem({ name, current, remote, hasLocal, presence = [], onClic
           <path d="M5 5.6C5 7.2 11 7.2 11 5.6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
         </svg>
       </span>
-      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11.5, flex: 1, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+      <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 11.5, flex: 1, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {name}
       </span>
 
@@ -857,7 +853,7 @@ function BranchMenuItem({ name, current, remote, hasLocal, presence = [], onClic
             </div>
           ))}
           {presence.length > 4 && (
-            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, color: '#4a566a', marginLeft: 3 }}>
+            <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 9, color: '#4a566a', marginLeft: 3 }}>
               +{presence.length - 4}
             </span>
           )}
@@ -866,7 +862,7 @@ function BranchMenuItem({ name, current, remote, hasLocal, presence = [], onClic
 
       {/* Remote-only indicator */}
       {remote && !hasLocal && (
-        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, color: '#344057', flexShrink: 0 }}>
+        <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 9, color: '#344057', flexShrink: 0 }}>
           remote
         </span>
       )}
@@ -1016,7 +1012,7 @@ function RepoSwitcherBtn({
       }}
     >
       <span style={{
-        fontFamily: "'IBM Plex Sans', system-ui", fontSize: 13.5, fontWeight: 600,
+        fontFamily: 'var(--lg-font-ui)', fontSize: 13.5, fontWeight: 600,
         color: active ? '#e2e6f4' : '#c8cdd8', letterSpacing: '-0.01em',
         transition: 'color 0.12s',
       }}>
@@ -1063,12 +1059,12 @@ function RepoMenuItem({
       <span style={{ flexShrink: 0, display: 'flex', color: hover ? '#e8622f' : '#4a566a', transition: 'color 0.1s' }}>
         {icon}
       </span>
-      <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12.5, flex: 1, textAlign: 'left', letterSpacing: '-0.01em' }}>
+      <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 12.5, flex: 1, textAlign: 'left', letterSpacing: '-0.01em' }}>
         {label}
       </span>
       {shortcut && (
         <span className="lg-toolbar-badge lg-count-badge" style={{
-          fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#283047',
+          fontFamily: 'var(--lg-font-mono)', fontSize: 10, color: '#283047',
           background: 'rgba(255,255,255,0.04)', border: '1px solid #1d2535',
           borderRadius: 4, padding: '1px 5px',
         }}>
@@ -1103,7 +1099,7 @@ function RepoMenuItemWithRemove({
         <span style={{ flexShrink: 0, display: 'flex', color: hover ? '#e8622f' : '#4a566a', transition: 'color 0.1s' }}>
           <FolderOpenIcon />
         </span>
-        <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12.5, flex: 1, textAlign: 'left', letterSpacing: '-0.01em', color: hover ? '#e2e6f4' : '#7b8499', transition: 'color 0.1s', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 12.5, flex: 1, textAlign: 'left', letterSpacing: '-0.01em', color: hover ? '#e2e6f4' : '#7b8499', transition: 'color 0.1s', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {name}
         </span>
       </button>
@@ -1155,25 +1151,25 @@ function UpdateFromMainBtn({
           height: 28, paddingLeft: 10, paddingRight: 10,
           borderRadius: 5,
           border: `1px solid ${onDefault
-            ? '#1a2030'
+            ? 'var(--lg-border)'
             : active
-              ? hover ? '#4a9eff' : 'rgba(74,158,255,0.5)'
-              : '#1d2535'}`,
+              ? hover ? 'var(--lg-accent)' : 'rgba(var(--lg-accent-rgb), 0.5)'
+              : 'var(--lg-border)'}`,
           background: onDefault
             ? 'transparent'
             : active
-              ? hover ? 'rgba(74,158,255,0.18)' : 'rgba(74,158,255,0.08)'
+              ? hover ? 'rgba(var(--lg-accent-rgb), 0.18)' : 'rgba(var(--lg-accent-rgb), 0.08)'
               : 'rgba(255,255,255,0.03)',
-          color: onDefault ? '#344057' : busy ? '#7b8499' : active ? '#4a9eff' : '#6b7590',
-          fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12.5, fontWeight: 500,
+          color: onDefault ? 'var(--lg-text-secondary)' : busy ? 'var(--lg-text-secondary)' : active ? 'var(--lg-accent)' : 'var(--lg-text-secondary)',
+          fontFamily: 'var(--lg-font-ui)', fontSize: 12.5, fontWeight: 500,
           cursor: isDisabled ? 'not-allowed' : 'pointer',
           opacity: busy ? 0.6 : 1,
-          boxShadow: active ? '0 0 12px rgba(74,158,255,0.18)' : 'none',
+          boxShadow: active ? '0 0 12px rgba(var(--lg-accent-rgb), 0.18)' : 'none',
           transition: 'border-color 0.12s, background 0.12s, color 0.12s',
           whiteSpace: 'nowrap',
         }}
       >
-        <MergeDownIcon color={onDefault ? '#283047' : busy ? '#7b8499' : active ? '#4a9eff' : '#4a566a'} />
+        <MergeDownIcon color={onDefault ? '#283047' : busy ? '#7b8499' : active ? 'var(--lg-accent)' : '#4a566a'} />
         <span>
           {busy
             ? `Updating…`
@@ -1227,7 +1223,7 @@ function SyncBtn({
         borderRadius: 5, border: `1px solid ${hover && !disabled ? borderColor + 'cc' : borderColor}`,
         background: hover && !disabled ? `${bgColor}` : bgColor,
         color: textColor,
-        fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12.5, fontWeight: 500,
+        fontFamily: 'var(--lg-font-ui)', fontSize: 12.5, fontWeight: 500,
         cursor: disabled ? 'not-allowed' : 'pointer',
         opacity: disabled && !active ? 0.5 : 1,
         boxShadow: active && !disabled ? `0 0 12px ${countColor}25` : 'none',
@@ -1240,7 +1236,7 @@ function SyncBtn({
       {count > 0 && (
         <span style={{
           background: `${countColor}28`, color: countColor,
-          fontFamily: "'JetBrains Mono', monospace", fontSize: 10.5, fontWeight: 700,
+          fontFamily: 'var(--lg-font-mono)', fontSize: 10.5, fontWeight: 700,
           borderRadius: 9, paddingLeft: 5, paddingRight: 5, lineHeight: '17px',
           border: `1px solid ${countColor}40`,
         }}>{count}</span>
@@ -1302,7 +1298,7 @@ function AccountMenu({ account, onSignOut }: { account: { userId: string; login:
         onMouseLeave={e => { if (!open) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'transparent' } }}
       >
         <AccountAvatar login={account.login} avatarUrl={account.avatarUrl} size={24} />
-        <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12.5, color: '#7b8499', fontWeight: 500, letterSpacing: '-0.01em' }}>
+        <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 12.5, color: '#7b8499', fontWeight: 500, letterSpacing: '-0.01em' }}>
           {account.login}
         </span>
         <svg width="9" height="9" viewBox="0 0 10 10" fill="none" style={{ color: '#344057', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>
@@ -1320,7 +1316,7 @@ function AccountMenu({ account, onSignOut }: { account: { userId: string; login:
         }}>
           {/* Git config section */}
           <div style={{ padding: '10px 12px 12px', borderBottom: '1px solid var(--lg-border)' }}>
-            <div style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10, fontWeight: 700, color: '#344057', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 8 }}>
+            <div style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 10, fontWeight: 700, color: '#344057', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 8 }}>
               Global Git Config
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -1331,7 +1327,7 @@ function AccountMenu({ account, onSignOut }: { account: { userId: string; login:
                 style={{
                   height: 28, paddingLeft: 9, paddingRight: 9, borderRadius: 5,
                   background: 'rgba(255,255,255,0.04)', border: '1px solid #1d2535',
-                  color: '#c8d0e8', fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12,
+                  color: '#c8d0e8', fontFamily: 'var(--lg-font-ui)', fontSize: 12,
                   outline: 'none', width: '100%', boxSizing: 'border-box',
                 }}
                 onFocus={e => e.target.style.borderColor = '#4a9eff55'}
@@ -1344,7 +1340,7 @@ function AccountMenu({ account, onSignOut }: { account: { userId: string; login:
                 style={{
                   height: 28, paddingLeft: 9, paddingRight: 9, borderRadius: 5,
                   background: 'rgba(255,255,255,0.04)', border: '1px solid #1d2535',
-                  color: '#c8d0e8', fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12,
+                  color: '#c8d0e8', fontFamily: 'var(--lg-font-ui)', fontSize: 12,
                   outline: 'none', width: '100%', boxSizing: 'border-box',
                 }}
                 onFocus={e => e.target.style.borderColor = '#4a9eff55'}
@@ -1358,7 +1354,7 @@ function AccountMenu({ account, onSignOut }: { account: { userId: string; login:
                   background: saved ? 'rgba(45,189,110,0.12)' : 'rgba(74,158,255,0.1)',
                   border: `1px solid ${saved ? 'rgba(45,189,110,0.35)' : 'rgba(74,158,255,0.3)'}`,
                   color: saved ? '#2dbd6e' : '#4a9eff',
-                  fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12, fontWeight: 600,
+                  fontFamily: 'var(--lg-font-ui)', fontSize: 12, fontWeight: 600,
                   opacity: saving || !gitName.trim() || !gitEmail.trim() ? 0.5 : 1,
                 }}
               >
@@ -1374,7 +1370,7 @@ function AccountMenu({ account, onSignOut }: { account: { userId: string; login:
               display: 'flex', alignItems: 'center', gap: 8,
               width: '100%', height: 38, paddingLeft: 12, paddingRight: 12,
               background: 'transparent', border: 'none', cursor: 'pointer',
-              color: '#5a6880', fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12.5,
+              color: '#5a6880', fontFamily: 'var(--lg-font-ui)', fontSize: 12.5,
               textAlign: 'left',
             }}
             onMouseEnter={e => { e.currentTarget.style.background = 'rgba(232,69,69,0.08)'; e.currentTarget.style.color = '#e84545' }}
@@ -1393,20 +1389,21 @@ function AccountMenu({ account, onSignOut }: { account: { userId: string; login:
 }
 
 function TopBtn({ onClick, label, accent }: { onClick: () => void; label: string; accent?: boolean }) {
-  return (
-    <button className="lg-toolbar-control" onClick={onClick} style={{
-      height: 28, paddingLeft: 13, paddingRight: 13, borderRadius: 5,
-      background: accent ? 'var(--lg-accent)' : 'rgba(255,255,255,0.04)',
-      border: `1px solid ${accent ? 'var(--lg-accent)' : 'var(--lg-border)'}`,
-      color: accent ? '#fff' : 'var(--lg-text-secondary)',
-      fontFamily: 'var(--lg-font-ui)', fontSize: 12.5,
-      fontWeight: accent ? 600 : 400, cursor: 'pointer',
-      boxShadow: accent ? '0 0 12px rgba(var(--lg-accent-rgb), 0.3)' : 'none',
-    }}
-    onMouseEnter={e => { if (accent) { e.currentTarget.style.background = 'var(--lg-accent-hover)'; e.currentTarget.style.boxShadow = '0 0 18px rgba(var(--lg-accent-rgb), 0.45)' } else { e.currentTarget.style.background = 'rgba(255,255,255,0.07)' } }}
-    onMouseLeave={e => { if (accent) { e.currentTarget.style.background = 'var(--lg-accent)'; e.currentTarget.style.boxShadow = '0 0 12px rgba(var(--lg-accent-rgb), 0.3)' } else { e.currentTarget.style.background = 'rgba(255,255,255,0.04)' } }}
-    >{label}</button>
-  )
+  if (accent) {
+    return (
+      <button className="lg-toolbar-control" onClick={onClick} style={{
+        height: 28, paddingLeft: 13, paddingRight: 13, borderRadius: 5,
+        background: 'var(--lg-accent)', border: '1px solid var(--lg-accent)',
+        color: '#fff', fontFamily: 'var(--lg-font-ui)', fontSize: 12.5,
+        fontWeight: 600, cursor: 'pointer',
+        boxShadow: '0 0 12px rgba(var(--lg-accent-rgb), 0.3)',
+      }}
+      onMouseEnter={e => { e.currentTarget.style.background = 'var(--lg-accent-hover)'; e.currentTarget.style.boxShadow = '0 0 18px rgba(var(--lg-accent-rgb), 0.45)' }}
+      onMouseLeave={e => { e.currentTarget.style.background = 'var(--lg-accent)'; e.currentTarget.style.boxShadow = '0 0 12px rgba(var(--lg-accent-rgb), 0.3)' }}
+      >{label}</button>
+    )
+  }
+  return <ActionBtn onClick={onClick}>{label}</ActionBtn>
 }
 
 function BranchIconSm() {
@@ -1516,8 +1513,8 @@ function FetchPullSplitBtn({
     : hasBehind
       ? '#f5a832'
       : fetchActive
-        ? 'rgba(74,158,255,0.5)'
-        : '#1d2535'
+        ? 'rgba(var(--lg-accent-rgb), 0.5)'
+        : 'var(--lg-border)'
   const fetchButton = (
     <button
       className="lg-toolbar-control"
@@ -1532,11 +1529,11 @@ function FetchPullSplitBtn({
         background: disabled
           ? 'transparent'
           : hoverFetch
-            ? 'rgba(74,158,255,0.18)'
-            : 'rgba(74,158,255,0.08)',
+            ? 'rgba(var(--lg-accent-rgb), 0.18)'
+            : 'rgba(var(--lg-accent-rgb), 0.08)',
         border: 'none',
-        color: disabled ? '#344057' : '#4a9eff',
-        fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12.5, fontWeight: 500,
+        color: disabled ? 'var(--lg-text-secondary)' : 'var(--lg-accent)',
+        fontFamily: 'var(--lg-font-ui)', fontSize: 12.5, fontWeight: 500,
         cursor: disabled ? 'not-allowed' : 'pointer',
         transition: 'background 0.12s, color 0.12s', whiteSpace: 'nowrap',
       }}
@@ -1556,10 +1553,10 @@ function FetchPullSplitBtn({
       style={{
         display: 'flex', alignItems: 'center', gap: 5,
         paddingLeft: 10, paddingRight: hasBehind ? 7 : 10,
-        background: hoverPull && !pullDisabled ? (hasBehind ? 'rgba(245,168,50,0.08)' : 'rgba(74,158,255,0.08)') : 'transparent',
+        background: hoverPull && !pullDisabled ? (hasBehind ? 'rgba(245,168,50,0.08)' : 'rgba(var(--lg-accent-rgb), 0.08)') : 'transparent',
         border: 'none',
-        color: pullDisabled ? '#283047' : hasBehind ? '#f5a832' : hoverPull ? '#4a9eff' : '#6b7590',
-        fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12.5, fontWeight: 500,
+        color: pullDisabled ? '#283047' : hasBehind ? '#f5a832' : hoverPull ? 'var(--lg-accent)' : 'var(--lg-text-secondary)',
+        fontFamily: 'var(--lg-font-ui)', fontSize: 12.5, fontWeight: 500,
         cursor: pullDisabled ? 'not-allowed' : 'pointer',
         opacity: pullDisabled && !hasBehind ? 0.5 : 1,
         transition: 'background 0.12s, color 0.12s', whiteSpace: 'nowrap',
@@ -1570,7 +1567,7 @@ function FetchPullSplitBtn({
       {hasBehind && (
         <span className="lg-toolbar-badge lg-count-badge" style={{
           background: 'rgba(245,168,50,0.2)', color: '#f5a832',
-          fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 700,
+          fontFamily: 'var(--lg-font-mono)', fontSize: 10, fontWeight: 700,
           borderRadius: 8, paddingLeft: 5, paddingRight: 5, lineHeight: '15px',
           border: '1px solid rgba(245,168,50,0.4)',
         }}>{behindCount}</span>

@@ -49,7 +49,8 @@
       "Bash(grep -E \"\\\\.tsx?$\")",
       "Bash(grep -E \"\\\\.ts$\")",
       "Bash(npx eslint *)",
-      "Bash(node -e \"const re = /needs a clean working tree|Your local changes.*would be overwritten|Please commit your changes or stash them|cannot pull with rebase.*unstaged changes|working tree has modifications/i; console.log\\(re.test\\(\\\\\"Error invoking remote method 'git:update-from-main': Error: Update from main needs a clean working tree. Commit or stash your current changes first so incoming files are not mixed with local edits.\\\\\"\\)\\)\")"
+      "Bash(node -e \"const re = /needs a clean working tree|Your local changes.*would be overwritten|Please commit your changes or stash them|cannot pull with rebase.*unstaged changes|working tree has modifications/i; console.log\\(re.test\\(\\\\\"Error invoking remote method 'git:update-from-main': Error: Update from main needs a clean working tree. Commit or stash your current changes first so incoming files are not mixed with local edits.\\\\\"\\)\\)\")",
+      "Bash(xargs -0 sed -i \"s|\\\\\"'IBM Plex Sans', system-ui\\\\\"|'var\\(--lg-font-ui\\)'|g; s|\\\\\"'JetBrains Mono', monospace\\\\\"|'var\\(--lg-font-mono\\)'|g\")"
     ]
   }
 }

@@ -92,7 +92,7 @@ function RecentRepoRow({ name, path, divider, onOpen, onRemove }: {
           <path d="M1.5 4.5h4.2l1 1.5h7.8v7.5h-13V4.5z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
         </svg>
         <span style={{
-          fontFamily: "'IBM Plex Sans', system-ui", fontSize: 13,
+          fontFamily: 'var(--lg-font-ui)', fontSize: 13,
           color: hover ? '#c8cdd8' : '#7b8499', fontWeight: 500,
           letterSpacing: '-0.01em', flex: 1,
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
@@ -100,7 +100,7 @@ function RecentRepoRow({ name, path, divider, onOpen, onRemove }: {
           {name}
         </span>
         <span style={{
-          fontFamily: "'JetBrains Mono', monospace", fontSize: 10,
+          fontFamily: 'var(--lg-font-mono)', fontSize: 10,
           color: '#2e3a50',
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           maxWidth: 160, flexShrink: 0,
@@ -140,7 +140,7 @@ function WelcomeBtn({ onClick, label, accent }: { onClick: () => void; label: st
         background: accent ? '#e8622f' : 'rgba(255,255,255,0.04)',
         border: `1px solid ${accent ? '#e8622f' : '#1d2535'}`,
         color: accent ? '#fff' : '#7b8499',
-        fontFamily: "'IBM Plex Sans', system-ui", fontSize: 13.5,
+        fontFamily: 'var(--lg-font-ui)', fontSize: 13.5,
         fontWeight: accent ? 600 : 400, cursor: 'pointer',
         boxShadow: accent ? '0 0 18px rgba(232,98,47,0.3), 0 2px 8px rgba(0,0,0,0.3)' : '0 2px 8px rgba(0,0,0,0.2)',
         letterSpacing: '-0.01em',
@@ -424,20 +424,20 @@ export function AppShell() {
                   />
                 </div>
                 <div style={{
-                  fontFamily: "'JetBrains Mono', monospace", fontSize: 28, fontWeight: 700,
+                  fontFamily: 'var(--lg-font-mono)', fontSize: 28, fontWeight: 700,
                   color: '#e2e6f4', letterSpacing: '0.12em',
                   textShadow: '0 2px 20px rgba(0,0,0,0.5)',
                 }}>
                   LUCID GIT
                 </div>
-                <div style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 13, color: '#3d4a60', marginTop: 7, letterSpacing: '0.02em' }}>
+                <div style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 13, color: '#3d4a60', marginTop: 7, letterSpacing: '0.02em' }}>
                   Git client for game development teams
                 </div>
                 {error && (
                   <div style={{
                     marginTop: 18, background: 'rgba(232,64,64,0.08)', border: '1px solid rgba(232,64,64,0.25)',
                     borderRadius: 7, padding: '10px 16px',
-                    fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: '#e84040',
+                    fontFamily: 'var(--lg-font-mono)', fontSize: 11, color: '#e84040',
                     maxWidth: 400, textAlign: 'left', whiteSpace: 'pre-wrap',
                   }}>{error}</div>
                 )}
@@ -452,12 +452,12 @@ export function AppShell() {
                         width: 30, height: 30, borderRadius: '50%',
                         background: '#1d2535', border: '1px solid #2b364d',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        color: '#7b8499', fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12, fontWeight: 600,
+                        color: '#7b8499', fontFamily: 'var(--lg-font-ui)', fontSize: 12, fontWeight: 600,
                         textTransform: 'uppercase',
                       }}>
                         {(currentUserName ?? '?').slice(0, 1)}
                       </div>
-                      <div style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 13, color: '#a8b1c2' }}>
+                      <div style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 13, color: '#a8b1c2' }}>
                         {currentUserName}
                       </div>
                     </div>
@@ -467,14 +467,14 @@ export function AppShell() {
                     </div>
                   </>
                 )}
-                <div style={{ marginTop: 20, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#253040', letterSpacing: '0.05em' }}>
+                <div style={{ marginTop: 20, fontFamily: 'var(--lg-font-mono)', fontSize: 10, color: '#253040', letterSpacing: '0.05em' }}>
                   Press ⌘K to open command palette
                 </div>
 
                 {isSignedIn && recentRepos.length > 0 && (
                   <div style={{ marginTop: 32, width: 340, textAlign: 'left' }}>
                     <div style={{
-                      fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10, fontWeight: 700,
+                      fontFamily: 'var(--lg-font-ui)', fontSize: 10, fontWeight: 700,
                       color: '#344057', letterSpacing: '0.1em', textTransform: 'uppercase',
                       marginBottom: 6,
                     }}>

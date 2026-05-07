@@ -79,19 +79,19 @@ export function BlameSection({ entries, loading }: { entries: BlameEntry[]; load
         display: 'flex', alignItems: 'center', height: 30, paddingLeft: 12, paddingRight: 10,
         borderBottom: '1px solid #1e2436', position: 'sticky', top: 0, background: '#0d0f15', zIndex: 1,
       }}>
-        <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10, fontWeight: 700, color: '#3a4260', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+        <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 10, fontWeight: 700, color: '#3a4260', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
           Blame
         </span>
         {!loading && entries.length > 0 && (
-          <span style={{ marginLeft: 8, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#3a4260' }}>
+          <span style={{ marginLeft: 8, fontFamily: 'var(--lg-font-mono)', fontSize: 10, color: '#3a4260' }}>
             {blocks.length} block{blocks.length !== 1 ? 's' : ''}
           </span>
         )}
       </div>
       {loading ? (
-        <div style={{ padding: '10px 12px', fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: '#3a4260' }}>Loading...</div>
+        <div style={{ padding: '10px 12px', fontFamily: 'var(--lg-font-mono)', fontSize: 11, color: '#3a4260' }}>Loading...</div>
       ) : blocks.length === 0 ? (
-        <div style={{ padding: '10px 12px', fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: '#3a4260' }}>No blame data</div>
+        <div style={{ padding: '10px 12px', fontFamily: 'var(--lg-font-mono)', fontSize: 11, color: '#3a4260' }}>No blame data</div>
       ) : blocks.map((b, i) => {
         const col = authorColor(b.author)
         const lines = b.fromLine === b.toLine ? `L${b.fromLine}` : `L${b.fromLine}-${b.toLine}`
@@ -103,16 +103,16 @@ export function BlameSection({ entries, loading }: { entries: BlameEntry[]; load
             borderLeft: `3px solid ${col}55`,
             background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)',
           }}>
-            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: col, flexShrink: 0, minWidth: 50 }}>
+            <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 10, color: col, flexShrink: 0, minWidth: 50 }}>
               {b.hash.slice(0, 7)}
             </span>
-            <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 11, color: '#8b94b0', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 11, color: '#8b94b0', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {b.author}
             </span>
-            <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10, color: '#3a4260', flexShrink: 0 }}>
+            <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 10, color: '#3a4260', flexShrink: 0 }}>
               {timeAgo(b.timestamp)}
             </span>
-            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, color: '#2a3040', flexShrink: 0, minWidth: 60, textAlign: 'right' }}>
+            <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 9, color: '#2a3040', flexShrink: 0, minWidth: 60, textAlign: 'right' }}>
               {lines}
             </span>
           </div>
@@ -135,7 +135,7 @@ function EmptyState({ message }: { message: string }) {
           <path d="M12 12h12M12 17h8M12 22h10" stroke="#283047" strokeWidth="1.5" strokeLinecap="round" />
         </svg>
       </div>
-      <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 13, color: '#2e3a50' }}>
+      <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 13, color: '#2e3a50' }}>
         {message}
       </span>
     </div>
@@ -145,8 +145,8 @@ function EmptyState({ message }: { message: string }) {
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '78px minmax(0, 1fr)', gap: 8, padding: '7px 12px', borderBottom: '1px solid #121722' }}>
-      <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10, fontWeight: 700, color: '#3a4260', textTransform: 'uppercase' }}>{label}</span>
-      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10.5, color: '#8b94b0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={value}>{value}</span>
+      <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 10, fontWeight: 700, color: '#3a4260', textTransform: 'uppercase' }}>{label}</span>
+      <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 10.5, color: '#8b94b0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={value}>{value}</span>
     </div>
   )
 }
@@ -185,10 +185,10 @@ function FileDetails({ repoPath, filePath, hash }: { repoPath: string; filePath:
   return (
     <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', background: '#0d0f15' }}>
       <div style={{ padding: '12px', borderBottom: '1px solid #1e2436' }}>
-        <div style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 13, fontWeight: 700, color: '#dde1f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={fileName}>
+        <div style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 13, fontWeight: 700, color: '#dde1f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={fileName}>
           {fileName}
         </div>
-        <FilePathText path={filePath} style={{ display: 'block', marginTop: 5, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#3a4260' }} />
+        <FilePathText path={filePath} style={{ display: 'block', marginTop: 5, fontFamily: 'var(--lg-font-mono)', fontSize: 10, color: '#3a4260' }} />
       </div>
 
       <DetailRow label="Type" value={assetClass ?? (ext ? `.${ext}` : 'File')} />
@@ -200,15 +200,15 @@ function FileDetails({ repoPath, filePath, hash }: { repoPath: string; filePath:
         display: 'flex', alignItems: 'center', height: 30, paddingLeft: 12, paddingRight: 10,
         borderTop: '1px solid #1e2436', borderBottom: '1px solid #181e2e', marginTop: 8,
       }}>
-        <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10, fontWeight: 700, color: '#2a3040', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+        <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 10, fontWeight: 700, color: '#2a3040', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
           File History
         </span>
       </div>
 
       {histLoading ? (
-        <div style={{ padding: '10px 12px', fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: '#2a3040' }}>Loading...</div>
+        <div style={{ padding: '10px 12px', fontFamily: 'var(--lg-font-mono)', fontSize: 11, color: '#2a3040' }}>Loading...</div>
       ) : history.length === 0 ? (
-        <div style={{ padding: '10px 12px', fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12, color: '#2a3040' }}>No history available</div>
+        <div style={{ padding: '10px 12px', fontFamily: 'var(--lg-font-ui)', fontSize: 12, color: '#2a3040' }}>No history available</div>
       ) : history.map((c, i) => {
         const col = authorColor(c.author)
         return (
@@ -223,19 +223,19 @@ function FileDetails({ repoPath, filePath, hash }: { repoPath: string; filePath:
               background: `linear-gradient(135deg, ${col}55, ${col}22)`,
               border: `1px solid ${col}44`,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontFamily: "'JetBrains Mono', monospace", fontSize: 7.5, fontWeight: 700, color: col,
+              fontFamily: 'var(--lg-font-mono)', fontSize: 7.5, fontWeight: 700, color: col,
             }}>{initials(c.author)}</span>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 11, color: '#9ba4bc', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <div style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 11, color: '#9ba4bc', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {c.message}
               </div>
-              <div style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10, color: '#3e4a60', marginTop: 1 }}>
+              <div style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 10, color: '#3e4a60', marginTop: 1 }}>
                 {c.author}
               </div>
             </div>
             <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
-              <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10, color: '#3a4260' }}>{timeAgo(c.timestamp)}</span>
-              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, color: '#252d3e' }}>{c.hash.slice(0, 7)}</span>
+              <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 10, color: '#3a4260' }}>{timeAgo(c.timestamp)}</span>
+              <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 9, color: '#252d3e' }}>{c.hash.slice(0, 7)}</span>
             </div>
           </div>
         )
@@ -267,7 +267,7 @@ function AssetPanel({ repoPath, filePath, hash }: { repoPath: string; filePath: 
         borderBottom: '1px solid #1e2436', overflow: 'hidden',
       }}>
         {thumbLoading ? (
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: '#2a3040' }}>Loading...</span>
+          <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 11, color: '#2a3040' }}>Loading...</span>
         ) : thumbSrc ? (
           <img src={`file://${thumbSrc}`} alt={fileName} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
         ) : (
@@ -323,13 +323,13 @@ export function FileDetailsSidePanel({
       <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
         {diffLoading && (
           <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0d0f15' }}>
-            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: '#344057' }}>Loading diff...</span>
+            <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 12, color: '#344057' }}>Loading diff...</span>
           </div>
         )}
         {!diffLoading && diff && <TextDiff diff={diff} />}
         {!diffLoading && !diff && (
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-            <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 13, color: '#2e3a50' }}>No diff available</span>
+            <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 13, color: '#2e3a50' }}>No diff available</span>
           </div>
         )}
       </div>

@@ -28,38 +28,38 @@ export const THEMES: ThemeDef[] = [
   {
     id: 'dark',
     label: 'Dark',
-    preview: { bg: '#0b0d13', panel: '#10131c', accent: '#e8622f' },
+    preview: { bg: '#0b0d13', panel: '#10131c', accent: '#4a9eff' },
     vars: {
       '--lg-bg-primary':    '#0b0d13',
       '--lg-bg-secondary':  '#10131c',
       '--lg-bg-elevated':   '#161a27',
-      '--lg-accent':        '#e8622f',
-      '--lg-accent-hover':  '#f0714d',
+      '--lg-accent':        '#4a9eff',
+      '--lg-accent-hover':  '#6aadff',
       '--lg-accent-blue':   '#4a9eff',
       '--lg-text-primary':  '#e2e6f4',
       '--lg-text-secondary':'#7b8499',
       '--lg-border':        '#1d2535',
       '--lg-border-strong': '#283047',
-      '--lg-glow-accent':   '0 0 18px rgba(232,98,47,0.22), 0 0 4px rgba(232,98,47,0.18)',
+      '--lg-glow-accent':   '0 0 18px rgba(74,158,255,0.22), 0 0 4px rgba(74,158,255,0.18)',
       '--lg-glow-blue':     '0 0 14px rgba(74,158,255,0.22)',
     },
   },
   {
     id: 'darker',
     label: 'Darker',
-    preview: { bg: '#060709', panel: '#0b0d13', accent: '#e8622f' },
+    preview: { bg: '#060709', panel: '#0b0d13', accent: '#4a9eff' },
     vars: {
       '--lg-bg-primary':    '#060709',
       '--lg-bg-secondary':  '#0b0d13',
       '--lg-bg-elevated':   '#10131c',
-      '--lg-accent':        '#e8622f',
-      '--lg-accent-hover':  '#f0714d',
+      '--lg-accent':        '#4a9eff',
+      '--lg-accent-hover':  '#6aadff',
       '--lg-accent-blue':   '#4a9eff',
       '--lg-text-primary':  '#e2e6f4',
       '--lg-text-secondary':'#7b8499',
       '--lg-border':        '#1a2030',
       '--lg-border-strong': '#232d40',
-      '--lg-glow-accent':   '0 0 18px rgba(232,98,47,0.22), 0 0 4px rgba(232,98,47,0.18)',
+      '--lg-glow-accent':   '0 0 18px rgba(74,158,255,0.22), 0 0 4px rgba(74,158,255,0.18)',
       '--lg-glow-blue':     '0 0 14px rgba(74,158,255,0.22)',
     },
   },
@@ -273,8 +273,8 @@ export const BORDER_RADII = [
 ]
 
 export const ACCENT_PRESETS = [
+  '#4a9eff', // blue (default)
   '#e8622f', // orange
-  '#4d9dff', // blue
   '#ff79c6', // pink
   '#cba6f7', // lavender
   '#4ade80', // green

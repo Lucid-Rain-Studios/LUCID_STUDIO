@@ -4,6 +4,7 @@ import { useRepoStore } from '@/stores/repoStore'
 import { useOperationStore } from '@/stores/operationStore'
 import { cn } from '@/lib/utils'
 import { FilePathText } from '@/components/ui/FilePathText'
+import { ActionBtn } from '@/components/ui/ActionBtn'
 
 interface MergePreviewDialogProps {
   targetBranch: string
@@ -403,13 +404,15 @@ export function MergePreviewDialog({ targetBranch, onClose, onMerged }: MergePre
             )}
             {conflicts.length === 0 && <div />}
             <div className="flex gap-2 shrink-0">
-              <button
+              <ActionBtn
                 onClick={inConflictResolution ? abortMerge : onClose}
                 disabled={merging}
-                className="px-3 h-7 rounded text-[11px] font-mono border border-lg-border text-lg-text-secondary hover:border-lg-accent hover:text-lg-accent transition-colors disabled:opacity-40"
+                color={inConflictResolution ? '#e84545' : undefined}
+                size="sm"
+                style={{ height: 28, paddingLeft: 12, paddingRight: 12, fontSize: 11, fontFamily: 'var(--lg-font-mono)' }}
               >
                 {inConflictResolution ? 'Abort merge' : 'Cancel'}
-              </button>
+              </ActionBtn>
               {inConflictResolution ? (
                 <button
                   onClick={finalizeMerge}

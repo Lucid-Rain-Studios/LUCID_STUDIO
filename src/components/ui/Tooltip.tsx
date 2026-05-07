@@ -48,7 +48,7 @@ export function Tooltip({ content, children, side = 'top', delay = 500, asSvgGro
     fontSize: 11,
     lineHeight: 1.4,
     color: '#c4cad8',
-    fontFamily: "'IBM Plex Sans', system-ui",
+    fontFamily: 'var(--lg-font-ui)',
     whiteSpace: typeof content === 'string' ? 'nowrap' : 'normal',
     pointerEvents: 'none',
     boxShadow: '0 4px 14px rgba(0,0,0,0.5)',

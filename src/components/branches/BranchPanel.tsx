@@ -6,6 +6,7 @@ import { useDialogStore } from '@/stores/dialogStore'
 import { usePRStore } from '@/stores/prStore'
 import { cn } from '@/lib/utils'
 import { FilePathText } from '@/components/ui/FilePathText'
+import { ActionBtn } from '@/components/ui/ActionBtn'
 
 
 
@@ -376,13 +377,14 @@ export function BranchPanel({ onMergePreview, onRefresh }: BranchPanelProps) {
             placeholder="branch-name"
             className="flex-1 min-w-0 bg-lg-bg-primary border border-lg-border rounded px-2 py-1 text-[11px] font-mono text-lg-text-primary placeholder:text-lg-text-secondary focus:outline-none focus:border-lg-accent transition-colors"
           />
-          <button
+          <ActionBtn
             onClick={doCreate}
             disabled={!newName.trim() || creating}
-            className="shrink-0 px-2 h-7 rounded text-[10px] font-mono border border-lg-border text-lg-text-secondary hover:border-lg-accent hover:text-lg-accent disabled:opacity-40 transition-colors"
+            size="sm"
+            style={{ height: 28, paddingLeft: 8, paddingRight: 8, fontSize: 10, fontFamily: 'var(--lg-font-mono)', flexShrink: 0 }}
           >
             {creating ? '…' : '+ Create'}
-          </button>
+          </ActionBtn>
         </div>
       </div>
 
@@ -631,13 +633,14 @@ export function BranchPanel({ onMergePreview, onRefresh }: BranchPanelProps) {
 
       {/* ── Footer ─────────────────────────────────────────────────────── */}
       <div className="px-3 py-2 border-t border-lg-border shrink-0">
-        <button
+        <ActionBtn
           onClick={doUpdateFromMain}
           disabled={updatingMain}
-          className="w-full h-7 rounded text-[10px] font-mono border border-lg-border text-lg-text-secondary hover:border-lg-accent hover:text-lg-accent disabled:opacity-40 transition-colors"
+          size="sm"
+          style={{ width: '100%', height: 28, fontSize: 10, fontFamily: 'var(--lg-font-mono)' }}
         >
           {updatingMain ? 'Updating…' : `↓ Update from ${defaultBranch}`}
-        </button>
+        </ActionBtn>
       </div>
     </div>
   )
@@ -652,18 +655,15 @@ function IconBtn({
   danger?: boolean
 }) {
   return (
-    <button
-      onClick={e => { e.stopPropagation(); onClick() }}
+    <ActionBtn
+      onClick={(e) => { e.stopPropagation(); onClick() }}
       title={title}
-      className={cn(
-        'px-1.5 h-5 rounded text-[9px] font-mono border transition-colors',
-        danger
-          ? 'border-lg-error/30 text-lg-error hover:bg-lg-error/10'
-          : 'border-lg-border text-lg-text-secondary hover:border-lg-accent hover:text-lg-accent'
-      )}
+      color={danger ? '#e84545' : undefined}
+      size="sm"
+      style={{ height: 20, paddingLeft: 6, paddingRight: 6, fontSize: 9, fontFamily: 'var(--lg-font-mono)' }}
     >
       {children}
-    </button>
+    </ActionBtn>
   )
 }
 
@@ -713,12 +713,12 @@ function BranchStashDialog({ from, to, onConfirm, onCancel }: {
         </div>
 
         <div className="flex justify-end gap-2">
-          <button onClick={onCancel} className="px-3 h-7 rounded text-xs border border-lg-border text-lg-text-secondary hover:bg-white/[0.04] transition-colors">
+          <ActionBtn onClick={onCancel} size="sm" style={{ height: 28, paddingLeft: 12, paddingRight: 12, fontSize: 12 }}>
             Cancel
-          </button>
-          <button onClick={() => onConfirm(stash)} className="px-3 h-7 rounded text-xs border border-lg-accent/40 bg-lg-accent/10 text-lg-accent font-semibold hover:bg-lg-accent/20 transition-colors">
+          </ActionBtn>
+          <ActionBtn onClick={() => onConfirm(stash)} size="sm" style={{ height: 28, paddingLeft: 12, paddingRight: 12, fontSize: 12, fontWeight: 600 }}>
             Switch Branch
-          </button>
+          </ActionBtn>
         </div>
       </div>
     </div>
@@ -804,12 +804,9 @@ function BranchDiffPreview({ repoPath, base, compare, onSwitch, onClose }: {
           {base} ↔ {compare}
         </span>
         <div className="flex items-center gap-1.5">
-          <button
-            onClick={onSwitch}
-            className="px-2 h-5 rounded text-[9px] font-mono border border-lg-accent/40 bg-lg-accent/10 text-lg-accent hover:bg-lg-accent/20 transition-colors"
-          >
+          <ActionBtn onClick={onSwitch} size="sm" style={{ height: 20, paddingLeft: 8, paddingRight: 8, fontSize: 9, fontFamily: 'var(--lg-font-mono)' }}>
             → switch
-          </button>
+          </ActionBtn>
           <button onClick={onClose} className="text-lg-text-secondary/50 hover:text-lg-text-secondary text-xs leading-none px-1">✕</button>
         </div>
       </div>

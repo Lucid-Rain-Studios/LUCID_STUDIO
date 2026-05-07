@@ -12,6 +12,7 @@ import { CommitBox } from '@/components/changes/CommitBox'
 import { StashPanel } from '@/components/changes/StashPanel'
 import { FilePathText } from '@/components/ui/FilePathText'
 import { FileDetailsSidePanel } from '@/components/shared/FileDetailsSidePanel'
+import { ActionBtn } from '@/components/ui/ActionBtn'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -394,7 +395,7 @@ function GraphCell({ node, graphColW, hoveredBranchKey, branchHoverLabels, onHov
             return (
               <>
                 <rect x={tooltipX} y={2} width={tooltipW} height={20} rx={5} fill="#0f1420f5" stroke={hoveredBranchKey === 'main' ? MAIN_BRANCH_COLOR : '#3b4b6d'} />
-                <text x={tooltipX + tooltipW / 2} y={15} textAnchor="middle" fill="#e7ecfa" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10 }}>
+                <text x={tooltipX + tooltipW / 2} y={15} textAnchor="middle" fill="#e7ecfa" style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 10 }}>
                   {hoveredSeg.label}
                 </text>
               </>
@@ -442,7 +443,7 @@ function CtxItem({ label, onClick, disabled, danger, title }: {
       title={title}
       style={{
         width: '100%', textAlign: 'left', padding: '5px 12px',
-        fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12,
+        fontFamily: 'var(--lg-font-ui)', fontSize: 12,
         background: 'transparent', border: 'none',
         color: disabled ? '#4e5870' : danger ? '#e84545' : '#dde1f0',
         cursor: disabled ? 'default' : 'pointer',
@@ -501,7 +502,7 @@ function BlameModal({ filePath, commitHash, repoPath, onClose }: {
           height: 44, paddingLeft: 16, paddingRight: 12, flexShrink: 0,
           borderBottom: '1px solid #252d42', background: '#10131c',
         }}>
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: '#8b94b0' }}>
+          <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 12, color: '#8b94b0' }}>
             blame: {filePath}
           </span>
           <button
@@ -511,7 +512,7 @@ function BlameModal({ filePath, commitHash, repoPath, onClose }: {
             onMouseLeave={e => (e.currentTarget.style.color = '#4e5870')}
           >×</button>
         </div>
-        <div style={{ flex: 1, overflowY: 'auto', fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>
+        <div style={{ flex: 1, overflowY: 'auto', fontFamily: 'var(--lg-font-mono)', fontSize: 12 }}>
           {loading ? (
             <p style={{ padding: 16, color: '#4e5870' }}>Loading blame…</p>
           ) : error ? (
@@ -594,12 +595,12 @@ function WorkingTreeGraphRow({ selected, changeCount, graphColW, lane = 0, onCli
       <div style={{ flex: 1, minWidth: 0, paddingLeft: 5, paddingRight: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 4 }}>
           <span style={{
-            fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12.5, fontWeight: 600,
+            fontFamily: 'var(--lg-font-ui)', fontSize: 12.5, fontWeight: 600,
             color: selected ? '#dde1f0' : '#9ba4bc',
           }}>Working Tree</span>
           {hasChanges && (
             <span style={{
-              fontFamily: "'JetBrains Mono', monospace", fontSize: 9.5, fontWeight: 700,
+              fontFamily: 'var(--lg-font-mono)', fontSize: 9.5, fontWeight: 700,
               background: 'rgba(232,98,47,0.15)', color: '#e8622f',
               border: '1px solid rgba(232,98,47,0.3)', borderRadius: 8,
               minWidth: 18, height: 16, paddingLeft: 5, paddingRight: 5,
@@ -608,7 +609,7 @@ function WorkingTreeGraphRow({ selected, changeCount, graphColW, lane = 0, onCli
           )}
         </div>
         <span style={{
-          fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10.5,
+          fontFamily: 'var(--lg-font-ui)', fontSize: 10.5,
           color: hasChanges ? `${accent}bb` : '#2e3a4e',
         }}>
           {hasChanges
@@ -706,7 +707,7 @@ function TLBranchDropdownRow({ branch, checked, isDefault, bCol, onToggle }: {
         onClick={onToggle}
         style={{
           all: 'unset',
-          fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: '#c8cdd8',
+          fontFamily: 'var(--lg-font-mono)', fontSize: 11, color: '#c8cdd8',
           flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           cursor: 'pointer',
         }}
@@ -718,14 +719,14 @@ function TLBranchDropdownRow({ branch, checked, isDefault, bCol, onToggle }: {
             background: 'rgba(125,211,252,0.14)', color: MAIN_BRANCH_COLOR,
             border: '1px solid rgba(125,211,252,0.45)',
             borderRadius: 3, padding: '0 4px',
-            fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 700,
+            fontFamily: 'var(--lg-font-mono)', fontSize: 9, fontWeight: 700,
           }}>main</span>
         )}
         {branch.hasLocal && (
           <span style={{
             background: `${bCol}22`, color: bCol, border: `1px solid ${bCol}45`,
             borderRadius: 3, padding: '0 4px',
-            fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 700,
+            fontFamily: 'var(--lg-font-mono)', fontSize: 9, fontWeight: 700,
           }}>local</span>
         )}
       </div>
@@ -746,25 +747,17 @@ function TLBranchDropdown({ open, onToggleOpen, branches, selectedBranches, defa
   ]
   return (
     <div style={{ position: 'relative' }}>
-      <button
+      <ActionBtn
         onClick={onToggleOpen}
-        style={{
-          display: 'inline-flex', alignItems: 'center', gap: 4,
-          height: 22, paddingLeft: 8, paddingRight: 6, borderRadius: 4,
-          background: open ? '#1e2436' : 'transparent',
-          border: `1px solid ${open ? '#2f3a54' : '#252d42'}`,
-          color: '#4e5870',
-          fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10.5, fontWeight: 500,
-          cursor: 'pointer', transition: 'all 0.12s', flexShrink: 0,
-          whiteSpace: 'nowrap',
-        }}
+        size="sm"
+        style={{ height: 22, paddingLeft: 8, paddingRight: 6, fontSize: 10.5, gap: 4 }}
       >
         <span>{visibleCount} branch{visibleCount !== 1 ? 'es' : ''}</span>
         <svg width="7" height="4" viewBox="0 0 8 5" fill="none"
           style={{ transition: 'transform 0.15s', transform: open ? 'rotate(180deg)' : 'none' }}>
-          <path d="M1 1L4 4L7 1" stroke="#3a4260" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M1 1L4 4L7 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
-      </button>
+      </ActionBtn>
 
       {open && (
         <>
@@ -780,17 +773,17 @@ function TLBranchDropdown({ open, onToggleOpen, branches, selectedBranches, defa
               padding: '7px 12px 5px', borderBottom: '1px solid #1e2436',
             }}>
               <span style={{
-                fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 700,
+                fontFamily: 'var(--lg-font-mono)', fontSize: 9, fontWeight: 700,
                 color: '#3a4260', letterSpacing: '0.1em', textTransform: 'uppercase',
               }}>Filter branches</span>
               <div style={{ display: 'flex', gap: 10 }}>
                 <button onClick={onHideAll} style={{
-                  fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10, color: '#8f99b3',
+                  fontFamily: 'var(--lg-font-ui)', fontSize: 10, color: '#8f99b3',
                   background: 'none', border: 'none', cursor: 'pointer', padding: 0,
                   whiteSpace: 'nowrap',
                 }}>Hide all</button>
                 <button onClick={onShowAll} style={{
-                  fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10, color: '#e8622f',
+                  fontFamily: 'var(--lg-font-ui)', fontSize: 10, color: '#e8622f',
                   background: 'none', border: 'none', cursor: 'pointer', padding: 0,
                   whiteSpace: 'nowrap',
                 }}>Show all</button>
@@ -983,7 +976,7 @@ function LeftCommitRow({ node, selected, repoPath, remoteUrl, onRefresh, onClick
                   color: isDefaultTip ? MAIN_BRANCH_COLOR : bCol,
                   border: `1px solid ${isDefaultTip ? MAIN_BRANCH_COLOR : bCol}${isDefaultTip ? '80' : '40'}`,
                   borderRadius: 3, padding: '0 5px',
-                  fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: isDefaultTip ? 800 : 500,
+                  fontFamily: 'var(--lg-font-mono)', fontSize: 9, fontWeight: isDefaultTip ? 800 : 500,
                   boxShadow: isDefaultTip ? '0 0 8px rgba(125,211,252,0.2)' : 'none',
                 }}>
                   <span style={{ fontSize: 8 }}>{icon}</span>
@@ -992,7 +985,7 @@ function LeftCommitRow({ node, selected, repoPath, remoteUrl, onRefresh, onClick
               )
             })}
             <span style={{
-              fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12,
+              fontFamily: 'var(--lg-font-ui)', fontSize: 12,
               fontWeight: selected ? 600 : 400, color: '#c8cdd8',
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1,
             }}>{commit.message}</span>
@@ -1026,7 +1019,7 @@ function LeftCommitRow({ node, selected, repoPath, remoteUrl, onRefresh, onClick
               <span style={{
                 background: 'rgba(162,126,240,0.12)', color: '#a27ef0',
                 border: '1px solid rgba(162,126,240,0.25)', borderRadius: 3,
-                fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 600, flexShrink: 0,
+                fontFamily: 'var(--lg-font-mono)', fontSize: 9, fontWeight: 600, flexShrink: 0,
                 paddingLeft: 4, paddingRight: 4,
               }}>M</span>
             )}
@@ -1036,12 +1029,12 @@ function LeftCommitRow({ node, selected, repoPath, remoteUrl, onRefresh, onClick
               width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
               background: `${col}22`, border: `1px solid ${col}44`,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontFamily: "'JetBrains Mono', monospace", fontSize: 9.5, fontWeight: 700, color: col,
+              fontFamily: 'var(--lg-font-mono)', fontSize: 9.5, fontWeight: 700, color: col,
             }}>{ini}</span>
-            <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10, color: '#4e5870' }}>
+            <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 10, color: '#4e5870' }}>
               {timeAgo(commit.timestamp)}
             </span>
-            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, color: '#3a4260', marginLeft: 'auto', paddingRight: 2, flexShrink: 0 }}>
+            <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 9, color: '#3a4260', marginLeft: 'auto', paddingRight: 2, flexShrink: 0 }}>
               {shortHash}
             </span>
           </div>
@@ -1123,11 +1116,11 @@ function CommitFileRow({ f, selected, repoPath, commitHash, remoteUrl, onClick }
         <span style={{
           width: 16, height: 16, borderRadius: 3, flexShrink: 0,
           background: sb, color: sc,
-          fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 700,
+          fontFamily: 'var(--lg-font-mono)', fontSize: 10, fontWeight: 700,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>{f.status}</span>
         <FilePathText path={label} displayText={displayLabel} style={{
-          fontFamily: "'JetBrains Mono', monospace", fontSize: 11.5,
+          fontFamily: 'var(--lg-font-mono)', fontSize: 11.5,
           color: '#c8cdd8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1,
         }} />
       </div>
@@ -1191,19 +1184,19 @@ function BlameSection({ entries, loading }: { entries: BlameEntry[]; loading: bo
         display: 'flex', alignItems: 'center', height: 30, paddingLeft: 12, paddingRight: 10,
         borderBottom: '1px solid #1e2436', position: 'sticky', top: 0, background: '#0d0f15', zIndex: 1,
       }}>
-        <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10, fontWeight: 700, color: '#3a4260', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+        <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 10, fontWeight: 700, color: '#3a4260', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
           Blame
         </span>
         {!loading && entries.length > 0 && (
-          <span style={{ marginLeft: 8, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#3a4260' }}>
+          <span style={{ marginLeft: 8, fontFamily: 'var(--lg-font-mono)', fontSize: 10, color: '#3a4260' }}>
             {blocks.length} block{blocks.length !== 1 ? 's' : ''}
           </span>
         )}
       </div>
       {loading ? (
-        <div style={{ padding: '10px 12px', fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: '#3a4260' }}>Loading…</div>
+        <div style={{ padding: '10px 12px', fontFamily: 'var(--lg-font-mono)', fontSize: 11, color: '#3a4260' }}>Loading…</div>
       ) : blocks.length === 0 ? (
-        <div style={{ padding: '10px 12px', fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: '#3a4260' }}>No blame data</div>
+        <div style={{ padding: '10px 12px', fontFamily: 'var(--lg-font-mono)', fontSize: 11, color: '#3a4260' }}>No blame data</div>
       ) : blocks.map((b, i) => {
         const col = authorColor(b.author)
         const lines = b.fromLine === b.toLine ? `L${b.fromLine}` : `L${b.fromLine}–${b.toLine}`
@@ -1215,16 +1208,16 @@ function BlameSection({ entries, loading }: { entries: BlameEntry[]; loading: bo
             borderLeft: `3px solid ${col}55`,
             background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)',
           }}>
-            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: col, flexShrink: 0, minWidth: 50 }}>
+            <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 10, color: col, flexShrink: 0, minWidth: 50 }}>
               {b.hash.slice(0, 7)}
             </span>
-            <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 11, color: '#8b94b0', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 11, color: '#8b94b0', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {b.author}
             </span>
-            <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10, color: '#3a4260', flexShrink: 0 }}>
+            <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 10, color: '#3a4260', flexShrink: 0 }}>
               {timeAgo(b.timestamp)}
             </span>
-            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, color: '#2a3040', flexShrink: 0, minWidth: 60, textAlign: 'right' }}>
+            <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 9, color: '#2a3040', flexShrink: 0, minWidth: 60, textAlign: 'right' }}>
               {lines}
             </span>
           </div>
@@ -1257,7 +1250,7 @@ function RightPanel({ centerFile, repoPath, diff, diffLoading, blame, blameLoadi
             <path d="M12 12h12M12 17h8M12 22h10" stroke="#283047" strokeWidth="1.5" strokeLinecap="round" />
           </svg>
         </div>
-        <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 13, color: '#2e3a50' }}>
+        <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 13, color: '#2e3a50' }}>
           Select a file to preview
         </span>
       </div>
@@ -1278,13 +1271,13 @@ function RightPanel({ centerFile, repoPath, diff, diffLoading, blame, blameLoadi
       <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
         {diffLoading && (
           <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0d0f15' }}>
-            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: '#344057' }}>Loading diff…</span>
+            <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 12, color: '#344057' }}>Loading diff…</span>
           </div>
         )}
         {!diffLoading && diff && <TextDiff diff={diff} />}
         {!diffLoading && !diff && (
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-            <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 13, color: '#2e3a50' }}>No diff available</span>
+            <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 13, color: '#2e3a50' }}>No diff available</span>
           </div>
         )}
       </div>
@@ -1492,7 +1485,7 @@ function AssetPanel({ repoPath, filePath, hash }: { repoPath: string; filePath: 
         borderBottom: '1px solid #1e2436', position: 'relative', overflow: 'hidden',
       }}>
         {thumbLoading ? (
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: '#2a3040' }}>Loading…</span>
+          <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 11, color: '#2a3040' }}>Loading…</span>
         ) : thumbSrc ? (
           <img
             src={`file://${thumbSrc}`}
@@ -1511,11 +1504,11 @@ function AssetPanel({ repoPath, filePath, hash }: { repoPath: string; filePath: 
             </div>
             <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, position: 'relative' }}>
               <span style={{
-                fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12, fontWeight: 600,
+                fontFamily: 'var(--lg-font-ui)', fontSize: 12, fontWeight: 600,
                 color: ueType.accent, opacity: 0.9,
               }}>{assetClass ?? ueType.label}</span>
               <span style={{
-                fontFamily: "'JetBrains Mono', monospace", fontSize: 10,
+                fontFamily: 'var(--lg-font-mono)', fontSize: 10,
                 color: `${ueType.accent}66`,
                 background: `${ueType.accent}12`, borderRadius: 4, padding: '1px 7px',
               }}>.{ext}</span>
@@ -1531,12 +1524,12 @@ function AssetPanel({ repoPath, filePath, hash }: { repoPath: string; filePath: 
         borderBottom: '1px solid #1e2436', background: '#0d0f15',
       }}>
         <FilePathText path={filePath} style={{
-          fontFamily: "'JetBrains Mono', monospace", fontSize: 10.5, color: '#8b94b0',
+          fontFamily: 'var(--lg-font-mono)', fontSize: 10.5, color: '#8b94b0',
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1,
         }} />
         {!thumbLoading && !thumbSrc && (
           <span style={{
-            fontFamily: "'IBM Plex Sans', system-ui", fontSize: 9, fontWeight: 600,
+            fontFamily: 'var(--lg-font-ui)', fontSize: 9, fontWeight: 600,
             background: `${ueType.accent}14`, color: ueType.accent,
             border: `1px solid ${ueType.accent}30`, borderRadius: 3, padding: '1px 6px', flexShrink: 0,
           }}>{ueType.label}</span>
@@ -1548,11 +1541,11 @@ function AssetPanel({ repoPath, filePath, hash }: { repoPath: string; filePath: 
         display: 'flex', alignItems: 'center', height: 28, paddingLeft: 12, paddingRight: 10,
         borderBottom: '1px solid #181e2e', flexShrink: 0,
       }}>
-        <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10, fontWeight: 700, color: '#2a3040', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+        <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 10, fontWeight: 700, color: '#2a3040', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
           File History
         </span>
         {!histLoading && history.length > 0 && (
-          <span style={{ marginLeft: 8, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#2a3040' }}>
+          <span style={{ marginLeft: 8, fontFamily: 'var(--lg-font-mono)', fontSize: 10, color: '#2a3040' }}>
             {history.length}
           </span>
         )}
@@ -1560,9 +1553,9 @@ function AssetPanel({ repoPath, filePath, hash }: { repoPath: string; filePath: 
 
       <div style={{ flex: 1, overflowY: 'auto' }}>
         {histLoading ? (
-          <div style={{ padding: '10px 12px', fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: '#2a3040' }}>Loading…</div>
+          <div style={{ padding: '10px 12px', fontFamily: 'var(--lg-font-mono)', fontSize: 11, color: '#2a3040' }}>Loading…</div>
         ) : history.length === 0 ? (
-          <div style={{ padding: '10px 12px', fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12, color: '#2a3040' }}>No history available</div>
+          <div style={{ padding: '10px 12px', fontFamily: 'var(--lg-font-ui)', fontSize: 12, color: '#2a3040' }}>No history available</div>
         ) : history.map((c, i) => {
           const col = authorColor(c.author)
           const ini = initials(c.author)
@@ -1578,22 +1571,22 @@ function AssetPanel({ repoPath, filePath, hash }: { repoPath: string; filePath: 
                 background: `linear-gradient(135deg, ${col}55, ${col}22)`,
                 border: `1px solid ${col}44`,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontFamily: "'JetBrains Mono', monospace", fontSize: 7.5, fontWeight: 700, color: col,
+                fontFamily: 'var(--lg-font-mono)', fontSize: 7.5, fontWeight: 700, color: col,
               }}>{ini}</span>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{
-                  fontFamily: "'IBM Plex Sans', system-ui", fontSize: 11, color: '#9ba4bc',
+                  fontFamily: 'var(--lg-font-ui)', fontSize: 11, color: '#9ba4bc',
                   overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                 }}>{c.message}</div>
-                <div style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10, color: '#3e4a60', marginTop: 1 }}>
+                <div style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 10, color: '#3e4a60', marginTop: 1 }}>
                   {c.author}
                 </div>
               </div>
               <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
-                <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10, color: '#3a4260' }}>
+                <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 10, color: '#3a4260' }}>
                   {timeAgo(c.timestamp)}
                 </span>
-                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, color: '#252d3e' }}>
+                <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 9, color: '#252d3e' }}>
                   {c.hash.slice(0, 7)}
                 </span>
               </div>
@@ -1614,11 +1607,11 @@ function CommitHeader({ commit }: { commit: CommitEntry }) {
     <div style={{ padding: '12px 14px', borderBottom: '1px solid #252d42', background: '#131720', flexShrink: 0 }}>
       <div style={{ marginBottom: 6 }}>
         <span style={{
-          fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#3a4260',
+          fontFamily: 'var(--lg-font-mono)', fontSize: 10, color: '#3a4260',
           background: '#1a1f2e', borderRadius: 4, padding: '1px 7px',
         }}>{commit.hash.slice(0, 7)}</span>
       </div>
-      <p style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 13.5, fontWeight: 600, color: '#dde1f0', margin: '0 0 8px', lineHeight: 1.4 }}>
+      <p style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 13.5, fontWeight: 600, color: '#dde1f0', margin: '0 0 8px', lineHeight: 1.4 }}>
         {commit.message}
       </p>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1626,10 +1619,10 @@ function CommitHeader({ commit }: { commit: CommitEntry }) {
           width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
           background: `linear-gradient(135deg, ${col}88, ${col}44)`, border: `1px solid ${col}55`,
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-          fontFamily: "'JetBrains Mono', monospace", fontSize: 8, fontWeight: 700, color: col,
+          fontFamily: 'var(--lg-font-mono)', fontSize: 8, fontWeight: 700, color: col,
         }}>{ini}</span>
-        <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12, color: '#8b94b0' }}>{commit.author}</span>
-        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#4e5870' }}>{timeAgo(commit.timestamp)}</span>
+        <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 12, color: '#8b94b0' }}>{commit.author}</span>
+        <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 10, color: '#4e5870' }}>{timeAgo(commit.timestamp)}</span>
       </div>
     </div>
   )
@@ -2072,7 +2065,7 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
           height: 32, paddingLeft: 12, paddingRight: 8, flexShrink: 0,
           borderBottom: '1px solid #1e2436', background: '#0d0f15', gap: 5,
         }}>
-          <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10, fontWeight: 700, color: '#2a3040', letterSpacing: '0.1em', textTransform: 'uppercase', flexShrink: 0 }}>
+          <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 10, fontWeight: 700, color: '#2a3040', letterSpacing: '0.1em', textTransform: 'uppercase', flexShrink: 0 }}>
             {totalLoaded > 0 ? `${totalLoaded} Commits` : 'Commits'}
           </span>
           <div style={{ flex: 1 }} />
@@ -2087,13 +2080,13 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
             onShowAll={showAllBranches}
             onHideAll={hideAllBranches}
           />
-          <button
+          <ActionBtn
             onClick={() => loadHistory(limitRef.current)}
             disabled={histLoading}
-            style={{ background: 'none', border: 'none', color: histLoading ? '#2a3040' : '#3a4260', cursor: histLoading ? 'default' : 'pointer', fontSize: 14, padding: '0 2px', flexShrink: 0 }}
-            onMouseEnter={e => { if (!histLoading) e.currentTarget.style.color = '#e8622f' }}
-            onMouseLeave={e => { if (!histLoading) e.currentTarget.style.color = '#3a4260' }}
-          >{histLoading ? '…' : '↺'}</button>
+            size="sm"
+            title="Refresh history"
+            style={{ height: 22, paddingLeft: 6, paddingRight: 6, fontSize: 12, flexShrink: 0 }}
+          >{histLoading ? '…' : '↺'}</ActionBtn>
         </div>
 
         <div style={{ padding: '8px 10px', borderBottom: '1px solid #1e2436', background: '#0b0e16' }}>
@@ -2124,7 +2117,7 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
                   }}
                   title={c.message}
                 >
-                  <span style={{ color: '#4d9dff', fontFamily: 'monospace', fontSize: 10 }}>{c.hash.slice(0, 7)}</span>
+                  <span style={{ color: '#4d9dff', fontFamily: 'var(--lg-font-mono)', fontSize: 10 }}>{c.hash.slice(0, 7)}</span>
                   <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.message}</span>
                 </button>
               ))}
@@ -2152,7 +2145,7 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
         {/* Commit list */}
         <div style={{ flex: 1, overflowY: 'auto' }}>
           {histLoading && nodes.length === 0 && (
-            <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: '#2a3040', padding: '16px 12px' }}>Loading…</p>
+            <p style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 11, color: '#2a3040', padding: '16px 12px' }}>Loading…</p>
           )}
           {nodes.map(node => (
             <LeftCommitRow
@@ -2176,22 +2169,18 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
           ))}
           {!histLoading && totalLoaded >= limitRef.current && (
             <div style={{ display: 'flex', justifyContent: 'center', padding: 10 }}>
-              <button
+              <ActionBtn
                 onClick={() => { limitRef.current += MORE_INC; loadHistory(limitRef.current) }}
-                style={{
-                  fontFamily: "'IBM Plex Sans', system-ui", fontSize: 11, color: '#3a4260',
-                  background: 'none', border: '1px solid #1e2436', borderRadius: 5, padding: '5px 14px', cursor: 'pointer',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.color = '#8b94b0'; e.currentTarget.style.borderColor = '#2f3a54' }}
-                onMouseLeave={e => { e.currentTarget.style.color = '#3a4260'; e.currentTarget.style.borderColor = '#1e2436' }}
-              >Load more…</button>
+                size="sm"
+                style={{ height: 26, paddingLeft: 14, paddingRight: 14, fontSize: 11 }}
+              >Load more…</ActionBtn>
             </div>
           )}
         </div>
         <div style={{
           minHeight: 28, flexShrink: 0, borderTop: '1px solid #1e2436', background: '#0d0f15',
           display: 'flex', alignItems: 'center', gap: 8, padding: '0 12px',
-          fontFamily: "'JetBrains Mono', monospace", fontSize: 9, color: '#4e5870',
+          fontFamily: 'var(--lg-font-mono)', fontSize: 9, color: '#4e5870',
           flexWrap: 'wrap', lineHeight: 1.3,
         }}>
           <span>Legend:</span>
@@ -2256,7 +2245,7 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
                   width: '100%', display: 'flex', alignItems: 'center', gap: 6,
                   height: 30, paddingLeft: 12, paddingRight: 10,
                   background: 'none', border: 'none', cursor: 'pointer',
-                  color: '#3a4260', fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase',
+                  color: '#3a4260', fontFamily: 'var(--lg-font-ui)', fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase',
                 }}
                 onMouseEnter={e => (e.currentTarget.style.color = '#6a7490')}
                 onMouseLeave={e => (e.currentTarget.style.color = '#3a4260')}
@@ -2281,10 +2270,10 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
               display: 'flex', alignItems: 'center', height: 30, paddingLeft: 12, paddingRight: 10,
               borderBottom: '1px solid #1e2436', background: '#0d0f15', flexShrink: 0,
             }}>
-              <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10, fontWeight: 700, color: '#2a3040', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+              <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 10, fontWeight: 700, color: '#2a3040', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
                 Files changed
                 {!commitFilesLoading && commitFiles.length > 0 && (
-                  <span style={{ marginLeft: 8, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, background: '#1a1f2e', color: '#3a4260', borderRadius: 8, padding: '1px 5px' }}>
+                  <span style={{ marginLeft: 8, fontFamily: 'var(--lg-font-mono)', fontSize: 10, background: '#1a1f2e', color: '#3a4260', borderRadius: 8, padding: '1px 5px' }}>
                     {commitFiles.length}
                   </span>
                 )}
@@ -2292,9 +2281,9 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
             </div>
             <div style={{ flex: 1, overflowY: 'auto' }}>
               {commitFilesLoading ? (
-                <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: '#2a3040', padding: '12px 14px' }}>Loading…</p>
+                <p style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 11, color: '#2a3040', padding: '12px 14px' }}>Loading…</p>
               ) : commitFiles.length === 0 ? (
-                <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: '#2a3040', padding: '12px 14px' }}>No file changes</p>
+                <p style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 11, color: '#2a3040', padding: '12px 14px' }}>No file changes</p>
               ) : commitFiles.map((f, i) => (
                 <CommitFileRow
                   key={i}
@@ -2310,7 +2299,7 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
           </div>
         ) : (
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 13, color: '#2e3a50' }}>Select a commit</span>
+            <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 13, color: '#2e3a50' }}>Select a commit</span>
           </div>
         )}
       </div>

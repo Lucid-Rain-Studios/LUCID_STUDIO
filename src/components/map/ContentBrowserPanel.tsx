@@ -214,7 +214,7 @@ function ContextMenu({ menu, repoPath, locks, currentUserName, onClose, onNaviga
                 width: '100%', height: 30, paddingLeft: 10, paddingRight: 12,
                 background: 'transparent', border: 'none', textAlign: 'left',
                 color: item.disabled ? '#4e5870' : item.danger ? '#e84545' : '#c4cad8',
-                fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12,
+                fontFamily: 'var(--lg-font-ui)', fontSize: 12,
                 cursor: item.disabled ? 'default' : 'pointer',
               }}
               onMouseEnter={e => { if (!item.disabled) e.currentTarget.style.background = '#1e2a40' }}
@@ -256,11 +256,11 @@ function FolderRow({ name, depth, count, collapsed, onToggle }: {
       </svg>
       <FolderIcon open={!collapsed} />
       <span style={{
-        fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12, color: '#c4cad8',
+        fontFamily: 'var(--lg-font-ui)', fontSize: 12, color: '#c4cad8',
         flex: 1, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
       }}>{name}</span>
       <span style={{
-        fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#4e5870',
+        fontFamily: 'var(--lg-font-mono)', fontSize: 10, color: '#4e5870',
         background: '#1a2030', borderRadius: 8, padding: '1px 5px', flexShrink: 0,
       }}>{count}</span>
     </div>
@@ -288,7 +288,7 @@ function FileRow({ filePath, depth, locked, selected, onSelect, onContextMenu }:
     >
       <FileIcon filePath={filePath} />
       <FilePathText path={filePath} style={{
-        fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12,
+        fontFamily: 'var(--lg-font-ui)', fontSize: 12,
         color: selected || hover ? '#dde1f0' : '#8b94b0',
         flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
       }} />
@@ -383,12 +383,12 @@ export function ContentBrowserPanel({ repoPath, onNavigate }: ContentBrowserPane
         height: 40, paddingLeft: 12, paddingRight: 10,
         borderBottom: '1px solid #252d42', background: '#10131c', flexShrink: 0,
       }}>
-        <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 13, fontWeight: 600, color: '#dde1f0' }}>
+        <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 13, fontWeight: 600, color: '#dde1f0' }}>
           Content Browser
         </span>
         {files && (
           <span style={{
-            fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#4e5870',
+            fontFamily: 'var(--lg-font-mono)', fontSize: 10, color: '#4e5870',
             background: '#1a2030', borderRadius: 8, padding: '1px 6px',
           }}>{files.length.toLocaleString()}</span>
         )}
@@ -430,7 +430,7 @@ export function ContentBrowserPanel({ repoPath, onNavigate }: ContentBrowserPane
             style={{
               width: '100%', height: 26, paddingLeft: 26, paddingRight: search ? 26 : 8,
               background: '#1a2030', border: '1px solid #252d42', borderRadius: 4,
-              color: '#dde1f0', fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12,
+              color: '#dde1f0', fontFamily: 'var(--lg-font-ui)', fontSize: 12,
               outline: 'none', boxSizing: 'border-box',
             }}
           />
@@ -454,11 +454,11 @@ export function ContentBrowserPanel({ repoPath, onNavigate }: ContentBrowserPane
       {/* Virtual file tree */}
       {files === null ? (
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: '#4e5870' }}>Loading…</span>
+          <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 12, color: '#4e5870' }}>Loading…</span>
         </div>
       ) : rowsWithToggle.length === 0 ? (
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 13, color: '#4e5870' }}>No files found</span>
+          <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 13, color: '#4e5870' }}>No files found</span>
         </div>
       ) : (
         <VirtualListInner

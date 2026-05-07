@@ -84,12 +84,12 @@ export function StatusBar() {
         {/* Left: branch */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           {currentBranch ? (
-            <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontFamily: "'JetBrains Mono', monospace", fontSize: 10.5, color: '#4a9eff' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontFamily: 'var(--lg-font-mono)', fontSize: 10.5, color: '#4a9eff' }}>
               <BranchIcon />
               {currentBranch}
             </span>
           ) : (
-            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10.5, color: '#283047' }}>
+            <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 10.5, color: '#283047' }}>
               {repoPath ? 'No branch' : 'No repository'}
             </span>
           )}
@@ -99,7 +99,7 @@ export function StatusBar() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {repoPath && (
             permissionFetching[repoPath]
-              ? <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9.5, color: '#283047' }}>checking…</span>
+              ? <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 9.5, color: '#283047' }}>checking…</span>
               : isRealAdmin
                 ? (
                   <div ref={roleMenuRef} style={{ position: 'relative' }}>
@@ -112,7 +112,7 @@ export function StatusBar() {
                         background: isOverriding ? 'rgba(167,139,250,0.1)' : 'rgba(45,189,110,0.1)',
                         border: `1px solid ${isOverriding ? 'rgba(167,139,250,0.33)' : 'rgba(45,189,110,0.33)'}`,
                         color: isOverriding ? '#a78bfa' : '#2dbd6e',
-                        fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 700,
+                        fontFamily: 'var(--lg-font-mono)', fontSize: 9, fontWeight: 700,
                         cursor: 'pointer', userSelect: 'none', flexShrink: 0, letterSpacing: '0.04em',
                         outline: 'none',
                       }}
@@ -132,7 +132,7 @@ export function StatusBar() {
                       }}>
                         <div style={{
                           paddingLeft: 8, paddingRight: 8, paddingTop: 4, paddingBottom: 5,
-                          fontSize: 9, fontFamily: "'JetBrains Mono', monospace",
+                          fontSize: 9, fontFamily: 'var(--lg-font-mono)',
                           color: '#8b94b0', letterSpacing: '0.06em',
                         }}>
                           PREVIEW AS ROLE
@@ -154,19 +154,19 @@ export function StatusBar() {
                   ? <PermBadge label="Collaborator" color="#7b8499" bg="rgba(123,132,153,0.08)" title="You have write access (collaborator)" />
                   : null
           )}
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9.5, color: '#42506a', letterSpacing: '0.03em' }}>
+          <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 9.5, color: '#42506a', letterSpacing: '0.03em' }}>
             v{__APP_VERSION__}
           </span>
           {isRunning ? (
             <span style={{
-              fontFamily: "'JetBrains Mono', monospace", fontSize: 10.5, color: '#e8622f',
+              fontFamily: 'var(--lg-font-mono)', fontSize: 10.5, color: '#e8622f',
               animation: 'pulse 1.6s ease-in-out infinite',
               maxWidth: 480, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             }}>
               {displayText}
             </span>
           ) : (
-            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#1e2a3a', letterSpacing: '0.03em' }}>
+            <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 10, color: '#1e2a3a', letterSpacing: '0.03em' }}>
               Ready
             </span>
           )}
@@ -190,12 +190,12 @@ function RoleMenuOption({ label, description, active, onClick }: {
     >
       <span style={{
         color: active ? '#a78bfa' : '#c8d0e8',
-        fontSize: 10.5, fontFamily: "'IBM Plex Sans', system-ui",
+        fontSize: 10.5, fontFamily: 'var(--lg-font-ui)',
         fontWeight: active ? 600 : 400,
       }}>
         {active ? '✓ ' : '  '}{label}
       </span>
-      <span style={{ color: '#8b94b0', fontSize: 9, fontFamily: "'JetBrains Mono', monospace" }}>
+      <span style={{ color: '#8b94b0', fontSize: 9, fontFamily: 'var(--lg-font-mono)' }}>
         {description}
       </span>
     </button>
@@ -210,7 +210,7 @@ function PermBadge({ label, color, bg, title }: { label: string; color: string; 
         display: 'inline-flex', alignItems: 'center',
         paddingLeft: 6, paddingRight: 6, height: 15, borderRadius: 9,
         background: bg, border: `1px solid ${color}33`,
-        color, fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 700,
+        color, fontFamily: 'var(--lg-font-mono)', fontSize: 9, fontWeight: 700,
         cursor: 'default', userSelect: 'none', flexShrink: 0, letterSpacing: '0.04em',
       }}
     >{label}</span>

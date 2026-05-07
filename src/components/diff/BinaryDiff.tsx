@@ -39,22 +39,22 @@ function TimelineEntry({ commit, isLast }: { commit: CommitEntry; isLast: boolea
           width: 26, height: 26, borderRadius: '50%', marginTop: 6,
           background: `${color}18`, border: `1.5px solid ${color}55`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 700, color,
+          fontFamily: 'var(--lg-font-mono)', fontSize: 9, fontWeight: 700, color,
         }}>{initials}</div>
         {!isLast && <div style={{ width: 1, flex: 1, minHeight: 6, background: '#1e2840' }} />}
       </div>
       <div style={{ flex: 1, paddingTop: 8, paddingBottom: isLast ? 0 : 10, minWidth: 0 }}>
         <div style={{
-          fontFamily: "'JetBrains Mono', monospace", fontSize: 11,
+          fontFamily: 'var(--lg-font-mono)', fontSize: 11,
           color: '#c4cad8', lineHeight: 1.5, marginBottom: 3,
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         }}>{msg}</div>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 11, color: '#4e5870' }}>{commit.author}</span>
+          <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 11, color: '#4e5870' }}>{commit.author}</span>
           <span style={{ color: '#2f3a54' }}>·</span>
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#4e5870' }}>{ago}</span>
+          <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 10, color: '#4e5870' }}>{ago}</span>
           <span style={{ color: '#2f3a54' }}>·</span>
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, color: '#2f3a54' }}>{commit.hash.slice(0, 7)}</span>
+          <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 9, color: '#2f3a54' }}>{commit.hash.slice(0, 7)}</span>
         </div>
       </div>
     </div>
@@ -429,29 +429,29 @@ export function BinaryDiff({ file, repoPath }: BinaryDiffProps) {
         </div>
 
         <div style={{
-          fontFamily: "'IBM Plex Sans', system-ui", fontSize: 15, fontWeight: 700,
+          fontFamily: 'var(--lg-font-ui)', fontSize: 15, fontWeight: 700,
           color: asset.color, marginBottom: 5, letterSpacing: '0.01em',
         }}>{asset.label}</div>
 
         <FilePathText path={file.path} style={{
-          fontFamily: "'JetBrains Mono', monospace", fontSize: 12,
+          fontFamily: 'var(--lg-font-mono)', fontSize: 12,
           color: '#8b94b0', marginBottom: 10, textAlign: 'center',
           maxWidth: 360, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         }} />
 
         <div style={{
-          fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12,
+          fontFamily: 'var(--lg-font-ui)', fontSize: 12,
           color: '#4e5870', textAlign: 'center', maxWidth: 300, lineHeight: 1.6,
           marginBottom: 14,
         }}>{asset.description}</div>
 
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <span style={{
-            fontFamily: "'JetBrains Mono', monospace", fontSize: 11,
+            fontFamily: 'var(--lg-font-mono)', fontSize: 11,
             background: '#1d2235', color: '#4e5870',
             borderRadius: 8, padding: '3px 10px', letterSpacing: '0.04em',
           }}>{ext.toUpperCase() || 'BINARY'}</span>
-          <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 11, color: '#4e5870' }}>
+          <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 11, color: '#4e5870' }}>
             Binary — no text diff
           </span>
         </div>
@@ -464,12 +464,12 @@ export function BinaryDiff({ file, repoPath }: BinaryDiffProps) {
           padding: '10px 24px 8px', flexShrink: 0,
         }}>
           <span style={{
-            fontFamily: "'IBM Plex Sans', system-ui", fontSize: 11, fontWeight: 600,
+            fontFamily: 'var(--lg-font-ui)', fontSize: 11, fontWeight: 600,
             color: '#4e5870', letterSpacing: '0.07em', textTransform: 'uppercase',
           }}>Asset History</span>
           {history && history.length > 0 && (
             <span style={{
-              fontFamily: "'JetBrains Mono', monospace", fontSize: 10,
+              fontFamily: 'var(--lg-font-mono)', fontSize: 10,
               color: '#4e5870', background: '#1a2030',
               borderRadius: 8, padding: '1px 6px',
             }}>{history.length} commits</span>
@@ -478,12 +478,12 @@ export function BinaryDiff({ file, repoPath }: BinaryDiffProps) {
 
         <div style={{ flex: 1, overflowY: 'auto', padding: '0 24px 16px' }}>
           {histLoading && (
-            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: '#4e5870' }}>
+            <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 11, color: '#4e5870' }}>
               Loading history…
             </span>
           )}
           {!histLoading && history?.length === 0 && (
-            <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12, color: '#4e5870' }}>
+            <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 12, color: '#4e5870' }}>
               No commit history found for this file.
             </span>
           )}

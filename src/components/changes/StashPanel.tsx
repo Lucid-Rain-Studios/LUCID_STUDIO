@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { ipc, StashEntry } from '@/ipc'
 import { useOperationStore } from '@/stores/operationStore'
+import { ActionBtn } from '@/components/ui/ActionBtn'
 
 interface StashPanelProps {
   repoPath: string
@@ -103,13 +104,14 @@ export function StashPanel({ repoPath, onRefresh }: StashPanelProps) {
           placeholder="Stash message (optional)"
           className="w-full bg-lg-bg-primary border border-lg-border rounded px-2 py-1.5 text-xs font-mono text-lg-text-primary placeholder:text-lg-text-secondary focus:outline-none focus:border-lg-accent transition-colors"
         />
-        <button
+        <ActionBtn
           onClick={handleSave}
           disabled={saving}
-          className="w-full h-7 bg-lg-bg-elevated border border-lg-border rounded text-[11px] font-mono text-lg-text-primary hover:border-lg-accent hover:text-lg-accent disabled:opacity-40 transition-colors"
+          size="sm"
+          style={{ width: '100%', height: 28, fontSize: 11 }}
         >
           {saving ? 'Stashing…' : 'Stash all changes'}
-        </button>
+        </ActionBtn>
         {error && (
           <div className="text-[10px] font-mono text-lg-error" title={error}>{error}</div>
         )}
@@ -178,17 +180,15 @@ function StashBtn({
   label: string; busy: boolean; onClick: () => void; danger?: boolean; title?: string
 }) {
   return (
-    <button
+    <ActionBtn
       onClick={onClick}
       disabled={busy}
       title={title}
-      className={`px-2 h-6 rounded text-[10px] font-mono border transition-colors disabled:opacity-40 ${
-        danger
-          ? 'border-lg-error/40 text-lg-error hover:bg-lg-error/10'
-          : 'border-lg-border text-lg-text-secondary hover:border-lg-accent hover:text-lg-accent'
-      }`}
+      color={danger ? '#e84545' : undefined}
+      size="sm"
+      style={{ height: 22, paddingLeft: 8, paddingRight: 8, fontSize: 10 }}
     >
       {label}
-    </button>
+    </ActionBtn>
   )
 }

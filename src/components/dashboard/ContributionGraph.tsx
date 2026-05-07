@@ -10,6 +10,7 @@ import {
   toDateKey,
   type DayActivity,
 } from '@/lib/activityUtils'
+import { ActionBtn } from '@/components/ui/ActionBtn'
 
 interface ContributionGraphProps {
   repoPath: string
@@ -168,7 +169,7 @@ export function ContributionGraph({ repoPath }: ContributionGraphProps) {
                   y={13}
                   fill="#5a6880"
                   fontSize={9}
-                  fontFamily="'IBM Plex Sans', system-ui"
+                  fontFamily='var(--lg-font-ui)'
                 >
                   {label}
                 </text>
@@ -184,7 +185,7 @@ export function ContributionGraph({ repoPath }: ContributionGraphProps) {
                   y={MONTH_LABEL_HEIGHT + (idx * (DAY_SIZE + DAY_GAP)) + (DAY_SIZE / 2)}
                   fill="#344057"
                   fontSize={8}
-                  fontFamily="'IBM Plex Sans', system-ui"
+                  fontFamily='var(--lg-font-ui)'
                   textAnchor="end"
                   dominantBaseline="middle"
                 >
@@ -309,7 +310,7 @@ function ContributionTooltip({ day }: { day: DayActivity }) {
           {day.commits.length > 0 && (
             <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 3 }}>
               {day.commits.slice(0, 5).map((commit) => (
-                <div key={commit.hash} style={{ fontSize: 9, color: '#8a94a8', fontFamily: "'JetBrains Mono', monospace", wordBreak: 'break-word' }}>
+                <div key={commit.hash} style={{ fontSize: 9, color: '#8a94a8', fontFamily: 'var(--lg-font-mono)', wordBreak: 'break-word' }}>
                   • {truncate(commit.message, 50)}
                 </div>
               ))}
@@ -341,34 +342,13 @@ function Stat({ label, value }: { label: string; value: string | number }) {
 
 function NavButton({ children, onClick }: { children: React.ReactNode; onClick: () => void }) {
   return (
-    <button
+    <ActionBtn
       onClick={onClick}
-      style={{
-        height: 22,
-        padding: '0 8px',
-        borderRadius: 4,
-        background: 'transparent',
-        border: '1px solid #1a2030',
-        color: '#4a566a',
-        fontSize: 11,
-        fontWeight: 600,
-        cursor: 'pointer',
-        fontFamily: "'IBM Plex Sans', system-ui",
-        transition: 'all 0.1s',
-      }}
-      onMouseEnter={e => {
-        e.currentTarget.style.borderColor = '#2f3a54'
-        e.currentTarget.style.color = '#c8d0e8'
-        e.currentTarget.style.background = 'rgba(255,255,255,0.03)'
-      }}
-      onMouseLeave={e => {
-        e.currentTarget.style.borderColor = '#1a2030'
-        e.currentTarget.style.color = '#4a566a'
-        e.currentTarget.style.background = 'transparent'
-      }}
+      size="sm"
+      style={{ height: 22, paddingLeft: 8, paddingRight: 8, fontSize: 11, fontWeight: 600 }}
     >
       {children}
-    </button>
+    </ActionBtn>
   )
 }
 
@@ -396,7 +376,7 @@ function Card({ title, icon, children }: { title: string; icon: React.ReactNode;
       }}>
         <span style={{ color: '#2e3a50', display: 'flex', flexShrink: 0 }}>{icon}</span>
         <span style={{
-          fontFamily: "'IBM Plex Sans', system-ui",
+          fontFamily: 'var(--lg-font-ui)',
           fontSize: 10.5,
           fontWeight: 700,
           color: '#4a566a',

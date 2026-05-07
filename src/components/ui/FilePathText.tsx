@@ -16,7 +16,7 @@ export function FilePathText({ path, displayText, maxParents = 2, className, sty
     <AppTooltip
       side={side}
       content={
-        <span style={{ display: 'block', maxWidth: 560, fontFamily: "'JetBrains Mono', monospace", overflowWrap: 'anywhere' }}>
+        <span style={{ display: 'block', maxWidth: 560, fontFamily: 'var(--lg-font-mono)', overflowWrap: 'anywhere' }}>
           {path}
         </span>
       }

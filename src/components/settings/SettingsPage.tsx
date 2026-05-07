@@ -47,7 +47,7 @@ export function SettingsPage({ repoPath }: SettingsPageProps) {
           display: 'flex', alignItems: 'center', gap: 8,
           padding: '0 16px', height: 32, flexShrink: 0,
           background: 'rgba(139,148,176,0.08)', borderBottom: '1px solid #252d42',
-          fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12, color: '#8b94b0',
+          fontFamily: 'var(--lg-font-ui)', fontSize: 12, color: '#8b94b0',
         }}>
           <LockIconSm />
           <span>You are viewing as a Collaborator. Repository admin access is required to modify these settings.</span>
@@ -91,7 +91,7 @@ function TabBtn({ label, active, onClick, adminOnly, isAdmin }: {
         background: active ? 'rgba(232,98,47,0.18)' : hover ? '#1e2436' : 'transparent',
         border: active ? '1px solid rgba(232,98,47,0.4)' : '1px solid transparent',
         color: active ? '#e8622f' : restricted ? '#4e5870' : hover ? '#dde1f0' : '#8b94b0',
-        fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12, fontWeight: active ? 600 : 400,
+        fontFamily: 'var(--lg-font-ui)', fontSize: 12, fontWeight: active ? 600 : 400,
         cursor: 'pointer', transition: 'all 0.12s',
       }}
     >

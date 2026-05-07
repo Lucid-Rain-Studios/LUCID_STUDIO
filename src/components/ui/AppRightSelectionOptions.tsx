@@ -50,7 +50,7 @@ export function AppRightSelectionItem({ label, onClick, disabled, danger, title 
         width: '100%',
         textAlign: 'left',
         padding: '5px 12px',
-        fontFamily: "'IBM Plex Sans', system-ui",
+        fontFamily: 'var(--lg-font-ui)',
         fontSize: 12,
         background: 'transparent',
         border: 'none',

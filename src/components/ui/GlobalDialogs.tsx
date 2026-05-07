@@ -31,7 +31,7 @@ function Panel({ children, width = 400 }: { children: React.ReactNode; width?: n
 
 const BTN_BASE: React.CSSProperties = {
   height: 30, paddingLeft: 16, paddingRight: 16, borderRadius: 6,
-  fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12.5, fontWeight: 500,
+  fontFamily: 'var(--lg-font-ui)', fontSize: 12.5, fontWeight: 500,
   cursor: 'pointer', border: '1px solid transparent',
 }
 
@@ -69,7 +69,7 @@ function DialogTitle({ title, danger }: { title: string; danger?: boolean }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '16px 18px 0' }}>
       {danger && <DangerIcon />}
-      <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 14, fontWeight: 600, color: 'var(--lg-text-primary)', letterSpacing: '-0.01em' }}>
+      <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 14, fontWeight: 600, color: 'var(--lg-text-primary)', letterSpacing: '-0.01em' }}>
         {title}
       </span>
     </div>
@@ -81,12 +81,12 @@ function DialogMessage({ message, detail }: { message?: string; detail?: string 
   return (
     <div style={{ padding: '10px 18px 0' }}>
       {message && (
-        <p style={{ margin: 0, fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12.5, color: 'var(--lg-text-secondary)', lineHeight: 1.6 }}>
+        <p style={{ margin: 0, fontFamily: 'var(--lg-font-ui)', fontSize: 12.5, color: 'var(--lg-text-secondary)', lineHeight: 1.6 }}>
           {message}
         </p>
       )}
       {detail && (
-        <p style={{ margin: '6px 0 0', fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: 'var(--lg-text-secondary)', opacity: 0.7, lineHeight: 1.5 }}>
+        <p style={{ margin: '6px 0 0', fontFamily: 'var(--lg-font-mono)', fontSize: 11, color: 'var(--lg-text-secondary)', opacity: 0.7, lineHeight: 1.5 }}>
           {detail}
         </p>
       )}
@@ -159,7 +159,7 @@ function PromptModal({ opts, onConfirm, onCancel }: {
               height: 32, padding: '0 10px',
               background: 'var(--lg-bg-primary)', border: '1px solid var(--lg-border)',
               borderRadius: 6, outline: 'none',
-              fontFamily: "'IBM Plex Sans', system-ui", fontSize: 13,
+              fontFamily: 'var(--lg-font-ui)', fontSize: 13,
               color: 'var(--lg-text-primary)',
             }}
             onFocus={e => { e.currentTarget.style.borderColor = 'rgba(var(--lg-accent-rgb), 0.5)' }}

@@ -236,7 +236,7 @@ export function DashboardPanel({ repoPath, onNavigate }: DashboardPanelProps) {
   void topBarTick
 
   return (
-    <div style={{ flex: 1, overflowY: 'auto', background: '#0d0f15', padding: '22px 24px', fontFamily: "'IBM Plex Sans', system-ui", display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
+    <div style={{ flex: 1, overflowY: 'auto', background: '#0d0f15', padding: '22px 24px', fontFamily: 'var(--lg-font-ui)', display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
 
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 20 }}>
@@ -244,7 +244,7 @@ export function DashboardPanel({ repoPath, onNavigate }: DashboardPanelProps) {
           <div style={{ fontSize: 20, fontWeight: 700, color: '#c8d0e8', letterSpacing: '-0.03em', lineHeight: 1 }}>
             {greeting()}{currentLogin ? `, ${parseFirstName(currentLogin)}` : ''}
           </div>
-          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: '#344057', marginTop: 5 }}>
+          <div style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 11, color: '#344057', marginTop: 5 }}>
             {currentBranch || 'no branch'} · {repoName}
           </div>
         </div>
@@ -402,7 +402,6 @@ function DailyFlowStrip({
   const s1Btns: FlowStepBtn[] = [
     {
       label:    fetchButtonLabel(busy),
-      color:    '#4a9eff',
       disabled: isBusy,
       disabledReason: fetchDisabledReason(busy),
       onClick:  onFetch,
@@ -427,7 +426,6 @@ function DailyFlowStrip({
         : onDefaultBranch
           ? `On ${defaultBranch}`
           : `Update from ${defaultBranch}`,
-      color:    updateFromMainEnabled ? '#4a9eff' : undefined,
       disabled: !updateFromMainEnabled,
       disabledReason: onDefaultBranch
         ? `Already on ${defaultBranch}`
@@ -460,8 +458,8 @@ function DailyFlowStrip({
               : 'No local or unpushed changes to compare',
       state: possibleConflictCount > 0 ? 'warn' : changedFileCount > 0 ? 'done' : 'neutral',
       btns: [
-        { label: conflictChecking === 'deep' ? 'Checking...' : 'In-depth Check', color: possibleConflictCount > 0 ? '#e84545' : '#4a9eff', disabled: !!conflictChecking, disabledReason: 'Conflict check already running', onClick: onDeepConflictCheck },
-        ...(staged + unstaged > 0 ? [{ label: 'View Changes', color: '#4a9eff', disabled: false, onClick: onGoChanges }] : []),
+        { label: conflictChecking === 'deep' ? 'Checking...' : 'In-depth Check', color: possibleConflictCount > 0 ? '#e84545' : undefined, disabled: !!conflictChecking, disabledReason: 'Conflict check already running', onClick: onDeepConflictCheck },
+        ...(staged + unstaged > 0 ? [{ label: 'View Changes', disabled: false, onClick: onGoChanges }] : []),
       ],
     },
     {
@@ -508,7 +506,7 @@ function FlowStep({ step }: { step: FlowStepDef }) {
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           background: highlighted ? `${s.dot}22` : '#151b27',
           border: `1.5px solid ${highlighted ? `${s.dot}66` : '#1d2535'}`,
-          fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 700,
+          fontFamily: 'var(--lg-font-mono)', fontSize: 9, fontWeight: 700,
           color: highlighted ? s.dot : '#2a3348',
           boxShadow: highlighted ? `0 0 8px ${s.dot}44` : 'none',
         }}>
@@ -521,7 +519,7 @@ function FlowStep({ step }: { step: FlowStepDef }) {
 
       {/* No truncation — text wraps freely */}
       <div style={{
-        fontFamily: "'JetBrains Mono', monospace", fontSize: 9.5,
+        fontFamily: 'var(--lg-font-mono)', fontSize: 9.5,
         color: highlighted ? `${s.accent}99` : '#283047',
         marginBottom: step.btns?.length ? 10 : 2, marginLeft: 27, lineHeight: 1.5,
       }}>
@@ -673,13 +671,13 @@ function SuggestionsCard({ lastFetch, lastPull, sync, fileStatus, conflictReport
             <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px', borderRadius: 7, background: uc.bg, border: `1px solid ${uc.border}` }}>
               <div style={{ width: 7, height: 7, borderRadius: '50%', flexShrink: 0, background: uc.dot, marginTop: 5, boxShadow: `0 0 6px ${uc.dot}66` }} />
               <div style={{ flex: 1 }}>
-                <p style={{ margin: 0, fontSize: 12, lineHeight: 1.65, color: uc.text, fontFamily: "'IBM Plex Sans', system-ui" }}>
+                <p style={{ margin: 0, fontSize: 12, lineHeight: 1.65, color: uc.text, fontFamily: 'var(--lg-font-ui)' }}>
                   {s.text}
                 </p>
                 {s.conflictItems && s.conflictItems.length > 0 && (
                   <ul style={{ margin: '8px 0 0', paddingLeft: 15, display: 'flex', flexDirection: 'column', gap: 4 }}>
                     {s.conflictItems.map(item => (
-                      <li key={`${item.branch}:${item.file}`} style={{ fontSize: 11.5, lineHeight: 1.45, color: '#ff6b6b', fontFamily: "'JetBrains Mono', monospace", overflowWrap: 'anywhere' }}>
+                      <li key={`${item.branch}:${item.file}`} style={{ fontSize: 11.5, lineHeight: 1.45, color: '#ff6b6b', fontFamily: 'var(--lg-font-mono)', overflowWrap: 'anywhere' }}>
                         <span style={{ color: '#ff8a8a' }}>{item.file}</span>
                         <span style={{ color: '#9a5560' }}> may conflict with </span>
                         <span style={{ color: '#ff8a8a' }}>{item.branch}</span>
@@ -717,7 +715,7 @@ function LocalStatusCard({ sync, files, staged, unstaged, onNavigate }: {
   return (
     <Card title="Local Status" icon={<SyncIcon />} onAction={() => onNavigate('timeline')} actionLabel="View All">
       <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 9, overflowY: 'auto', flex: 1, minHeight: 0 }}>
-        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#344057', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <div style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 10, color: '#344057', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {sync?.hasUpstream ? `→ ${sync.remoteName}/${sync.remoteBranch}` : 'No upstream configured'}
         </div>
 
@@ -752,12 +750,12 @@ function LocalStatusCard({ sync, files, staged, unstaged, onNavigate }: {
               return (
                 <div key={f.path} style={{ display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden' }}>
                   <span style={{
-                    fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 700,
+                    fontFamily: 'var(--lg-font-mono)', fontSize: 9, fontWeight: 700,
                     color, background: `${color}18`, border: `1px solid ${color}33`,
                     borderRadius: 3, padding: '0 4px', flexShrink: 0, lineHeight: '14px',
                   }}>{char}</span>
                   <FilePathText path={f.path} style={{
-                    fontFamily: "'JetBrains Mono', monospace", fontSize: 10.5, color: '#5a6880',
+                    fontFamily: 'var(--lg-font-mono)', fontSize: 10.5, color: '#5a6880',
                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1,
                   }} />
                 </div>
@@ -765,7 +763,7 @@ function LocalStatusCard({ sync, files, staged, unstaged, onNavigate }: {
             })}
             {files.length > 4 && (
               <button onClick={() => onNavigate('timeline')} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left', marginTop: 2 }}>
-                <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 11, color: '#344057' }}>
+                <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 11, color: '#344057' }}>
                   +{files.length - 4} more files…
                 </span>
               </button>
@@ -806,28 +804,15 @@ function LocksCard({ locks, currentLogin, repoPath, unlockFile, isAdmin }: {
         {(['mine', 'team'] as const).map(t => {
           const count = t === 'mine' ? myLocks.length : teamLocks.length
           return (
-            <button
+            <ActionTab
               key={t}
+              active={tab === t}
+              color="#e8622f"
               onClick={() => setTab(t)}
-              style={{
-                height: 30, paddingLeft: 12, paddingRight: 12,
-                background: 'none', border: 'none', cursor: 'pointer',
-                borderBottom: `2px solid ${tab === t ? '#e8622f' : 'transparent'}`,
-                color: tab === t ? '#e8622f' : '#4a566a',
-                fontFamily: "'IBM Plex Sans', system-ui", fontSize: 11, fontWeight: 600,
-                letterSpacing: '0.04em', transition: 'color 0.1s',
-              }}
+              count={count}
             >
               {t === 'mine' ? 'Mine' : 'Team'}
-              {count > 0 && (
-                <span style={{
-                  marginLeft: 5, fontFamily: "'JetBrains Mono', monospace", fontSize: 9,
-                  background: tab === t ? 'rgba(232,98,47,0.2)' : '#1a2030',
-                  color: tab === t ? '#e8622f' : '#4a566a',
-                  borderRadius: 8, padding: '1px 5px',
-                }}>{count}</span>
-              )}
-            </button>
+            </ActionTab>
           )
         })}
       </div>
@@ -854,32 +839,25 @@ function LocksCard({ locks, currentLogin, repoPath, unlockFile, isAdmin }: {
                   background: `${authorColor(lock.owner.name)}22`,
                   border: `1px solid ${authorColor(lock.owner.name)}55`,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontFamily: "'JetBrains Mono', monospace", fontSize: 7, fontWeight: 700,
+                  fontFamily: 'var(--lg-font-mono)', fontSize: 7, fontWeight: 700,
                   color: authorColor(lock.owner.name),
                 }}>{initials(lock.owner.name)}</div>
                 <div style={{ flex: 1, overflow: 'hidden', minWidth: 0 }}>
-                  <FilePathText path={lock.path} style={{ display: 'block', fontFamily: "'JetBrains Mono', monospace", fontSize: 10.5, color, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} />
-                  <div style={{ fontSize: 10, color: '#344057', fontFamily: "'JetBrains Mono', monospace" }}>
+                  <FilePathText path={lock.path} style={{ display: 'block', fontFamily: 'var(--lg-font-mono)', fontSize: 10.5, color, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} />
+                  <div style={{ fontSize: 10, color: '#344057', fontFamily: 'var(--lg-font-mono)' }}>
                     {lock.owner.login} · {timeAgoStr(lock.lockedAt)}
                   </div>
                 </div>
                 {canUnlock ? (
-                  <button
+                  <ActionBtn
                     onClick={() => doUnlock(lock, force)}
                     disabled={isBusy}
-                    style={{
-                      height: 20, padding: '0 7px', borderRadius: 4, flexShrink: 0,
-                      background: 'transparent',
-                      border: `1px solid ${force ? 'rgba(232,69,69,0.35)' : 'rgba(74,158,255,0.35)'}`,
-                      color: force ? '#e84545' : '#4a9eff',
-                      fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10, fontWeight: 600,
-                      cursor: isBusy ? 'default' : 'pointer', opacity: isBusy ? 0.5 : 1,
-                    }}
-                    onMouseEnter={e => { if (!isBusy) e.currentTarget.style.background = force ? 'rgba(232,69,69,0.1)' : 'rgba(74,158,255,0.1)' }}
-                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+                    color={force ? '#e84545' : undefined}
+                    size="sm"
+                    style={{ height: 20, paddingLeft: 7, paddingRight: 7, fontSize: 10, fontWeight: 600 }}
                   >
                     {isBusy ? '…' : force ? 'Force' : 'Unlock'}
-                  </button>
+                  </ActionBtn>
                 ) : (
                   <span style={{
                     fontSize: 8, fontWeight: 700, letterSpacing: '0.06em',
@@ -934,20 +912,20 @@ function PRsCard({ ghSlug }: { ghSlug: string | null }) {
       <div style={{ padding: '10px 14px', overflowY: 'auto', flex: 1, minHeight: 0 }}>
         {!ghSlug ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0' }}>
-            <span style={{ fontSize: 11.5, color: '#344057', fontFamily: "'IBM Plex Sans', system-ui" }}>No GitHub remote detected</span>
+            <span style={{ fontSize: 11.5, color: '#344057', fontFamily: 'var(--lg-font-ui)' }}>No GitHub remote detected</span>
           </div>
         ) : error ? (
-          <div style={{ padding: '4px 0', fontSize: 12, color: '#e84545', fontFamily: "'IBM Plex Sans', system-ui" }}>
+          <div style={{ padding: '4px 0', fontSize: 12, color: '#e84545', fontFamily: 'var(--lg-font-ui)' }}>
             {error}
           </div>
         ) : loading && prs.length === 0 ? (
-          <div style={{ padding: '4px 0', fontSize: 12, color: '#344057', fontFamily: "'IBM Plex Sans', system-ui" }}>
+          <div style={{ padding: '4px 0', fontSize: 12, color: '#344057', fontFamily: 'var(--lg-font-ui)' }}>
             Loading…
           </div>
         ) : prs.length === 0 ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0' }}>
             <span style={{ color: '#2dbd6e', fontSize: 12 }}>✓</span>
-            <span style={{ fontSize: 11.5, color: '#344057', fontFamily: "'IBM Plex Sans', system-ui" }}>No open pull requests</span>
+            <span style={{ fontSize: 11.5, color: '#344057', fontFamily: 'var(--lg-font-ui)' }}>No open pull requests</span>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -966,25 +944,25 @@ function PRsCard({ ghSlug }: { ghSlug: string | null }) {
                 onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'transparent' }}
               >
                 <span style={{
-                  fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 700,
+                  fontFamily: 'var(--lg-font-mono)', fontSize: 10, fontWeight: 700,
                   color: '#a27ef0', background: 'rgba(162,126,240,0.12)',
                   border: '1px solid rgba(162,126,240,0.25)',
                   borderRadius: 4, padding: '1px 6px', flexShrink: 0, lineHeight: '16px',
                 }}>#{pr.number}</span>
                 <span style={{
-                  fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12, color: '#c8d0e8',
+                  fontFamily: 'var(--lg-font-ui)', fontSize: 12, color: '#c8d0e8',
                   flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                 }}>{pr.title}</span>
                 {pr.draft && (
                   <span style={{
-                    fontFamily: "'IBM Plex Sans', system-ui", fontSize: 9, fontWeight: 700,
+                    fontFamily: 'var(--lg-font-ui)', fontSize: 9, fontWeight: 700,
                     background: 'rgba(90,104,128,0.12)', color: '#5a6880',
                     border: '1px solid rgba(90,104,128,0.2)', borderRadius: 3, padding: '1px 5px',
                     letterSpacing: '0.05em', flexShrink: 0,
                   }}>DRAFT</span>
                 )}
                 <span style={{
-                  fontFamily: "'JetBrains Mono', monospace", fontSize: 9.5,
+                  fontFamily: 'var(--lg-font-mono)', fontSize: 9.5,
                   flexShrink: 0, display: 'flex', alignItems: 'center', gap: 3,
                 }}>
                   <span style={{ color: '#4a9eff' }}>{pr.headBranch}</span>
@@ -992,7 +970,7 @@ function PRsCard({ ghSlug }: { ghSlug: string | null }) {
                   <span style={{ color: '#344057' }}>{pr.baseBranch}</span>
                 </span>
                 <span style={{
-                  fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10.5, color: '#344057',
+                  fontFamily: 'var(--lg-font-ui)', fontSize: 10.5, color: '#344057',
                   flexShrink: 0,
                 }}>{pr.author} · {timeAgoStr(pr.updatedAt)}</span>
                 <svg width="10" height="10" viewBox="0 0 12 12" fill="none" style={{ color: '#283047', flexShrink: 0 }}>
@@ -1026,18 +1004,13 @@ function Card({ title, icon, children, onAction, actionLabel }: {
         borderBottom: '1px solid #18202e', background: 'rgba(0,0,0,0.12)',
       }}>
         <span style={{ color: '#2e3a50', display: 'flex', flexShrink: 0 }}>{icon}</span>
-        <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10.5, fontWeight: 700, color: '#4a566a', flex: 1, letterSpacing: '0.07em', textTransform: 'uppercase' }}>
+        <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 10.5, fontWeight: 700, color: '#4a566a', flex: 1, letterSpacing: '0.07em', textTransform: 'uppercase' }}>
           {title}
         </span>
         {onAction && actionLabel && (
-          <button
-            onClick={onAction}
-            style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 11, color: '#4a9eff', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 6px', borderRadius: 4 }}
-            onMouseEnter={e => { e.currentTarget.style.color = '#e8622f'; e.currentTarget.style.background = 'rgba(232,98,47,0.08)' }}
-            onMouseLeave={e => { e.currentTarget.style.color = '#4a9eff'; e.currentTarget.style.background = 'none' }}
-          >
+          <ActionBtn onClick={onAction} size="sm" ghost style={{ height: 22, paddingLeft: 8, paddingRight: 8, fontSize: 11 }}>
             {actionLabel} →
-          </button>
+          </ActionBtn>
         )}
       </div>
       {children}
@@ -1048,8 +1021,8 @@ function Card({ title, icon, children, onAction, actionLabel }: {
 function StatPill({ icon, value, label, color }: { icon: string; value: number | string; label: string; color: string }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-      <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 9, fontWeight: 700, color: '#283047', letterSpacing: '0.09em', textTransform: 'uppercase' }}>{label}</span>
-      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 20, fontWeight: 700, color, lineHeight: 1, textShadow: `0 0 18px ${color}40` }}>
+      <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 9, fontWeight: 700, color: '#283047', letterSpacing: '0.09em', textTransform: 'uppercase' }}>{label}</span>
+      <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 20, fontWeight: 700, color, lineHeight: 1, textShadow: `0 0 18px ${color}40` }}>
         {icon}{value}
       </span>
     </div>
@@ -1059,35 +1032,17 @@ function StatPill({ icon, value, label, color }: { icon: string; value: number |
 function SmallBtn({ label, color, disabled, disabledReason, onClick }: {
   label: string; color?: string; disabled: boolean; disabledReason?: string | null; onClick: () => void
 }) {
-  const [hover, setHover] = useState(false)
-  const c = color ?? '#7b8499'
-  const active = !!color
-  const borderColor = active ? c : '#1a2030'
-  const bgColor = active ? `${c}14` : 'transparent'
-  const textColor = active ? c : '#7b8499'
-
-  const button = (
-    <button
-      onClick={disabled ? undefined : onClick}
-      onMouseEnter={() => !disabled && setHover(true)}
-      onMouseLeave={() => setHover(false)}
+  return (
+    <ActionBtn
+      onClick={onClick}
       disabled={disabled}
-      data-disabled-reason={disabled ? disabledReason ?? undefined : undefined}
-      style={{
-        height: 24, paddingLeft: 12, paddingRight: 12, borderRadius: 5,
-        background: hover && !disabled ? `${c}1b` : bgColor,
-        border: `1px solid ${hover && !disabled ? `${borderColor}cc` : borderColor}`,
-        color: disabled ? '#2a3348' : textColor,
-        fontFamily: "'IBM Plex Sans', system-ui", fontSize: 11.5, fontWeight: 500,
-        cursor: disabled ? 'default' : 'pointer', opacity: disabled && !active ? 0.5 : 1,
-        boxShadow: active && !disabled ? `0 0 12px ${c}25` : 'none',
-        transition: 'border-color 0.12s, background 0.12s',
-        whiteSpace: 'nowrap',
-      }}
-    >{label}</button>
+      disabledReason={disabledReason}
+      color={color}
+      size="sm"
+    >
+      {label}
+    </ActionBtn>
   )
-
-  return button
 }
 
 // ── SVG Icons ─────────────────────────────────────────────────────────────────

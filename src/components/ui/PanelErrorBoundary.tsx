@@ -65,11 +65,11 @@ export class PanelErrorBoundary extends React.Component<Props, State> {
         {/* Heading */}
         <div style={{ textAlign: 'center' }}>
           <div style={{
-            fontFamily: "'IBM Plex Sans', system-ui", fontSize: 14, fontWeight: 600,
+            fontFamily: 'var(--lg-font-ui)', fontSize: 14, fontWeight: 600,
             color: '#c4cad8', marginBottom: 6,
           }}>This panel encountered an error</div>
           <div style={{
-            fontFamily: "'JetBrains Mono', monospace", fontSize: 10,
+            fontFamily: 'var(--lg-font-mono)', fontSize: 10,
             color: '#e84545', background: 'rgba(232,69,69,0.08)',
             border: '1px solid rgba(232,69,69,0.2)', borderRadius: 5,
             padding: '4px 10px', maxWidth: 480, wordBreak: 'break-all',
@@ -83,7 +83,7 @@ export class PanelErrorBoundary extends React.Component<Props, State> {
             style={{
               height: 32, padding: '0 16px', borderRadius: 6,
               background: 'transparent', border: '1px solid #2f3a54',
-              color: '#8b94b0', fontFamily: "'IBM Plex Sans', system-ui",
+              color: '#8b94b0', fontFamily: 'var(--lg-font-ui)',
               fontSize: 12.5, cursor: 'pointer',
             }}
             onMouseEnter={e => { e.currentTarget.style.borderColor = '#3f4a60'; e.currentTarget.style.color = '#c4cad8' }}
@@ -94,7 +94,7 @@ export class PanelErrorBoundary extends React.Component<Props, State> {
             style={{
               height: 32, padding: '0 16px', borderRadius: 6,
               background: '#e8622f', border: '1px solid #e8622f',
-              color: '#fff', fontFamily: "'IBM Plex Sans', system-ui",
+              color: '#fff', fontFamily: 'var(--lg-font-ui)',
               fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
             }}
             onMouseEnter={e => { e.currentTarget.style.background = '#f0714d' }}

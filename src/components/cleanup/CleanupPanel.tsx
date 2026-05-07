@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { ipc, SizeBreakdown, CleanupResult } from '@/ipc'
 import { useOperationStore } from '@/stores/operationStore'
 import { cn } from '@/lib/utils'
+import { ActionBtn as SharedActionBtn } from '@/components/ui/ActionBtn'
 
 interface CleanupPanelProps {
   repoPath: string
@@ -189,13 +190,14 @@ export function CleanupPanel({ repoPath }: CleanupPanelProps) {
               </div>
             </div>
           )}
-          <button
+          <SharedActionBtn
             onClick={loadSize}
             disabled={sizeLoading}
-            className="mt-1 px-2 h-6 rounded text-[10px] font-mono border border-lg-border text-lg-text-secondary hover:border-lg-accent hover:text-lg-accent disabled:opacity-40 transition-colors"
+            size="sm"
+            style={{ marginTop: 4, height: 24, paddingLeft: 8, paddingRight: 8, fontSize: 10, fontFamily: 'var(--lg-font-mono)' }}
           >
             {sizeLoading ? 'Measuring…' : '↺ Refresh'}
-          </button>
+          </SharedActionBtn>
         </Section>
 
         {/* ── Git GC ───────────────────────────────────────────────── */}
@@ -288,18 +290,15 @@ function ActionBtn({
   warn?: boolean
 }) {
   return (
-    <button
+    <SharedActionBtn
       onClick={onClick}
       disabled={busy}
       title={title}
-      className={cn(
-        'px-2.5 h-7 rounded text-[10px] font-mono border transition-colors disabled:opacity-40',
-        warn
-          ? 'border-lg-warning/40 text-lg-warning hover:bg-lg-warning/10'
-          : 'border-lg-border text-lg-text-secondary hover:border-lg-accent hover:text-lg-accent'
-      )}
+      color={warn ? '#f5a832' : undefined}
+      size="sm"
+      style={{ height: 28, paddingLeft: 10, paddingRight: 10, fontSize: 10, fontFamily: 'var(--lg-font-mono)' }}
     >
       {busy ? '…' : label}
-    </button>
+    </SharedActionBtn>
   )
 }

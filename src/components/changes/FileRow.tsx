@@ -172,7 +172,7 @@ export function FileRow({
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
           width: 18, height: 18, borderRadius: 4, flexShrink: 0,
           background: statusBg, color: statusColor,
-          fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700,
+          fontFamily: 'var(--lg-font-mono)', fontSize: 11, fontWeight: 700,
         }}>{effectiveStatus}</span>
 
         {/* Asset thumbnail — clickable to open viewer */}
@@ -202,7 +202,7 @@ export function FileRow({
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <span style={{
-              fontFamily: "'JetBrains Mono', monospace", fontSize: 12, fontWeight: 500,
+              fontFamily: 'var(--lg-font-mono)', fontSize: 12, fontWeight: 500,
               color: '#dde1f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             }}>{fileName}</span>
 
@@ -226,7 +226,7 @@ export function FileRow({
                 display: 'inline-flex', alignItems: 'center', gap: 3,
                 paddingLeft: 4, paddingRight: 6, height: 16, borderRadius: 10, flexShrink: 0,
                 background: 'rgba(46,197,115,0.15)', border: '1px solid rgba(46,197,115,0.4)',
-                color: '#2ec573', fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
+                color: '#2ec573', fontFamily: 'var(--lg-font-mono)', fontSize: 10, fontWeight: 600,
               }} title="Locked by you">
                 <LockIcon color="#2ec573" />
                 You
@@ -237,7 +237,7 @@ export function FileRow({
                 display: 'inline-flex', alignItems: 'center', gap: 3,
                 paddingLeft: 4, paddingRight: 6, height: 16, borderRadius: 10, flexShrink: 0,
                 background: 'rgba(232,98,47,0.15)', border: '1px solid rgba(232,98,47,0.4)',
-                color: '#e8622f', fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
+                color: '#e8622f', fontFamily: 'var(--lg-font-mono)', fontSize: 10, fontWeight: 600,
               }} title={`Locked by ${lock!.owner.name}`}>
                 <LockIcon color="#e8622f" />
                 {lock!.owner.login}
@@ -246,7 +246,7 @@ export function FileRow({
           </div>
           {dir && (
             <FilePathText path={file.path} style={{
-              fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#4e5870',
+              fontFamily: 'var(--lg-font-mono)', fontSize: 10, color: '#4e5870',
               display: 'block',
             }} />
           )}

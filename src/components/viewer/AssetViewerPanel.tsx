@@ -121,13 +121,13 @@ export function AssetViewerPanel() {
         </svg>
 
         <span style={{
-          flex: 1, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 600,
+          flex: 1, fontFamily: 'var(--lg-font-mono)', fontSize: 11, fontWeight: 600,
           color: '#c4cad8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         }}>{filename}</span>
 
         {selectedRef !== 'WORKING' && (
           <span style={{
-            fontFamily: "'JetBrains Mono', monospace", fontSize: 9,
+            fontFamily: 'var(--lg-font-mono)', fontSize: 9,
             background: 'rgba(232,98,47,0.15)', border: '1px solid rgba(232,98,47,0.3)',
             borderRadius: 3, padding: '2px 6px', color: '#e8622f', flexShrink: 0,
           }}>{selectedRef.slice(0, 7)}</span>
@@ -165,7 +165,7 @@ export function AssetViewerPanel() {
       }}>
         {thumbLoading ? (
           <span style={{
-            fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: '#4e5870',
+            fontFamily: 'var(--lg-font-mono)', fontSize: 11, color: '#4e5870',
             animation: 'pulse 1.5s infinite',
           }}>Loading…</span>
         ) : imgSrc ? (
@@ -187,7 +187,7 @@ export function AssetViewerPanel() {
               <path d="M13 15h14M13 21h10M13 27h8" stroke="#1e2840" strokeWidth="1.5" strokeLinecap="round" />
             </svg>
             <span style={{
-              fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#2f3a54',
+              fontFamily: 'var(--lg-font-mono)', fontSize: 10, color: '#2f3a54',
             }}>No preview available</span>
           </div>
         )}
@@ -201,7 +201,7 @@ export function AssetViewerPanel() {
       }}>
         <ZoomBtn title="Zoom out (−25%)" onClick={() => adjustZoom(-0.25)}>−</ZoomBtn>
         <span style={{
-          fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: '#8b94b0',
+          fontFamily: 'var(--lg-font-mono)', fontSize: 11, color: '#8b94b0',
           minWidth: 40, textAlign: 'center', userSelect: 'none',
         }}>{Math.round(zoom * 100)}%</span>
         <ZoomBtn title="Zoom in (+25%)" onClick={() => adjustZoom(0.25)}>+</ZoomBtn>
@@ -217,7 +217,7 @@ export function AssetViewerPanel() {
                 height: 24, padding: '0 9px', borderRadius: 4,
                 background: 'transparent', border: '1px solid rgba(232,98,47,0.3)',
                 color: '#e8622f', cursor: 'pointer', fontSize: 10,
-                fontFamily: "'IBM Plex Sans', system-ui",
+                fontFamily: 'var(--lg-font-ui)',
               }}
               onMouseEnter={e => { e.currentTarget.style.background = 'rgba(232,98,47,0.08)' }}
               onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
@@ -233,7 +233,7 @@ export function AssetViewerPanel() {
           display: 'flex', alignItems: 'center', gap: 8,
         }}>
           <span style={{
-            fontFamily: "'IBM Plex Sans', system-ui", fontSize: 9.5, fontWeight: 700,
+            fontFamily: 'var(--lg-font-ui)', fontSize: 9.5, fontWeight: 700,
             color: '#2f3a54', letterSpacing: '0.1em', textTransform: 'uppercase',
           }}>
             Versions
@@ -247,7 +247,7 @@ export function AssetViewerPanel() {
           )}
           {!verLoading && versions.length > 0 && (
             <span style={{
-              fontFamily: "'JetBrains Mono', monospace", fontSize: 9,
+              fontFamily: 'var(--lg-font-mono)', fontSize: 9,
               color: '#344057', background: '#131720',
               border: '1px solid #1e2840', borderRadius: 10,
               padding: '0 5px', lineHeight: '16px',
@@ -261,7 +261,7 @@ export function AssetViewerPanel() {
         }}>
           {!verLoading && versions.length === 0 && (
             <span style={{
-              fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#2f3a54',
+              fontFamily: 'var(--lg-font-mono)', fontSize: 10, color: '#2f3a54',
               paddingTop: 4,
             }}>No version history</span>
           )}
@@ -311,12 +311,12 @@ export function AssetViewerPanel() {
                 {/* Commit meta */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                   <span style={{
-                    fontFamily: "'JetBrains Mono', monospace", fontSize: 9,
+                    fontFamily: 'var(--lg-font-mono)', fontSize: 9,
                     color: isSelected ? '#e8622f' : '#4e5870',
                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                   }}>{v.commit.hash.slice(0, 7)}</span>
                   <span style={{
-                    fontFamily: "'IBM Plex Sans', system-ui", fontSize: 8.5, color: '#2f3a54',
+                    fontFamily: 'var(--lg-font-ui)', fontSize: 8.5, color: '#2f3a54',
                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                   }}>{timeAgo(v.commit.timestamp)}</span>
                 </div>
@@ -377,7 +377,7 @@ function ZoomBtn({ title, onClick, children, label }: {
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         background: 'transparent', border: '1px solid #1e2840', borderRadius: 4,
         color: '#4e5870', cursor: 'pointer', flexShrink: 0,
-        fontFamily: label ? "'IBM Plex Sans', system-ui" : 'monospace',
+        fontFamily: label ? 'var(--lg-font-ui)' : 'monospace',
         fontSize: label ? 10 : 14, transition: 'all 0.1s',
       }}
       onMouseEnter={e => { e.currentTarget.style.borderColor = '#2f3a54'; e.currentTarget.style.color = '#8b94b0' }}

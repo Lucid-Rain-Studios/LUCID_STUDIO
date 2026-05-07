@@ -3,6 +3,7 @@ import { ipc, OperationStep } from '@/ipc'
 import { useRepoStore } from '@/stores/repoStore'
 import { useOperationStore } from '@/stores/operationStore'
 import { cn } from '@/lib/utils'
+import { ActionBtn } from '@/components/ui/ActionBtn'
 
 interface CloneDialogProps {
   onClose: () => void
@@ -118,13 +119,13 @@ export function CloneDialog({ onClose }: CloneDialogProps) {
                 disabled={isCloning}
                 className="flex-1 bg-lg-bg-secondary border border-lg-border rounded px-3 py-2 text-sm font-mono text-lg-text-primary placeholder:text-lg-text-secondary/40 focus:outline-none focus:border-lg-accent transition-colors disabled:opacity-50"
               />
-              <button
+              <ActionBtn
                 onClick={browseDir}
                 disabled={isCloning}
-                className="px-3 py-2 bg-lg-bg-secondary border border-lg-border rounded text-xs font-mono text-lg-text-secondary hover:text-lg-text-primary hover:border-lg-accent transition-colors disabled:opacity-50"
+                style={{ paddingLeft: 12, paddingRight: 12, fontSize: 12, fontFamily: 'var(--lg-font-mono)' }}
               >
                 Browse…
-              </button>
+              </ActionBtn>
             </div>
             {targetDir && (
               <p className="text-[10px] font-mono text-lg-text-secondary">
@@ -163,25 +164,20 @@ export function CloneDialog({ onClose }: CloneDialogProps) {
 
         {/* Footer */}
         <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-lg-border">
-          <button
+          <ActionBtn
             onClick={onClose}
             disabled={isCloning}
-            className="px-4 py-1.5 text-xs font-mono text-lg-text-secondary hover:text-lg-text-primary border border-lg-border hover:border-lg-text-secondary rounded transition-colors disabled:opacity-50"
+            style={{ paddingLeft: 16, paddingRight: 16, fontSize: 12, fontFamily: 'var(--lg-font-mono)' }}
           >
             Cancel
-          </button>
-          <button
+          </ActionBtn>
+          <ActionBtn
             onClick={handleClone}
             disabled={isCloning || !url.trim() || !dir.trim()}
-            className={cn(
-              'px-4 py-1.5 text-xs font-mono rounded transition-colors',
-              isCloning || !url.trim() || !dir.trim()
-                ? 'bg-lg-border text-lg-text-secondary cursor-not-allowed'
-                : 'bg-lg-accent text-white hover:bg-lg-accent/80'
-            )}
+            style={{ paddingLeft: 16, paddingRight: 16, fontSize: 12, fontFamily: 'var(--lg-font-mono)', fontWeight: 600 }}
           >
             {isCloning ? 'Cloning…' : 'Clone'}
-          </button>
+          </ActionBtn>
         </div>
       </div>
     </div>

@@ -238,7 +238,7 @@ function Cell({
           x={r.x + pad + (node.isDir && r.w > 22 ? 11 : 0)}
           y={r.y + 13}
           fill={tc} fontSize={Math.min(11, Math.max(8, r.w / 14))}
-          fontFamily="'IBM Plex Sans', system-ui"
+          fontFamily='var(--lg-font-ui)'
           fontWeight={node.isDir ? 600 : 400}
           style={{ userSelect: 'none', pointerEvents: 'none' }}
         >
@@ -250,7 +250,7 @@ function Cell({
       {r.h > 30 && r.w > 48 && node.totalScore > 0 && (
         <text x={r.x + pad} y={r.y + 25}
           fill={tc} fontSize={8} opacity={0.55}
-          fontFamily="'JetBrains Mono', monospace"
+          fontFamily='var(--lg-font-mono)'
           style={{ userSelect: 'none', pointerEvents: 'none' }}>
           {node.isDir ? `${node.fileCount}f · ${node.totalScore}↑` : `${node.totalScore}↑`}
         </text>
@@ -324,33 +324,33 @@ function Tooltip({
       padding: '12px 14px', pointerEvents: 'none',
     }}>
       {/* Path */}
-      <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#4e5870', marginBottom: 4, wordBreak: 'break-all' }}>
+      <div style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 10, color: '#4e5870', marginBottom: 4, wordBreak: 'break-all' }}>
         {node.path || '/'}
       </div>
       {/* Name */}
-      <div style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 14, fontWeight: 700, color: '#dde1f0', marginBottom: 8 }}>
+      <div style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 14, fontWeight: 700, color: '#dde1f0', marginBottom: 8 }}>
         {node.name}
-        {isDir && <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#4e5870', marginLeft: 6 }}>/</span>}
+        {isDir && <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 10, color: '#4e5870', marginLeft: 6 }}>/</span>}
       </div>
 
       {/* Metrics row */}
       <div style={{ display: 'flex', gap: 16, marginBottom: 8 }}>
         <div>
-          <div style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 9, color: '#4e5870', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Activity</div>
-          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 16, fontWeight: 700, color: node.totalScore > 8 ? '#e8622f' : node.totalScore > 3 ? '#f5a832' : '#8b94b0' }}>
+          <div style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 9, color: '#4e5870', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Activity</div>
+          <div style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 16, fontWeight: 700, color: node.totalScore > 8 ? '#e8622f' : node.totalScore > 3 ? '#f5a832' : '#8b94b0' }}>
             ↑{node.totalScore}
           </div>
         </div>
         {isDir && (
           <div>
-            <div style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 9, color: '#4e5870', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Files</div>
-            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 16, fontWeight: 700, color: '#dde1f0' }}>{node.fileCount}</div>
+            <div style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 9, color: '#4e5870', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Files</div>
+            <div style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 16, fontWeight: 700, color: '#dde1f0' }}>{node.fileCount}</div>
           </div>
         )}
         {node.lockList.length > 0 && (
           <div>
-            <div style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 9, color: '#4e5870', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Locks</div>
-            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 16, fontWeight: 700, color: '#f5a832' }}>{locksByOwner.size}</div>
+            <div style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 9, color: '#4e5870', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Locks</div>
+            <div style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 16, fontWeight: 700, color: '#f5a832' }}>{locksByOwner.size}</div>
           </div>
         )}
       </div>
@@ -363,7 +363,7 @@ function Tooltip({
           background: node.myStatus === 'staged' ? 'rgba(46,197,115,0.12)' : 'rgba(245,168,50,0.12)',
         }}>
           <div style={{ width: 6, height: 6, borderRadius: '50%', background: node.myStatus === 'staged' ? '#2ec573' : '#f5a832' }} />
-          <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 11, color: node.myStatus === 'staged' ? '#2ec573' : '#f5a832' }}>
+          <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 11, color: node.myStatus === 'staged' ? '#2ec573' : '#f5a832' }}>
             {node.myStatus === 'staged' ? 'Staged in your workspace' : 'Modified in your workspace'}
           </span>
         </div>
@@ -378,10 +378,10 @@ function Tooltip({
                 <rect x="2" y="4.5" width="6" height="4" rx="1" stroke="#f5a832" strokeWidth="1" />
                 <path d="M3.5 4.5V3a1.5 1.5 0 0 1 3 0v1.5" stroke="#f5a832" strokeWidth="1" strokeLinecap="round" />
               </svg>
-              <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 11, color: '#f5a832' }}>
+              <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 11, color: '#f5a832' }}>
                 {l.owner.name || l.owner.login}
               </span>
-              <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10, color: '#4e5870' }}>
+              <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 10, color: '#4e5870' }}>
                 {timeAgoStr(l.lockedAt)}
               </span>
             </div>
@@ -392,7 +392,7 @@ function Tooltip({
       {/* Presence */}
       {node.presenceLogins.length > 0 && (
         <div>
-          <div style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 9, color: '#4e5870', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>
+          <div style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 9, color: '#4e5870', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>
             Working here
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
@@ -401,11 +401,11 @@ function Tooltip({
               return (
                 <div key={login} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                   <div style={{ width: 18, height: 18, borderRadius: '50%', background: col, opacity: 0.85, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 7, fontWeight: 700, color: '#fff' }}>
+                    <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 7, fontWeight: 700, color: '#fff' }}>
                       {avatarInitials(login)}
                     </span>
                   </div>
-                  <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 11, color: '#8b94b0' }}>
+                  <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 11, color: '#8b94b0' }}>
                     {presNames.get(login) ?? login}
                   </span>
                 </div>
@@ -416,7 +416,7 @@ function Tooltip({
       )}
 
       {isDir && node.children.length > 0 && (
-        <div style={{ marginTop: 8, fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10, color: '#4e5870' }}>
+        <div style={{ marginTop: 8, fontFamily: 'var(--lg-font-ui)', fontSize: 10, color: '#4e5870' }}>
           Click to zoom in
         </div>
       )}
@@ -433,7 +433,7 @@ function Breadcrumb({
     <div style={{ display: 'flex', alignItems: 'center', gap: 4, overflow: 'hidden', flex: 1, minWidth: 0 }}>
       <button
         onClick={() => onPop(-1)}
-        style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12, color: stack.length === 0 ? '#dde1f0' : '#4d9dff', background: 'none', border: 'none', cursor: 'pointer', padding: '0 4px', flexShrink: 0 }}
+        style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 12, color: stack.length === 0 ? '#dde1f0' : '#4d9dff', background: 'none', border: 'none', cursor: 'pointer', padding: '0 4px', flexShrink: 0 }}
       >Root</button>
       {stack.map((node, i) => (
         <React.Fragment key={node.path}>
@@ -441,7 +441,7 @@ function Breadcrumb({
           <button
             onClick={() => onPop(i)}
             style={{
-              fontFamily: "'JetBrains Mono', monospace", fontSize: 11,
+              fontFamily: 'var(--lg-font-mono)', fontSize: 11,
               color: i === stack.length - 1 ? '#dde1f0' : '#4d9dff',
               background: 'none', border: 'none', cursor: i < stack.length - 1 ? 'pointer' : 'default',
               padding: '0 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 140,
@@ -483,11 +483,11 @@ function SidePanel({
 
       {/* ── Legend ──────────────────────────────────────────────────────────── */}
       <div style={{ padding: '10px 14px', borderBottom: '1px solid #252d42' }}>
-        <div style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 9, fontWeight: 600, color: '#4e5870', letterSpacing: '0.09em', textTransform: 'uppercase', marginBottom: 6 }}>Activity Heat</div>
+        <div style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 9, fontWeight: 600, color: '#4e5870', letterSpacing: '0.09em', textTransform: 'uppercase', marginBottom: 6 }}>Activity Heat</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 9, color: '#4e5870' }}>none</span>
+          <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 9, color: '#4e5870' }}>none</span>
           <div style={{ flex: 1, height: 8, borderRadius: 4, background: 'linear-gradient(to right, hsl(225,18%,12%), hsl(115,45%,30%), hsl(40,70%,40%), hsl(20,83%,57%))', opacity: 0.85 }} />
-          <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 9, color: '#e8622f' }}>hot</span>
+          <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 9, color: '#e8622f' }}>hot</span>
         </div>
         <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
           {[
@@ -501,7 +501,7 @@ function SidePanel({
                 ? <div style={{ width: 10, height: 10, borderRadius: 2, border: `2px solid ${item.col}`, background: 'transparent' }} />
                 : <div style={{ width: 8, height: 8, borderRadius: '50%', background: item.col }} />
               }
-              <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 9, color: '#4e5870' }}>{item.label}</span>
+              <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 9, color: '#4e5870' }}>{item.label}</span>
             </div>
           ))}
         </div>
@@ -510,7 +510,7 @@ function SidePanel({
       {/* ── Active teammates ─────────────────────────────────────────────────── */}
       {presEntries.length > 0 && (
         <div style={{ borderBottom: '1px solid #252d42' }}>
-          <div style={{ padding: '8px 14px 4px', fontFamily: "'IBM Plex Sans', system-ui", fontSize: 9, fontWeight: 600, color: '#4e5870', letterSpacing: '0.09em', textTransform: 'uppercase' }}>
+          <div style={{ padding: '8px 14px 4px', fontFamily: 'var(--lg-font-ui)', fontSize: 9, fontWeight: 600, color: '#4e5870', letterSpacing: '0.09em', textTransform: 'uppercase' }}>
             Active Now · {presEntries.length}
           </div>
           {presEntries.map(e => {
@@ -520,22 +520,22 @@ function SidePanel({
             return (
               <div key={e.login} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '6px 14px', borderBottom: '1px solid #1a1f30' }}>
                 <div style={{ width: 24, height: 24, borderRadius: '50%', flexShrink: 0, background: col, opacity: isStale ? 0.4 : 0.85, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 8, fontWeight: 700, color: '#fff' }}>{ini}</span>
+                  <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 8, fontWeight: 700, color: '#fff' }}>{ini}</span>
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                    <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12, fontWeight: 600, color: isStale ? '#4e5870' : '#dde1f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 12, fontWeight: 600, color: isStale ? '#4e5870' : '#dde1f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {e.name || e.login}
                     </span>
-                    <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 9, color: '#4e5870', flexShrink: 0 }}>
+                    <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 9, color: '#4e5870', flexShrink: 0 }}>
                       {timeAgoStr(e.lastSeen)}
                     </span>
                   </div>
-                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#4d9dff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 1 }}>
+                  <div style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 10, color: '#4d9dff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 1 }}>
                     {e.branch}
                   </div>
                   {e.modifiedCount > 0 && (
-                    <div style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10, color: '#f5a832', marginTop: 1 }}>
+                    <div style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 10, color: '#f5a832', marginTop: 1 }}>
                       {e.modifiedCount} file{e.modifiedCount !== 1 ? 's' : ''} modified
                     </div>
                   )}
@@ -549,21 +549,21 @@ function SidePanel({
       {/* ── Hot spots ────────────────────────────────────────────────────────── */}
       {hotFiles.length > 0 && (
         <div style={{ borderBottom: '1px solid #252d42' }}>
-          <div style={{ padding: '8px 14px 4px', fontFamily: "'IBM Plex Sans', system-ui", fontSize: 9, fontWeight: 600, color: '#4e5870', letterSpacing: '0.09em', textTransform: 'uppercase' }}>
+          <div style={{ padding: '8px 14px 4px', fontFamily: 'var(--lg-font-ui)', fontSize: 9, fontWeight: 600, color: '#4e5870', letterSpacing: '0.09em', textTransform: 'uppercase' }}>
             Most Active Files
           </div>
           {hotFiles.map(([path, score], i) => {
             const ratio = hotFiles[0][1] > 0 ? score / hotFiles[0][1] : 0
             return (
               <div key={path} style={{ display: 'flex', alignItems: 'center', gap: 8, height: 30, paddingLeft: 14, paddingRight: 14, borderBottom: '1px solid #1a1f30' }}>
-                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, color: '#4e5870', width: 14, flexShrink: 0 }}>{i + 1}</span>
+                <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 9, color: '#4e5870', width: 14, flexShrink: 0 }}>{i + 1}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ height: 3, background: '#1d2235', borderRadius: 2, marginBottom: 3 }}>
                     <div style={{ height: 3, borderRadius: 2, background: heatFill(ratio), width: `${ratio * 100}%` }} />
                   </div>
-                  <FilePathText path={path} style={{ display: 'block', fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#8b94b0' }} />
+                  <FilePathText path={path} style={{ display: 'block', fontFamily: 'var(--lg-font-mono)', fontSize: 10, color: '#8b94b0' }} />
                 </div>
-                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: ratio > 0.6 ? '#e8622f' : '#4e5870', flexShrink: 0 }}>↑{score}</span>
+                <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 10, color: ratio > 0.6 ? '#e8622f' : '#4e5870', flexShrink: 0 }}>↑{score}</span>
               </div>
             )
           })}
@@ -573,7 +573,7 @@ function SidePanel({
       {/* ── Current locks ────────────────────────────────────────────────────── */}
       {locks.length > 0 && (
         <div>
-          <div style={{ padding: '8px 14px 4px', fontFamily: "'IBM Plex Sans', system-ui", fontSize: 9, fontWeight: 600, color: '#4e5870', letterSpacing: '0.09em', textTransform: 'uppercase' }}>
+          <div style={{ padding: '8px 14px 4px', fontFamily: 'var(--lg-font-ui)', fontSize: 9, fontWeight: 600, color: '#4e5870', letterSpacing: '0.09em', textTransform: 'uppercase' }}>
             Active Locks · {locks.length}
           </div>
           {locks.map(l => (
@@ -583,8 +583,8 @@ function SidePanel({
                 <path d="M3.5 5.5V4a2.5 2.5 0 0 1 5 0v1.5" stroke="#f5a832" strokeWidth="1.1" strokeLinecap="round" />
               </svg>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <FilePathText path={l.path} style={{ display: 'block', fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#dde1f0' }} />
-                <div style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10, color: '#4e5870', marginTop: 1 }}>
+                <FilePathText path={l.path} style={{ display: 'block', fontFamily: 'var(--lg-font-mono)', fontSize: 10, color: '#dde1f0' }} />
+                <div style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 10, color: '#4e5870', marginTop: 1 }}>
                   {l.owner.name || l.owner.login} · {timeAgoStr(l.lockedAt)}
                 </div>
               </div>
@@ -594,7 +594,7 @@ function SidePanel({
       )}
 
       {presEntries.length === 0 && hotFiles.length === 0 && locks.length === 0 && (
-        <div style={{ padding: 20, fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12, color: '#4e5870', textAlign: 'center' }}>
+        <div style={{ padding: 20, fontFamily: 'var(--lg-font-ui)', fontSize: 12, color: '#4e5870', textAlign: 'center' }}>
           No activity data yet
         </div>
       )}
@@ -813,7 +813,7 @@ export function RepoMapPanel({ repoPath }: RepoMapPanelProps) {
               ...(stats.totalLocks > 0 ? [{ label: `${stats.totalLocks} locked`, color: '#f5a832' }] : []),
               ...(stats.presenceCount > 0 ? [{ label: `${stats.presenceCount} online`, color: '#2ec573' }] : []),
             ].map((s, i) => (
-              <span key={i} style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 11, color: s.color }}>
+              <span key={i} style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 11, color: s.color }}>
                 {s.label}
               </span>
             ))}
@@ -842,13 +842,13 @@ export function RepoMapPanel({ repoPath }: RepoMapPanelProps) {
                 <circle cx="20" cy="20" r="15" stroke="#252d42" strokeWidth="2" />
                 <path d="M20 5 A15 15 0 0 1 35 20" stroke="#e8622f" strokeWidth="2" strokeLinecap="round" />
               </svg>
-              <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 13, color: '#4e5870' }}>
+              <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 13, color: '#4e5870' }}>
                 Analysing repository…
               </span>
             </div>
           ) : freqMap.size === 0 && !loading ? (
             <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-              <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 13, color: '#4e5870' }}>
+              <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 13, color: '#4e5870' }}>
                 No commit history found
               </span>
             </div>
@@ -895,7 +895,7 @@ export function RepoMapPanel({ repoPath }: RepoMapPanelProps) {
           height: 40, display: 'flex', alignItems: 'center', paddingLeft: 14,
           borderBottom: '1px solid #252d42', flexShrink: 0,
         }}>
-          <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 11, fontWeight: 600, color: '#8b94b0', letterSpacing: '0.07em', textTransform: 'uppercase' }}>
+          <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 11, fontWeight: 600, color: '#8b94b0', letterSpacing: '0.07em', textTransform: 'uppercase' }}>
             Activity
           </span>
         </div>

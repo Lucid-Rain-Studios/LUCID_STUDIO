@@ -5,6 +5,7 @@ import { useRepoStore } from '@/stores/repoStore'
 import { useLockStore } from '@/stores/lockStore'
 import { useAuthStore } from '@/stores/authStore'
 import { useStatusToastStore } from '@/stores/statusToastStore'
+import { ActionBtn } from '@/components/ui/ActionBtn'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -34,7 +35,7 @@ type Phase = 'form' | 'submitting' | 'success' | 'error'
 function Label({ children }: { children: React.ReactNode }) {
   return (
     <div style={{
-      fontFamily: "'IBM Plex Sans', system-ui", fontSize: 11, fontWeight: 600,
+      fontFamily: 'var(--lg-font-ui)', fontSize: 11, fontWeight: 600,
       color: '#5a6880', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 6,
     }}>
       {children}
@@ -60,7 +61,7 @@ function TextInput({ value, onChange, placeholder, disabled, autoFocus }: {
         width: '100%', boxSizing: 'border-box',
         background: '#0d1117', border: `1px solid ${focus ? '#4a9eff66' : '#1e2a3d'}`,
         borderRadius: 6, padding: '7px 10px',
-        fontFamily: "'IBM Plex Sans', system-ui", fontSize: 13, color: '#c8d0e8',
+        fontFamily: 'var(--lg-font-ui)', fontSize: 13, color: '#c8d0e8',
         outline: 'none', transition: 'border-color 0.15s',
         opacity: disabled ? 0.5 : 1,
       }}
@@ -86,7 +87,7 @@ function TextArea({ value, onChange, placeholder, disabled, rows = 4 }: {
         width: '100%', boxSizing: 'border-box', resize: 'vertical',
         background: '#0d1117', border: `1px solid ${focus ? '#4a9eff66' : '#1e2a3d'}`,
         borderRadius: 6, padding: '7px 10px',
-        fontFamily: "'IBM Plex Sans', system-ui", fontSize: 13, color: '#c8d0e8',
+        fontFamily: 'var(--lg-font-ui)', fontSize: 13, color: '#c8d0e8',
         outline: 'none', transition: 'border-color 0.15s',
         opacity: disabled ? 0.5 : 1, lineHeight: 1.6,
       }}
@@ -109,7 +110,7 @@ function SelectInput({ value, onChange, options, disabled }: {
       style={{
         background: '#0d1117', border: `1px solid ${focus ? '#4a9eff66' : '#1e2a3d'}`,
         borderRadius: 6, padding: '7px 10px',
-        fontFamily: "'IBM Plex Sans', system-ui", fontSize: 13, color: '#c8d0e8',
+        fontFamily: 'var(--lg-font-ui)', fontSize: 13, color: '#c8d0e8',
         outline: 'none', cursor: 'pointer',
         opacity: disabled ? 0.5 : 1,
       }}
@@ -122,24 +123,15 @@ function SelectInput({ value, onChange, options, disabled }: {
 function Btn({ label, onClick, disabled, primary, danger }: {
   label: string; onClick: () => void; disabled?: boolean; primary?: boolean; danger?: boolean
 }) {
-  const [hover, setHover] = useState(false)
-  const color = danger ? '#e84545' : primary ? '#e8622f' : '#5a6880'
+  const color = danger ? '#e84545' : primary ? '#a78bfa' : undefined
   return (
-    <button
-      onClick={disabled ? undefined : onClick}
-      onMouseEnter={() => !disabled && setHover(true)}
-      onMouseLeave={() => setHover(false)}
-      style={{
-        height: 32, padding: '0 16px', borderRadius: 6, cursor: disabled ? 'default' : 'pointer',
-        fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12.5, fontWeight: 600,
-        border: `1px solid ${hover && !disabled ? `${color}88` : primary ? `${color}55` : '#1e2a3d'}`,
-        background: primary ? (hover && !disabled ? `${color}22` : `${color}14`) : hover && !disabled ? '#1e2a3d' : 'transparent',
-        color: disabled ? '#344057' : primary || danger ? color : hover ? '#c8d0e8' : '#7a8899',
-        transition: 'all 0.12s',
-        opacity: disabled ? 0.6 : 1,
-        whiteSpace: 'nowrap',
-      }}
-    >{label}</button>
+    <ActionBtn
+      onClick={onClick}
+      disabled={disabled}
+      color={color}
+      ghost={!primary && !danger}
+      style={{ height: 32, paddingLeft: 16, paddingRight: 16, fontSize: 12.5, fontWeight: 600 }}
+    >{label}</ActionBtn>
   )
 }
 
@@ -278,7 +270,7 @@ export function PRDialog() {
         position: 'fixed', inset: 0, zIndex: 1000,
         background: 'rgba(0,0,0,0.65)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontFamily: "'IBM Plex Sans', system-ui",
+        fontFamily: 'var(--lg-font-ui)',
       }}
     >
       <div style={{
@@ -302,7 +294,7 @@ export function PRDialog() {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             {slug && (
-              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#344057' }}>
+              <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 10, color: '#344057' }}>
                 {slug}
               </span>
             )}
@@ -419,7 +411,7 @@ export function PRDialog() {
                       }}
                     >
                       <div style={{ fontSize: 12.5, color: '#c8d0e8', lineHeight: 1.35 }}>{commit.message}</div>
-                      <div style={{ marginTop: 4, fontSize: 10.5, color: '#4a566a', fontFamily: "'JetBrains Mono', monospace" }}>
+                      <div style={{ marginTop: 4, fontSize: 10.5, color: '#4a566a', fontFamily: 'var(--lg-font-mono)' }}>
                         {commit.hash.slice(0, 7)} · {commit.author}
                       </div>
                     </div>
@@ -485,7 +477,7 @@ function BranchChip({ label, color }: { label: string; color: string }) {
         <path d="M5 6v4M5 6C5 9 11 7 11 6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
       </svg>
       <span style={{
-        fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color,
+        fontFamily: 'var(--lg-font-mono)', fontSize: 11, color,
         maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
       }}>{label}</span>
     </div>

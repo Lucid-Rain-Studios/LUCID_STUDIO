@@ -36,7 +36,7 @@ function toImgSrc(absPath: string | null): string | null {
 function DeltaRow({ label, before, after }: { label: string; before: string; after: string }) {
   const changed = before !== after
   return (
-    <div style={{ display: 'flex', gap: 0, fontFamily: "'JetBrains Mono', monospace", fontSize: 10 }}>
+    <div style={{ display: 'flex', gap: 0, fontFamily: 'var(--lg-font-mono)', fontSize: 10 }}>
       <div style={{ width: 110, color: '#4e5870', flexShrink: 0, paddingRight: 8 }}>{label}</div>
       <div style={{ flex: 1, color: changed ? '#e84040' : '#4e5870', textDecoration: changed ? 'line-through' : 'none' }}>{before}</div>
       <div style={{ width: 14, color: '#2f3a54', textAlign: 'center' }}>→</div>
@@ -52,7 +52,7 @@ function FallbackBanner({ reason, ueAvailable }: { reason: string; ueAvailable: 
       background: ueAvailable ? '#4a9eff18' : '#f5a62318',
       border: `1px solid ${ueAvailable ? '#4a9eff44' : '#f5a62344'}`,
       borderRadius: 4,
-      fontFamily: "'JetBrains Mono', monospace", fontSize: 10,
+      fontFamily: 'var(--lg-font-mono)', fontSize: 10,
       color: ueAvailable ? '#4a9eff' : '#f5a623',
     }}>
       {ueAvailable ? 'ℹ' : '⚠'} {reason}
@@ -77,8 +77,8 @@ function ImagePane({
         borderBottom: '1px solid #1e2840',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       }}>
-        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#4e5870' }}>{label}</span>
-        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#2f3a54' }}>
+        <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 10, color: '#4e5870' }}>{label}</span>
+        <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 10, color: '#2f3a54' }}>
           {width && height ? `${width}×${height}` : ''}{format ? ` · ${format}` : ''} · {fmtBytes(sizeBytes)}
         </span>
       </div>
@@ -96,7 +96,7 @@ function ImagePane({
             style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', display: 'block' }}
           />
         ) : (
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#2f3a54' }}>
+          <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 10, color: '#2f3a54' }}>
             Preview unavailable
           </span>
         )}
@@ -164,23 +164,23 @@ export function AssetDiffViewer({ file, repoPath, staged }: AssetDiffViewerProps
         flexShrink: 0,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: '#c4cad8' }}>{filename}</span>
+          <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 11, color: '#c4cad8' }}>{filename}</span>
           {typeLabel && (
             <span style={{
-              fontFamily: "'JetBrains Mono', monospace", fontSize: 9,
+              fontFamily: 'var(--lg-font-mono)', fontSize: 9,
               padding: '1px 6px', borderRadius: 3,
               background: '#1a1e2a', border: '1px solid #252d42', color: '#4e5870',
             }}>{typeLabel}</span>
           )}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#2f3a54' }}>
+          <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 10, color: '#2f3a54' }}>
             {leftRef} → {rightRef}
           </span>
           <button
             onClick={() => ipc.openExternal(`unreal://${repoPath}/${file.path}`).catch(() => {})}
             style={{
-              fontFamily: "'JetBrains Mono', monospace", fontSize: 9,
+              fontFamily: 'var(--lg-font-mono)', fontSize: 9,
               padding: '2px 8px', borderRadius: 3, cursor: 'pointer',
               background: 'transparent', border: '1px solid #252d42',
               color: '#4e5870',
@@ -196,7 +196,7 @@ export function AssetDiffViewer({ file, repoPath, staged }: AssetDiffViewerProps
       {/* Loading */}
       {loading && (
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 6 }}>
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: '#4e5870', animation: 'pulse 1.5s infinite' }}>
+          <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 12, color: '#4e5870', animation: 'pulse 1.5s infinite' }}>
             Loading preview…
           </span>
         </div>
@@ -205,7 +205,7 @@ export function AssetDiffViewer({ file, repoPath, staged }: AssetDiffViewerProps
       {/* Error */}
       {!loading && error && (
         <div style={{ margin: 16, padding: '8px 12px', background: '#e8404018', border: '1px solid #e8404044', borderRadius: 4 }}>
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#e84040' }}>{error}</span>
+          <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 10, color: '#e84040' }}>{error}</span>
         </div>
       )}
 
@@ -258,11 +258,11 @@ export function AssetDiffViewer({ file, repoPath, staged }: AssetDiffViewerProps
                   (result.delta.formatBefore !== 'UE Asset (.uasset)' && result.delta.formatBefore !== 'Level (.umap)') ? (
                   <DeltaRow label="Format" before={result.delta.formatBefore} after={result.delta.formatAfter} />
                 ) : (
-                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#4e5870' }}>
+                  <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 10, color: '#4e5870' }}>
                     {result.delta.formatBefore}
                   </span>
                 )}
-                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: result.delta.sizeDelta > 0 ? '#f5a623' : result.delta.sizeDelta < 0 ? '#2dbd6e' : '#4e5870' }}>
+                <div style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 10, color: result.delta.sizeDelta > 0 ? '#f5a623' : result.delta.sizeDelta < 0 ? '#2dbd6e' : '#4e5870' }}>
                   Size {sizeDeltaLabel(result.delta.sizeDelta)}
                 </div>
               </div>
@@ -278,7 +278,7 @@ export function AssetDiffViewer({ file, repoPath, staged }: AssetDiffViewerProps
 
           {result.delta.kind === 'unavailable' && (
             <div style={{ padding: '12px 16px' }}>
-              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#2f3a54' }}>
+              <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 10, color: '#2f3a54' }}>
                 {result.delta.reason}
               </span>
             </div>

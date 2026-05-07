@@ -135,10 +135,10 @@ export function DependencyBlamePanel({ repoPath, filePath, onClose }: Props) {
         borderBottom: '1px solid #252d42', flexShrink: 0,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
-          <span style={{ fontSize: 10, color: '#e8622f', fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, letterSpacing: '0.05em' }}>
+          <span style={{ fontSize: 10, color: '#e8622f', fontFamily: 'var(--lg-font-mono)', fontWeight: 700, letterSpacing: '0.05em' }}>
             DEP BLAME
           </span>
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: '#dde1f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 12, color: '#dde1f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {fileName}
           </span>
         </div>
@@ -155,7 +155,7 @@ export function DependencyBlamePanel({ repoPath, filePath, onClose }: Props) {
           display: 'flex', alignItems: 'center', gap: 10, padding: '6px 14px',
           borderBottom: '1px solid #252d42', background: '#0e1120', flexShrink: 0,
         }}>
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#4e5870' }}>
+          <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 10, color: '#4e5870' }}>
             Graph: {graphStatus.nodeCount.toLocaleString()} nodes · {graphStatus.edgeCount.toLocaleString()} edges
           </span>
           <div style={{ flex: 1 }} />
@@ -171,10 +171,10 @@ export function DependencyBlamePanel({ repoPath, filePath, onClose }: Props) {
         {phase === 'idle' && !graphStatus && (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 14, color: '#8b94b0', marginBottom: 6 }}>
+              <div style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 14, color: '#8b94b0', marginBottom: 6 }}>
                 No dependency graph cached for this HEAD.
               </div>
-              <div style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12, color: '#4e5870', marginBottom: 20 }}>
+              <div style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 12, color: '#4e5870', marginBottom: 20 }}>
                 Build the graph by scanning all tracked .uasset files.
               </div>
               <Btn label="Build Dependency Graph" onClick={buildGraph} />
@@ -185,7 +185,7 @@ export function DependencyBlamePanel({ repoPath, filePath, onClose }: Props) {
         {/* ── Building/loading ── */}
         {(phase === 'building' || phase === 'blaming') && (
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: '#4e5870' }}>
+            <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 12, color: '#4e5870' }}>
               {phase === 'building' ? 'Building dependency graph…' : 'Analyzing blame…'}
             </span>
           </div>
@@ -197,7 +197,7 @@ export function DependencyBlamePanel({ repoPath, filePath, onClose }: Props) {
             <div style={{
               background: 'rgba(232,69,69,0.1)', border: '1px solid rgba(232,69,69,0.3)',
               borderRadius: 6, padding: '8px 16px', maxWidth: 420,
-              fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: '#e84545', whiteSpace: 'pre-wrap',
+              fontFamily: 'var(--lg-font-mono)', fontSize: 11, color: '#e84545', whiteSpace: 'pre-wrap',
             }}>{error}</div>
             <Btn label="Retry" onClick={load} secondary />
           </div>
@@ -230,7 +230,7 @@ export function DependencyBlamePanel({ repoPath, filePath, onClose }: Props) {
                       }}
                     >
                       <span style={{ fontSize: 9, color: '#4e5870', transition: 'transform 0.15s', display: 'inline-block', transform: expandedDeps ? 'rotate(90deg)' : 'rotate(0deg)' }}>▶</span>
-                      <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 11, color: '#8b94b0', fontWeight: 600 }}>
+                      <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 11, color: '#8b94b0', fontWeight: 600 }}>
                         DEPENDENCIES ({result.dependencies.length})
                       </span>
                     </div>
@@ -266,7 +266,7 @@ export function DependencyBlamePanel({ repoPath, filePath, onClose }: Props) {
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
               {showGraph && graphNodes.length > 0 ? (
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: 16, overflow: 'hidden' }}>
-                  <div style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 11, color: '#8b94b0', fontWeight: 600, marginBottom: 10 }}>
+                  <div style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 11, color: '#8b94b0', fontWeight: 600, marginBottom: 10 }}>
                     REFERENCE GRAPH
                   </div>
                   <div style={{ flex: 1, overflow: 'hidden' }}>
@@ -325,10 +325,10 @@ function BlameSection({ entry, label, isTarget, onViewRefs, indent }: {
         onMouseLeave={e => { if (!isTarget) e.currentTarget.style.background = 'transparent' }}
       >
         <span style={{ width: 6, height: 6, borderRadius: '50%', background: color, flexShrink: 0 }} />
-        <span style={{ flex: 1, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: isTarget ? '#dde1f0' : '#8b94b0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <span style={{ flex: 1, fontFamily: 'var(--lg-font-mono)', fontSize: 11, color: isTarget ? '#dde1f0' : '#8b94b0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {fileName}
         </span>
-        <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10, color: '#4e5870', flexShrink: 0 }}>
+        <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 10, color: '#4e5870', flexShrink: 0 }}>
           {entry.recentCommits.length} commits
         </span>
         <span style={{ fontSize: 9, color: '#4e5870', transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.15s', flexShrink: 0 }}>▶</span>
@@ -336,19 +336,19 @@ function BlameSection({ entry, label, isTarget, onViewRefs, indent }: {
 
       {expanded && (
         <div style={{ paddingLeft: indent ? 32 : 22, paddingRight: 14, paddingBottom: 8 }}>
-          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, color: '#4e5870', marginBottom: 6 }}>
+          <div style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 9, color: '#4e5870', marginBottom: 6 }}>
             {entry.packageName}
           </div>
           {entry.recentCommits.slice(0, 5).map((c, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 6 }}>
-              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#4d9dff', flexShrink: 0 }}>
+              <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 10, color: '#4d9dff', flexShrink: 0 }}>
                 {shortHash(c.hash)}
               </span>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 11, color: '#8b94b0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <div style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 11, color: '#8b94b0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {c.message}
                 </div>
-                <div style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10, color: '#4e5870' }}>
+                <div style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 10, color: '#4e5870' }}>
                   {c.author} · {timeAgo(c.timestamp)}
                   {c.churnCount > 10 && <span style={{ color: '#e84545', marginLeft: 6 }}>churn: {c.churnCount}</span>}
                 </div>
@@ -360,7 +360,7 @@ function BlameSection({ entry, label, isTarget, onViewRefs, indent }: {
             style={{
               marginTop: 4, padding: '3px 8px', borderRadius: 4, border: '1px solid #2f3a54',
               background: 'transparent', color: '#4e5870',
-              fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10, cursor: 'pointer',
+              fontFamily: 'var(--lg-font-ui)', fontSize: 10, cursor: 'pointer',
             }}
             onMouseEnter={e => { e.currentTarget.style.color = '#dde1f0'; e.currentTarget.style.borderColor = '#4e5870' }}
             onMouseLeave={e => { e.currentTarget.style.color = '#4e5870'; e.currentTarget.style.borderColor = '#2f3a54' }}
@@ -379,14 +379,14 @@ function SuspectList({ suspects, selected, onSelect }: {
   onSelect: (s: SuspectEntry) => void
 }) {
   if (suspects.length === 0) return (
-    <div style={{ padding: 24, fontFamily: "'IBM Plex Sans', system-ui", fontSize: 12, color: '#4e5870', textAlign: 'center' }}>
+    <div style={{ padding: 24, fontFamily: 'var(--lg-font-ui)', fontSize: 12, color: '#4e5870', textAlign: 'center' }}>
       No commits to analyze.
     </div>
   )
 
   return (
     <>
-      <div style={{ padding: '10px 16px 6px', fontFamily: "'IBM Plex Sans', system-ui", fontSize: 11, color: '#8b94b0', fontWeight: 600, letterSpacing: '0.05em' }}>
+      <div style={{ padding: '10px 16px 6px', fontFamily: 'var(--lg-font-ui)', fontSize: 11, color: '#8b94b0', fontWeight: 600, letterSpacing: '0.05em' }}>
         SUSPECTS
       </div>
       {suspects.map((s, i) => {
@@ -406,7 +406,7 @@ function SuspectList({ suspects, selected, onSelect }: {
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <span style={{
-                fontFamily: "'JetBrains Mono', monospace", fontSize: 10,
+                fontFamily: 'var(--lg-font-mono)', fontSize: 10,
                 color: '#4e5870', width: 16, textAlign: 'right', flexShrink: 0,
               }}>{i + 1}.</span>
 
@@ -414,27 +414,27 @@ function SuspectList({ suspects, selected, onSelect }: {
               <div style={{ width: 40, height: 4, borderRadius: 2, background: '#1e2436', flexShrink: 0, overflow: 'hidden' }}>
                 <div style={{ height: '100%', width: `${pct}%`, background: pct > 70 ? '#e84545' : pct > 40 ? '#f5a832' : '#4d9dff', borderRadius: 2 }} />
               </div>
-              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: pct > 70 ? '#e84545' : pct > 40 ? '#f5a832' : '#8b94b0', flexShrink: 0 }}>
+              <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 10, color: pct > 70 ? '#e84545' : pct > 40 ? '#f5a832' : '#8b94b0', flexShrink: 0 }}>
                 {pct}%
               </span>
 
-              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#4d9dff', flexShrink: 0 }}>
+              <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 10, color: '#4d9dff', flexShrink: 0 }}>
                 {shortHash(s.hash)}
               </span>
 
-              <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 11, color: '#dde1f0', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 11, color: '#dde1f0', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {s.message}
               </span>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4, paddingLeft: 76 }}>
-              <span style={{ fontFamily: "'IBM Plex Sans', system-ui", fontSize: 10, color: '#4e5870' }}>
+              <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 10, color: '#4e5870' }}>
                 {s.author} · {timeAgo(s.timestamp)}
               </span>
               <div style={{ display: 'flex', gap: 4 }}>
                 {s.reasons.map(r => (
                   <span key={r} style={{
-                    fontFamily: "'IBM Plex Sans', system-ui", fontSize: 9,
+                    fontFamily: 'var(--lg-font-ui)', fontSize: 9,
                     padding: '1px 5px', borderRadius: 8,
                     background: 'rgba(232,98,47,0.12)', color: '#e8622f',
                     border: '1px solid rgba(232,98,47,0.25)',
@@ -444,7 +444,7 @@ function SuspectList({ suspects, selected, onSelect }: {
             </div>
 
             {isSelected && (
-              <div style={{ marginTop: 6, paddingLeft: 76, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#4e5870' }}>
+              <div style={{ marginTop: 6, paddingLeft: 76, fontFamily: 'var(--lg-font-mono)', fontSize: 10, color: '#4e5870' }}>
                 via {s.filePath.replace(/\\/g, '/').split('/').pop()}
               </div>
             )}
@@ -475,7 +475,7 @@ function Btn({ label, onClick, secondary, small, full }: {
           : hover ? '#d4531f' : '#e8622f',
         border: secondary ? '1px solid #2f3a54' : '1px solid transparent',
         color: secondary ? '#8b94b0' : '#fff',
-        fontFamily: "'IBM Plex Sans', system-ui",
+        fontFamily: 'var(--lg-font-ui)',
         fontSize: small ? 11 : 13,
         fontWeight: secondary ? 400 : 600,
         cursor: 'pointer',

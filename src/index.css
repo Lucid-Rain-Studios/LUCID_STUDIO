@@ -8,8 +8,8 @@
     --lg-bg-primary:     #0b0d13;
     --lg-bg-secondary:   #10131c;
     --lg-bg-elevated:    #161a27;
-    --lg-accent:         #e8622f;
-    --lg-accent-hover:   #f0714d;
+    --lg-accent:         #4a9eff;
+    --lg-accent-hover:   #6aadff;
     --lg-accent-blue:    #4a9eff;
     --lg-success:        #2dbd6e;
     --lg-warning:        #f5a623;
@@ -21,7 +21,7 @@
     --lg-border:         #1d2535;
     --lg-border-strong:  #283047;
 
-    --lg-accent-rgb:     232, 98, 47;
+    --lg-accent-rgb:     74, 158, 255;
 
     /* ── Typography tokens ─────────────────────────────────────────────── */
     --lg-font-ui:        system-ui, sans-serif;
@@ -42,7 +42,7 @@
     --lg-shadow-top:  0 -1px 0 rgba(255,255,255,0.03), 0 -4px 12px rgba(0,0,0,0.2);
 
     /* ── Glows ─────────────────────────────────────────────────────────── */
-    --lg-glow-accent: 0 0 18px rgba(232,98,47,0.22), 0 0 4px rgba(232,98,47,0.18);
+    --lg-glow-accent: 0 0 18px rgba(74,158,255,0.22), 0 0 4px rgba(74,158,255,0.18);
     --lg-glow-blue:   0 0 14px rgba(74,158,255,0.22);
 
     /* ── shadcn/ui compatibility (HSL channel values) ───────────────────── */

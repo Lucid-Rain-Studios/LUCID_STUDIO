@@ -1,10 +1,13 @@
 import React from 'react'
 
 export type ActionBtnSize = 'sm' | 'md'
-export type ActionBtnVariant = 'icon' | 'tab'
 
 interface BaseProps {
-  /** Hex color (e.g. '#4a9eff'). Defaults to blue. */
+  /**
+   * Optional explicit hex color (e.g. '#2dbd6e' for semantic green Push).
+   * If omitted, the button uses the user's chosen accent color from Settings
+   * via the `--lg-accent` / `--lg-accent-rgb` CSS variables.
+   */
   color?: string
   disabled?: boolean
   /** Tooltip shown when disabled (rendered via the existing data-disabled-reason attribute). */
@@ -16,17 +19,13 @@ interface BaseProps {
   /** Additional inline style overrides (merged after the base style). */
   style?: React.CSSProperties
   size?: ActionBtnSize
-  /** Visual variant: 'icon' (square, no border by default), 'tab' (transparent border, underline accent). */
-  variant?: ActionBtnVariant
-  /** When true, even an active button uses transparent background until hovered. Useful for dense rows. */
+  /** When true, idle background is transparent; hover/active still tint. Useful for dense rows. */
   ghost?: boolean
 }
 
 export interface ActionBtnProps extends BaseProps {
   children: React.ReactNode
 }
-
-const DEFAULT_COLOR = '#4a9eff'
 
 function withAlpha(hex: string, alphaHex: string): string {
   const c = hex.startsWith('#') ? hex : `#${hex}`
@@ -39,10 +38,11 @@ function withAlpha(hex: string, alphaHex: string): string {
  *  - enabled   → faint colored background + colored border
  *  - hovered   → stronger colored background + colored border + subtle glow
  *
- * Pass `color` to override the default blue (e.g. '#2dbd6e' for green Push).
+ * Default color follows the Settings → Accent Color choice via CSS variables.
+ * Pass an explicit `color` only to override for semantic meaning (Pull, Push, danger, etc.).
  */
 export function ActionBtn({
-  color = DEFAULT_COLOR,
+  color,
   disabled = false,
   disabledReason,
   title,
@@ -55,19 +55,39 @@ export function ActionBtn({
 }: ActionBtnProps) {
   const [hover, setHover] = React.useState(false)
 
-  const height      = size === 'sm' ? 24 : 28
-  const fontSize    = size === 'sm' ? 11.5 : 12.5
-  const paddingX    = size === 'sm' ? 12 : 12
+  const height   = size === 'sm' ? 24 : 28
+  const fontSize = size === 'sm' ? 11.5 : 12.5
+  const paddingX = 12
 
-  const idleBg     = ghost ? 'transparent' : withAlpha(color, '14') // ~8% alpha
-  const hoverBg    = withAlpha(color, '2e')                          // ~18% alpha
-  const idleBorder = withAlpha(color, '80')                          // ~50% alpha
-  const hoverBorder= color
+  // Theme accent path: build colors from CSS vars so they live-update with Settings.
+  // Override path: caller passed a hex (semantic intent), use it directly.
+  const usingTheme = !color
 
-  const bg          = disabled ? 'transparent' : hover ? hoverBg : idleBg
-  const border      = disabled ? '1px solid #1d2535' : `1px solid ${hover ? hoverBorder : idleBorder}`
-  const textColor   = disabled ? '#344057' : color
-  const boxShadow   = !disabled && hover ? `0 0 12px ${withAlpha(color, '33')}` : 'none'
+  const idleBg = ghost
+    ? 'transparent'
+    : usingTheme
+      ? 'rgba(var(--lg-accent-rgb), 0.08)'
+      : withAlpha(color!, '14')
+  const hoverBg = usingTheme
+    ? 'rgba(var(--lg-accent-rgb), 0.18)'
+    : withAlpha(color!, '2e')
+  const idleBorder = usingTheme
+    ? 'rgba(var(--lg-accent-rgb), 0.5)'
+    : withAlpha(color!, '80')
+  const hoverBorder = usingTheme
+    ? 'var(--lg-accent)'
+    : color!
+  const fg = usingTheme ? 'var(--lg-accent)' : color!
+  const glowAlpha = usingTheme
+    ? 'rgba(var(--lg-accent-rgb), 0.20)'
+    : withAlpha(color!, '33')
+
+  const bg        = disabled ? 'transparent' : hover ? hoverBg : idleBg
+  const border    = disabled
+    ? '1px solid var(--lg-border, #1d2535)'
+    : `1px solid ${hover ? hoverBorder : idleBorder}`
+  const textColor = disabled ? 'var(--lg-text-secondary, #344057)' : fg
+  const boxShadow = !disabled && hover ? `0 0 12px ${glowAlpha}` : 'none'
 
   return (
     <button
@@ -82,7 +102,7 @@ export function ActionBtn({
         display: 'inline-flex', alignItems: 'center', gap: 6, justifyContent: 'center',
         height, paddingLeft: paddingX, paddingRight: paddingX, borderRadius: 5,
         background: bg, border, color: textColor, boxShadow,
-        fontFamily: "'IBM Plex Sans', system-ui", fontSize, fontWeight: 500,
+        fontFamily: 'var(--lg-font-ui)', fontSize, fontWeight: 500,
         cursor: disabled ? 'default' : 'pointer',
         opacity: disabled ? 0.5 : 1,
         transition: 'background 0.12s, border-color 0.12s, color 0.12s, box-shadow 0.12s',
@@ -98,9 +118,10 @@ export function ActionBtn({
 /**
  * Tab-style action button (e.g. Mine/Team tabs in the Locks card).
  * Active tab is solid color; inactive tab follows the standard tri-state convention.
+ * Defaults to the Settings accent color when no `color` is passed.
  */
 export function ActionTab({
-  active, color = DEFAULT_COLOR, onClick, children, count,
+  active, color, onClick, children, count,
 }: {
   active: boolean
   color?: string
@@ -109,7 +130,15 @@ export function ActionTab({
   count?: number
 }) {
   const [hover, setHover] = React.useState(false)
-  const accent = color
+  const usingTheme = !color
+  const fg          = usingTheme ? 'var(--lg-accent)' : color!
+  const idleTint    = usingTheme ? 'rgba(var(--lg-accent-rgb), 0.08)' : withAlpha(color!, '14')
+  const hoverTint   = usingTheme ? 'rgba(var(--lg-accent-rgb), 0.05)' : withAlpha(color!, '0d')
+  const countTint   = usingTheme ? 'rgba(var(--lg-accent-rgb), 0.20)' : withAlpha(color!, '33')
+  const fadedFg     = usingTheme
+    ? 'rgba(var(--lg-accent-rgb), 0.8)'
+    : withAlpha(color!, 'cc')
+
   return (
     <button
       onClick={onClick}
@@ -117,13 +146,11 @@ export function ActionTab({
       onMouseLeave={() => setHover(false)}
       style={{
         height: 30, paddingLeft: 12, paddingRight: 12,
-        background: active
-          ? withAlpha(accent, '14')
-          : hover ? withAlpha(accent, '0d') : 'transparent',
+        background: active ? idleTint : hover ? hoverTint : 'transparent',
         border: 'none',
-        borderBottom: `2px solid ${active ? accent : 'transparent'}`,
-        color: active ? accent : hover ? withAlpha(accent, 'cc') : '#4a566a',
-        fontFamily: "'IBM Plex Sans', system-ui", fontSize: 11, fontWeight: 600,
+        borderBottom: `2px solid ${active ? fg : 'transparent'}`,
+        color: active ? fg : hover ? fadedFg : 'var(--lg-text-secondary, #4a566a)',
+        fontFamily: 'var(--lg-font-ui)', fontSize: 11, fontWeight: 600,
         letterSpacing: '0.04em', cursor: 'pointer',
         transition: 'background 0.12s, color 0.12s, border-color 0.12s',
       }}
@@ -131,9 +158,9 @@ export function ActionTab({
       {children}
       {typeof count === 'number' && count > 0 && (
         <span style={{
-          marginLeft: 5, fontFamily: "'JetBrains Mono', monospace", fontSize: 9,
-          background: active ? withAlpha(accent, '33') : '#1a2030',
-          color: active ? accent : '#4a566a',
+          marginLeft: 5, fontFamily: 'var(--lg-font-mono)', fontSize: 9,
+          background: active ? countTint : 'var(--lg-border, #1a2030)',
+          color: active ? fg : 'var(--lg-text-secondary, #4a566a)',
           borderRadius: 8, padding: '1px 5px',
         }}>{count}</span>
       )}
