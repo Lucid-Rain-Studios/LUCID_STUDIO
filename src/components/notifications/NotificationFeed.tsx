@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useNotificationStore } from '@/stores/notificationStore'
 import { useLockStore } from '@/stores/lockStore'
 import { ipc, AppNotification } from '@/ipc'
@@ -7,6 +7,10 @@ import { FilePathText } from '@/components/ui/FilePathText'
 interface NotificationFeedProps {
   onClose: () => void
 }
+
+type FeedTab = 'activity' | 'locks'
+
+const LOCK_TYPES = new Set(['lock', 'unlock'])
 
 const TYPE_ICON: Record<string, string> = {
   lock:      '🔒',
@@ -25,8 +29,9 @@ function timeAgo(iso: string): string {
 }
 
 export function NotificationFeed({ onClose }: NotificationFeedProps) {
-  const { notifications, unreadCount, markRead, markAllRead, clearAll } = useNotificationStore()
+  const { notifications, markRead, markAllRead, clearAll } = useNotificationStore()
   const ref = useRef<HTMLDivElement>(null)
+  const [tab, setTab] = useState<FeedTab>('activity')
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -36,6 +41,30 @@ export function NotificationFeed({ onClose }: NotificationFeedProps) {
     return () => document.removeEventListener('mousedown', handler)
   }, [onClose])
 
+  // Newest first regardless of how notifications were inserted into the store.
+  // Persisted notifications are loaded via forEach+unshift on app start which
+  // can otherwise reverse their order; sorting here makes ordering correct.
+  const sorted = useMemo(
+    () => [...notifications].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    ),
+    [notifications],
+  )
+
+  const activityNotifs = useMemo(() => sorted.filter(n => !LOCK_TYPES.has(n.type)), [sorted])
+  const lockNotifs     = useMemo(() => sorted.filter(n =>  LOCK_TYPES.has(n.type)), [sorted])
+
+  const activityUnread = activityNotifs.filter(n => !n.read).length
+  const lockUnread     = lockNotifs.filter(n => !n.read).length
+
+  const visible      = tab === 'activity' ? activityNotifs : lockNotifs
+  const visibleUnread = tab === 'activity' ? activityUnread : lockUnread
+
+  const markVisibleRead = () => {
+    visible.forEach(n => { if (!n.read) markRead(n.id) })
+    if (tab === 'activity' && lockUnread === 0) markAllRead()
+  }
+
   return (
     <div
       ref={ref}
@@ -44,12 +73,12 @@ export function NotificationFeed({ onClose }: NotificationFeedProps) {
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-lg-border">
         <span className="text-[10px] font-mono uppercase tracking-widest text-lg-text-secondary">
-          Notifications {unreadCount > 0 && `(${unreadCount} unread)`}
+          Notifications
         </span>
         <div className="flex gap-2">
-          {unreadCount > 0 && (
+          {visibleUnread > 0 && (
             <button
-              onClick={markAllRead}
+              onClick={markVisibleRead}
               className="text-[10px] font-mono text-lg-text-secondary hover:text-lg-accent transition-colors"
             >
               Mark all read
@@ -66,14 +95,30 @@ export function NotificationFeed({ onClose }: NotificationFeedProps) {
         </div>
       </div>
 
+      {/* Tabs */}
+      <div className="flex border-b border-lg-border">
+        <FeedTabBtn
+          label="Activity"
+          active={tab === 'activity'}
+          unread={activityUnread}
+          onClick={() => setTab('activity')}
+        />
+        <FeedTabBtn
+          label="Locks"
+          active={tab === 'locks'}
+          unread={lockUnread}
+          onClick={() => setTab('locks')}
+        />
+      </div>
+
       {/* List */}
       <div className="max-h-[28rem] overflow-y-auto">
-        {notifications.length === 0 ? (
+        {visible.length === 0 ? (
           <div className="px-3 py-6 text-center text-[11px] font-mono text-lg-text-secondary">
-            No notifications
+            {tab === 'activity' ? 'No activity' : 'No lock notifications'}
           </div>
         ) : (
-          notifications.map(n =>
+          visible.map(n =>
             n.type === 'pr-merged' ? (
               <PRMergedItem key={n.id} notification={n} onRead={() => markRead(n.id)} />
             ) : n.type === 'pr-closed' ? (
@@ -85,6 +130,32 @@ export function NotificationFeed({ onClose }: NotificationFeedProps) {
         )}
       </div>
     </div>
+  )
+}
+
+// ── Tab button ────────────────────────────────────────────────────────────────
+
+function FeedTabBtn({
+  label, active, unread, onClick,
+}: {
+  label: string; active: boolean; unread: number; onClick: () => void
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-[10px] font-mono uppercase tracking-wider transition-colors border-b-2 ${
+        active
+          ? 'text-lg-text-primary border-lg-accent'
+          : 'text-lg-text-secondary border-transparent hover:text-lg-text-primary'
+      }`}
+    >
+      <span>{label}</span>
+      {unread > 0 && (
+        <span className="lg-notification-badge inline-flex items-center justify-center min-w-[16px] h-[14px] px-1 rounded-full bg-lg-accent text-white font-bold">
+          {unread > 9 ? '9+' : unread}
+        </span>
+      )}
+    </button>
   )
 }
 
@@ -125,7 +196,7 @@ function PRMergedItem({
   notification: AppNotification
   onRead: () => void
 }) {
-  const { unlockFile } = useLockStore()
+  const { unlockFile, locks } = useLockStore()
   const requestResolve = useNotificationStore(s => s.requestResolve)
   const [unlocking, setUnlocking] = useState<Set<string>>(new Set())
   const [unlocked,  setUnlocked]  = useState<Set<string>>(new Set())
@@ -136,6 +207,14 @@ function PRMergedItem({
   const lockedFiles = (meta.lockedFiles as string[] | undefined) ?? []
   const containsLocalChanges = (meta.containsLocalChanges as string[] | undefined) ?? []
   const availableToUnlock = (meta.availableToUnlock as string[] | undefined) ?? []
+
+  // Cross-reference the snapshot of files-locked-at-PR-merge-time against the
+  // live lock list. A file that's no longer in `locks` was unlocked elsewhere
+  // (different machine, teammate's session, manual lfs unlock) — treat it as
+  // already unlocked rather than offering a no-op Unlock button.
+  const liveLockedPaths = new Set(locks.map(l => l.path.replace(/\\/g, '/')))
+  const isStillLocked = (filePath: string): boolean =>
+    liveLockedPaths.has(filePath.replace(/\\/g, '/'))
 
   const handleUnlock = async (filePath: string) => {
     if (unlocking.has(filePath) || unlocked.has(filePath)) return
@@ -148,11 +227,13 @@ function PRMergedItem({
   }
 
   const handleUnlockAll = async () => {
-    const remaining = lockedFiles.filter(f => !unlocked.has(f))
+    // Skip files that are already unlocked locally or no longer locked at all.
+    const remaining = lockedFiles.filter(f => !unlocked.has(f) && isStillLocked(f))
     await Promise.allSettled(remaining.map(f => handleUnlock(f)))
   }
 
-  const allUnlocked = lockedFiles.length > 0 && lockedFiles.every(f => unlocked.has(f))
+  const stillLockedCount = lockedFiles.filter(f => !unlocked.has(f) && isStillLocked(f)).length
+  const allUnlocked = lockedFiles.length > 0 && stillLockedCount === 0
 
   return (
     <div
@@ -198,9 +279,9 @@ function PRMergedItem({
           <div className="rounded-md border border-lg-border bg-lg-bg-primary overflow-hidden">
             <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-lg-border/60">
               <span className="text-[9px] font-mono text-lg-text-secondary uppercase tracking-wider">
-                {allUnlocked ? 'All unlocked' : `${lockedFiles.length - unlocked.size} locked file${(lockedFiles.length - unlocked.size) !== 1 ? 's' : ''}`}
+                {allUnlocked ? 'All unlocked' : `${stillLockedCount} locked file${stillLockedCount !== 1 ? 's' : ''}`}
               </span>
-              {!allUnlocked && (
+              {stillLockedCount > 0 && (
                 <button
                   onClick={e => { e.stopPropagation(); handleUnlockAll() }}
                   className="text-[9px] font-mono text-lg-accent hover:text-lg-accent/80 transition-colors"
@@ -210,18 +291,32 @@ function PRMergedItem({
               )}
             </div>
             {lockedFiles.map(filePath => {
-              const isUnlocked  = unlocked.has(filePath)
-              const isUnlocking = unlocking.has(filePath)
+              const isUnlockedHere = unlocked.has(filePath)
+              const isUnlocking    = unlocking.has(filePath)
+              const alreadyUnlocked = !isUnlockedHere && !isStillLocked(filePath)
+              const isOpen          = !isUnlockedHere && !alreadyUnlocked
               return (
                 <div
                   key={filePath}
                   className="flex items-center gap-2 px-2.5 py-1.5 border-b border-lg-border/40 last:border-b-0"
                 >
                   <span className="text-[10px] shrink-0">
-                    {isUnlocked ? '🔓' : '🔒'}
+                    {isOpen ? '🔒' : '🔓'}
                   </span>
-                  <FilePathText path={filePath} className={`flex-1 text-[10px] font-mono truncate ${isUnlocked ? 'text-lg-text-secondary line-through' : 'text-lg-text-primary'}`} />
-                  {!isUnlocked && (
+                  <FilePathText
+                    path={filePath}
+                    className={`flex-1 text-[10px] font-mono truncate ${
+                      isOpen ? 'text-lg-text-primary' : 'text-lg-text-secondary line-through'
+                    }`}
+                  />
+                  {alreadyUnlocked ? (
+                    <span
+                      className="shrink-0 text-[9px] font-mono px-1.5 py-0.5 rounded border border-lg-border text-lg-text-secondary"
+                      title="This file was unlocked elsewhere"
+                    >
+                      Already unlocked
+                    </span>
+                  ) : isOpen ? (
                     <button
                       onClick={e => { e.stopPropagation(); handleUnlock(filePath) }}
                       disabled={isUnlocking}
@@ -229,7 +324,7 @@ function PRMergedItem({
                     >
                       {isUnlocking ? '…' : 'Unlock'}
                     </button>
-                  )}
+                  ) : null}
                 </div>
               )
             })}

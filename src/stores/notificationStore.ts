@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { AppNotification } from '@/ipc'
+import { ipc, AppNotification } from '@/ipc'
 
 const MAX_NOTIFICATIONS = 100
 
@@ -16,6 +16,12 @@ interface NotificationState {
   clearResolveRequest: () => void
 }
 
+// Persist read state to disk so it survives app restart. Fire-and-forget;
+// any failure is logged via the wrapped IPC layer.
+function persistRead(id: number): void {
+  ipc.notificationMarkRead(id).catch(() => {})
+}
+
 export const useNotificationStore = create<NotificationState>((set, get) => ({
   notifications: [],
   unreadCount:   0,
@@ -29,18 +35,27 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     }
   }),
 
-  markRead: (id) => set(state => {
-    const notifications = state.notifications.map(n =>
-      n.id === id ? { ...n, read: true } : n
-    )
-    const unreadCount = notifications.filter(n => !n.read).length
-    return { notifications, unreadCount }
-  }),
+  markRead: (id) => {
+    const target = get().notifications.find(n => n.id === id)
+    if (!target || target.read) return
+    persistRead(id)
+    set(state => {
+      const notifications = state.notifications.map(n =>
+        n.id === id ? { ...n, read: true } : n
+      )
+      const unreadCount = notifications.filter(n => !n.read).length
+      return { notifications, unreadCount }
+    })
+  },
 
-  markAllRead: () => set(state => ({
-    notifications: state.notifications.map(n => ({ ...n, read: true })),
-    unreadCount:   0,
-  })),
+  markAllRead: () => {
+    const unreadIds = get().notifications.filter(n => !n.read).map(n => n.id)
+    unreadIds.forEach(persistRead)
+    set(state => ({
+      notifications: state.notifications.map(n => ({ ...n, read: true })),
+      unreadCount:   0,
+    }))
+  },
 
   clearAll: () => set({ notifications: [], unreadCount: 0 }),
 

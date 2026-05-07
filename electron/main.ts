@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, shell, ipcMain } from 'electron'
+import { app, BrowserWindow, Menu, Notification, shell, ipcMain } from 'electron'
 import path from 'path'
 import { autoUpdater } from 'electron-updater'
 import { registerHandlers } from './ipc/handlers'
@@ -8,6 +8,13 @@ import { logService } from './services/LogService'
 
 const isDev = !app.isPackaged
 const openDevToolsOnStart = process.env.LUCID_OPEN_DEVTOOLS === '1'
+
+// Required on Windows so toast notifications are attributed to "Lucid Git"
+// rather than electron.exe. Must match the AppUserModelId baked into the
+// installer shortcut (electron-builder uses appId by default).
+if (process.platform === 'win32') {
+  app.setAppUserModelId('com.lucidrainstudios.lucidgit')
+}
 
 // ── Auto-updater setup ────────────────────────────────────────────────────────
 
@@ -23,12 +30,39 @@ function sendToRenderer(channel: string, ...args: unknown[]) {
   }
 }
 
+function focusMainWindow(): void {
+  if (!mainWin || mainWin.isDestroyed()) return
+  if (mainWin.isMinimized()) mainWin.restore()
+  mainWin.show()
+  mainWin.focus()
+}
+
+function showUpdateDesktopNotification(version: string): void {
+  if (!Notification.isSupported()) return
+  try {
+    const iconPath = isDev
+      ? path.join(process.cwd(), 'assets/icon.png')
+      : path.join(process.resourcesPath, 'assets/icon.png')
+    const n = new Notification({
+      title: 'Lucid Git update available',
+      body:  `Version ${version} is ready to download.`,
+      icon:  iconPath,
+      silent: false,
+    })
+    n.on('click', focusMainWindow)
+    n.show()
+  } catch (err) {
+    logService.error('updater.notification', err instanceof Error ? err.message : String(err))
+  }
+}
+
 autoUpdater.on('update-available', (info) => {
   sendToRenderer(CHANNELS.EVT_UPDATE_AVAILABLE, {
     version: info.version,
     releaseDate: info.releaseDate,
     releaseNotes: typeof info.releaseNotes === 'string' ? info.releaseNotes : undefined,
   })
+  showUpdateDesktopNotification(info.version)
 })
 
 autoUpdater.on('download-progress', (progress) => {

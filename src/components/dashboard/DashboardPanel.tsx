@@ -546,6 +546,7 @@ interface Suggestion {
   text: string
   conflictItems?: Array<{ file: string; branch: string }>
   action?: { label: string; onClick: () => void; disabled: boolean }
+  loading?: boolean
 }
 
 const URGENCY_COLOR: Record<SuggestionUrgency, { dot: string; bg: string; border: string; text: string }> = {
@@ -580,7 +581,13 @@ function SuggestionsCard({ lastFetch, lastPull, sync, fileStatus, conflictReport
   const suggestions: Suggestion[] = []
   const conflictBranches = conflictReport?.branchesWithConflicts ?? []
 
-  if (conflictBranches.length > 0) {
+  if (conflictChecking) {
+    suggestions.push({
+      urgency: 'tip',
+      text: conflictChecking === 'deep' ? 'Running in-depth conflict previews across candidate branches…' : 'Checking your changed files against other branch changes after fetch…',
+      loading: true,
+    })
+  } else if (conflictBranches.length > 0) {
     const fileCount = new Set(conflictBranches.flatMap(branch => branch.files)).size
     const firstBranch = conflictBranches[0]
     const conflictItems = conflictBranches.flatMap(branch =>
@@ -590,12 +597,7 @@ function SuggestionsCard({ lastFetch, lastPull, sync, fileStatus, conflictReport
       urgency: 'critical',
       text: `${conflictReport?.mode === 'deep' ? 'In-depth check' : 'Fetch check'} found ${conflictBranches.length} branch${conflictBranches.length !== 1 ? 'es' : ''} touching ${fileCount} of your changed file${fileCount !== 1 ? 's' : ''}. Highest risk: ${firstBranch.branch} (${firstBranch.conflictCount} file${firstBranch.conflictCount !== 1 ? 's' : ''}).`,
       conflictItems,
-      action: { label: conflictChecking ? 'Checking...' : 'Run In-depth Check', onClick: onDeepConflictCheck, disabled: !!conflictChecking },
-    })
-  } else if (conflictChecking) {
-    suggestions.push({
-      urgency: 'tip',
-      text: conflictChecking === 'deep' ? 'Running in-depth conflict previews across candidate branches.' : 'Checking your changed files against other branch changes after fetch.',
+      action: { label: 'Run In-depth Check', onClick: onDeepConflictCheck, disabled: false },
     })
   } else if (conflictReport && conflictReport.changedFiles.length > 0) {
     suggestions.push({
@@ -669,7 +671,19 @@ function SuggestionsCard({ lastFetch, lastPull, sync, fileStatus, conflictReport
           const uc = URGENCY_COLOR[s.urgency]
           return (
             <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px', borderRadius: 7, background: uc.bg, border: `1px solid ${uc.border}` }}>
-              <div style={{ width: 7, height: 7, borderRadius: '50%', flexShrink: 0, background: uc.dot, marginTop: 5, boxShadow: `0 0 6px ${uc.dot}66` }} />
+              {s.loading ? (
+                <div
+                  aria-label="Loading"
+                  style={{
+                    width: 12, height: 12, borderRadius: '50%', flexShrink: 0, marginTop: 3,
+                    border: `2px solid ${uc.dot}33`,
+                    borderTopColor: uc.dot,
+                    animation: 'spin 0.8s linear infinite',
+                  }}
+                />
+              ) : (
+                <div style={{ width: 7, height: 7, borderRadius: '50%', flexShrink: 0, background: uc.dot, marginTop: 5, boxShadow: `0 0 6px ${uc.dot}66` }} />
+              )}
               <div style={{ flex: 1 }}>
                 <p style={{ margin: 0, fontSize: 12, lineHeight: 1.65, color: uc.text, fontFamily: 'var(--lg-font-ui)' }}>
                   {s.text}
