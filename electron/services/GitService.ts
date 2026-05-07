@@ -151,9 +151,9 @@ class GitService {
     return exitCode === 0 ? stdout.trim() : 'unknown'
   }
 
-  /** Stage specific paths. */
+  /** Stage specific paths (handles additions, modifications, and deletions). */
   async stage(repoPath: string, paths: string[]): Promise<void> {
-    await exec(['add', '--', ...paths], repoPath)
+    await exec(['add', '-A', '--', ...paths], repoPath)
   }
 
   /** Unstage specific paths (moves them back to working tree). */
