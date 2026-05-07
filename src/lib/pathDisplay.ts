@@ -1,8 +1,7 @@
 export function compactPath(filePath: string, maxParents = 2): string {
   const normalized = filePath.replace(/\\/g, '/')
   const parts = normalized.split('/').filter(Boolean)
-  const maxParts = maxParents + 1
 
-  if (parts.length <= maxParts) return normalized
-  return `.../${parts.slice(-maxParts).join('/')}`
+  if (parts.length <= maxParents + 1) return normalized
+  return `${parts[0]}/.../${parts.slice(-maxParents).join('/')}`
 }
