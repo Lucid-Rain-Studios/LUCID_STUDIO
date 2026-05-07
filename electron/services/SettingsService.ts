@@ -19,6 +19,7 @@ export const DESKTOP_NOTIFICATION_DEFAULTS: DesktopNotificationEvents = {
 
 const DEFAULTS: AppSettings = {
   autoFetchIntervalMinutes: 5,
+  updateCheckIntervalMinutes: 30,
   defaultCloneDepth: 50,
   largeFileWarnMB: 100,
   scheduledCleanup: {
@@ -38,7 +39,11 @@ const DEFAULTS: AppSettings = {
   desktopNotificationEvents: { ...DESKTOP_NOTIFICATION_DEFAULTS },
 }
 
+type SettingsListener = (settings: AppSettings) => void
+
 class SettingsService {
+  private listeners = new Set<SettingsListener>()
+
   private filePath(): string {
     return path.join(app.getPath('userData'), 'lucid-git-settings.json')
   }
@@ -73,6 +78,12 @@ class SettingsService {
       },
     }
     fs.writeFileSync(this.filePath(), JSON.stringify(normalized, null, 2), 'utf8')
+    for (const listener of this.listeners) listener(normalized)
+  }
+
+  onChange(listener: SettingsListener): () => void {
+    this.listeners.add(listener)
+    return () => { this.listeners.delete(listener) }
   }
 }
 

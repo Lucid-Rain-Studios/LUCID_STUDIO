@@ -6,6 +6,7 @@ import { CHANNELS } from './ipc/channels'
 import { watcherService } from './services/WatcherService'
 import { logService } from './services/LogService'
 import { desktopNotificationService } from './services/DesktopNotificationService'
+import { settingsService } from './services/SettingsService'
 
 const isDev = !app.isPackaged
 const openDevToolsOnStart = process.env.LUCID_OPEN_DEVTOOLS === '1'
@@ -101,6 +102,29 @@ function fmt(bytes: number): string {
   return `${(bytes / 1_048_576).toFixed(1)} MB`
 }
 
+// ── Periodic update checking ─────────────────────────────────────────────────
+
+let updateCheckTimer: NodeJS.Timeout | null = null
+let currentUpdateIntervalMs = 0
+
+function silentCheckForUpdates(): void {
+  autoUpdater.checkForUpdates().catch(() => { /* swallowed; the 'error' event already logs */ })
+}
+
+function applyUpdateCheckInterval(minutes: number): void {
+  if (isDev) return
+  const ms = Math.max(0, Math.floor(minutes)) * 60_000
+  if (ms === currentUpdateIntervalMs) return
+  currentUpdateIntervalMs = ms
+  if (updateCheckTimer) {
+    clearInterval(updateCheckTimer)
+    updateCheckTimer = null
+  }
+  if (ms > 0) {
+    updateCheckTimer = setInterval(silentCheckForUpdates, ms)
+  }
+}
+
 // ── Window ────────────────────────────────────────────────────────────────────
 
 function createWindow(): BrowserWindow {
@@ -141,9 +165,11 @@ function createWindow(): BrowserWindow {
 
   win.once('ready-to-show', () => {
     win.show()
-    // Check for updates 4 seconds after window is visible so startup isn't blocked
+    // Check for updates 4 seconds after window is visible so startup isn't blocked,
+    // then re-check on the user-configured interval.
     if (!isDev) {
-      setTimeout(() => autoUpdater.checkForUpdates().catch(() => {}), 4000)
+      setTimeout(silentCheckForUpdates, 4000)
+      applyUpdateCheckInterval(settingsService.getAll().updateCheckIntervalMinutes)
     }
   })
 
@@ -263,6 +289,7 @@ app.whenReady().then(() => {
   registerHandlers()
   registerUpdaterHandlers()
   registerWindowHandlers()
+  settingsService.onChange((next) => applyUpdateCheckInterval(next.updateCheckIntervalMinutes))
   createWindow()
 
   app.on('activate', () => {

@@ -7,6 +7,7 @@ const CONFIRM_BRANCH_KEY = 'lucid-git:confirm-branch-switch'
 
 const DEFAULTS: AppSettings = {
   autoFetchIntervalMinutes: 5,
+  updateCheckIntervalMinutes: 30,
   defaultCloneDepth: 50,
   largeFileWarnMB: 100,
   scheduledCleanup: {
@@ -252,6 +253,22 @@ export function GeneralSettings() {
         </Section>
 
         <Section title="App updates">
+          <Row
+            label="Check automatically"
+            hint="How often Lucid Git checks GitHub Releases for a newer build. A check also runs at startup."
+          >
+            <select
+              value={settings.updateCheckIntervalMinutes}
+              onChange={e => update({ updateCheckIntervalMinutes: Number(e.target.value) })}
+              className="bg-lg-bg-primary border border-lg-border rounded px-2 py-1 text-[11px] font-mono text-lg-text-primary focus:outline-none focus:border-lg-accent"
+            >
+              <option value={5}>Every 5 min</option>
+              <option value={10}>Every 10 min</option>
+              <option value={30}>Every 30 min</option>
+              <option value={60}>Every hour</option>
+              <option value={240}>Every 4 hours</option>
+            </select>
+          </Row>
           <Row
             label="Check for updates"
             hint="Check GitHub Releases for a newer installed build."

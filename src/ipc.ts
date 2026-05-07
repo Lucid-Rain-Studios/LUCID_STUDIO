@@ -335,6 +335,7 @@ export interface DesktopNotifyRequest {
 
 export interface AppSettings {
   autoFetchIntervalMinutes: number
+  updateCheckIntervalMinutes: number
   defaultCloneDepth: number
   largeFileWarnMB: number
   scheduledCleanup: {
