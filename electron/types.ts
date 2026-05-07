@@ -200,6 +200,18 @@ export interface UEProject {
   engineVersion: string
 }
 
+export interface DesktopNotificationEvents {
+  // Tier 1 — high signal, default ON
+  appUpdate:         boolean   // A new app version is available
+  prResolved:        boolean   // PR you authored was merged or closed
+  forceUnlock:       boolean   // Someone force-unlocked one of your locks
+  operationComplete: boolean   // Long op finished while window unfocused
+  fatalError:        boolean   // Uncaught exception / fatal log entry
+  // Tier 2 — opt-in, default OFF
+  conflictForecast:  boolean   // Forecast detected a conflict with your work
+  lockOnDirtyFile:   boolean   // Someone locked a file you have local changes on
+}
+
 export interface AppSettings {
   autoFetchIntervalMinutes: number
   defaultCloneDepth: number
@@ -220,6 +232,7 @@ export interface AppSettings {
   borderRadius?: 'sharp' | 'default' | 'rounded' | 'pill'
   accentColor?: string
   defaultBranchName?: string
+  desktopNotificationEvents?: DesktopNotificationEvents
 }
 
 export interface TeamConfig {

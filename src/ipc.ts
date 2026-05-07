@@ -307,6 +307,32 @@ export interface UpdateCheckResult {
   source: 'dev' | 'release'
 }
 
+export type DesktopNotificationEvent =
+  | 'appUpdate'
+  | 'prResolved'
+  | 'forceUnlock'
+  | 'operationComplete'
+  | 'fatalError'
+  | 'conflictForecast'
+  | 'lockOnDirtyFile'
+
+export interface DesktopNotificationEvents {
+  appUpdate:         boolean
+  prResolved:        boolean
+  forceUnlock:       boolean
+  operationComplete: boolean
+  fatalError:        boolean
+  conflictForecast:  boolean
+  lockOnDirtyFile:   boolean
+}
+
+export interface DesktopNotifyRequest {
+  event: DesktopNotificationEvent
+  title: string
+  body:  string
+  urgent?: boolean
+}
+
 export interface AppSettings {
   autoFetchIntervalMinutes: number
   defaultCloneDepth: number
@@ -327,6 +353,7 @@ export interface AppSettings {
   borderRadius?: 'sharp' | 'default' | 'rounded' | 'pill'
   accentColor?: string
   defaultBranchName?: string
+  desktopNotificationEvents?: DesktopNotificationEvents
 }
 
 export interface TeamConfig {
@@ -592,6 +619,7 @@ export interface LucidGitAPI {
   // Notifications + webhooks
   notificationList: (repoPath: string) => Promise<AppNotification[]>
   notificationMarkRead: (id: number) => Promise<void>
+  notifyDesktop: (request: DesktopNotifyRequest) => Promise<void>
   webhookTest: (url: string) => Promise<boolean>
   webhookLoad: (repoPath: string) => Promise<WebhookConfig | null>
   webhookSave: (repoPath: string, config: WebhookConfig) => Promise<void>

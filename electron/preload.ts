@@ -157,6 +157,10 @@ const api = {
     ipcRenderer.invoke(CHANNELS.NOTIFICATION_LIST, repoPath),
   notificationMarkRead: (id: number) =>
     ipcRenderer.invoke(CHANNELS.NOTIFICATION_MARK_READ, id),
+  notifyDesktop: (request: {
+    event: string; title: string; body: string; urgent?: boolean
+  }) =>
+    ipcRenderer.invoke(CHANNELS.NOTIFICATION_DESKTOP_NOTIFY, request),
   webhookTest: (url: string) =>
     ipcRenderer.invoke(CHANNELS.WEBHOOK_TEST, url),
   webhookLoad: (repoPath: string) =>

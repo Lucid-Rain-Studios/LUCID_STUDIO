@@ -6,6 +6,7 @@ import { execSafe } from '../util/dugite-exec'
 import { authService } from './AuthService'
 import { gitHubService } from './GitHubService'
 import { notificationService } from './NotificationService'
+import { desktopNotificationService } from './DesktopNotificationService'
 import { lockService } from './LockService'
 import { CHANNELS } from '../ipc/channels'
 import type { AppNotification } from '../types'
@@ -162,13 +163,14 @@ class PRMonitorService {
 
         let n: AppNotification
         if (status.merged) {
+          const body = stillLocked.length > 0
+            ? `${stillLocked.length} locked file${stillLocked.length !== 1 ? 's' : ''} ready to unlock`
+            : 'Your pull request was accepted'
           n = notificationService.push(
             repoPath,
             'pr-merged',
             `PR #${prNumber} merged`,
-            stillLocked.length > 0
-              ? `${stillLocked.length} locked file${stillLocked.length !== 1 ? 's' : ''} ready to unlock`
-              : 'Your pull request was accepted',
+            body,
             {
               prNumber,
               owner:       slug.owner,
@@ -180,6 +182,12 @@ class PRMonitorService {
               htmlUrl,
             },
           )
+          desktopNotificationService.notify({
+            event:  'prResolved',
+            title:  `PR #${prNumber} merged`,
+            body,
+            urgent: stillLocked.length > 0,
+          })
         } else {
           n = notificationService.push(
             repoPath,
@@ -195,6 +203,12 @@ class PRMonitorService {
               htmlUrl,
             },
           )
+          desktopNotificationService.notify({
+            event:  'prResolved',
+            title:  `PR #${prNumber} closed without merging`,
+            body:   tracked.title,
+            urgent: false,
+          })
         }
 
         this.emitNotification(n)

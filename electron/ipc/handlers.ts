@@ -15,6 +15,7 @@ import { authService } from '../services/AuthService'
 import { logService } from '../services/LogService'
 import { lockService } from '../services/LockService'
 import { notificationService } from '../services/NotificationService'
+import { desktopNotificationService } from '../services/DesktopNotificationService'
 import { webhookService } from '../services/WebhookService'
 import { unrealService } from '../services/UnrealService'
 import { hookService } from '../services/HookService'
@@ -505,6 +506,20 @@ export function registerHandlers(): void {
 
   handle(CHANNELS.NOTIFICATION_MARK_READ, async (_event, id: number) => {
     notificationService.markRead(id)
+  })
+
+  handle(CHANNELS.NOTIFICATION_DESKTOP_NOTIFY, async (_event, request: {
+    event: 'appUpdate' | 'prResolved' | 'forceUnlock' | 'operationComplete' | 'fatalError' | 'conflictForecast' | 'lockOnDirtyFile'
+    title: string
+    body:  string
+    urgent?: boolean
+  }) => {
+    desktopNotificationService.notify({
+      event:  request.event,
+      title:  request.title,
+      body:   request.body,
+      urgent: request.urgent,
+    })
   })
 
   handle(CHANNELS.WEBHOOK_TEST, async (_event, url: string) => {

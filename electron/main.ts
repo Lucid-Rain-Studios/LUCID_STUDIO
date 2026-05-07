@@ -1,10 +1,11 @@
-import { app, BrowserWindow, Menu, Notification, shell, ipcMain } from 'electron'
+import { app, BrowserWindow, Menu, shell, ipcMain } from 'electron'
 import path from 'path'
 import { autoUpdater } from 'electron-updater'
 import { registerHandlers } from './ipc/handlers'
 import { CHANNELS } from './ipc/channels'
 import { watcherService } from './services/WatcherService'
 import { logService } from './services/LogService'
+import { desktopNotificationService } from './services/DesktopNotificationService'
 
 const isDev = !app.isPackaged
 const openDevToolsOnStart = process.env.LUCID_OPEN_DEVTOOLS === '1'
@@ -30,39 +31,18 @@ function sendToRenderer(channel: string, ...args: unknown[]) {
   }
 }
 
-function focusMainWindow(): void {
-  if (!mainWin || mainWin.isDestroyed()) return
-  if (mainWin.isMinimized()) mainWin.restore()
-  mainWin.show()
-  mainWin.focus()
-}
-
-function showUpdateDesktopNotification(version: string): void {
-  if (!Notification.isSupported()) return
-  try {
-    const iconPath = isDev
-      ? path.join(process.cwd(), 'assets/icon.png')
-      : path.join(process.resourcesPath, 'assets/icon.png')
-    const n = new Notification({
-      title: 'Lucid Git update available',
-      body:  `Version ${version} is ready to download.`,
-      icon:  iconPath,
-      silent: false,
-    })
-    n.on('click', focusMainWindow)
-    n.show()
-  } catch (err) {
-    logService.error('updater.notification', err instanceof Error ? err.message : String(err))
-  }
-}
-
 autoUpdater.on('update-available', (info) => {
   sendToRenderer(CHANNELS.EVT_UPDATE_AVAILABLE, {
     version: info.version,
     releaseDate: info.releaseDate,
     releaseNotes: typeof info.releaseNotes === 'string' ? info.releaseNotes : undefined,
   })
-  showUpdateDesktopNotification(info.version)
+  desktopNotificationService.notify({
+    event:  'appUpdate',
+    title:  'Lucid Git update available',
+    body:   `Version ${info.version} is ready to download.`,
+    urgent: true,
+  })
 })
 
 autoUpdater.on('download-progress', (progress) => {
@@ -89,6 +69,12 @@ process.on('uncaughtException', (error) => {
   logService.error('main.uncaughtException', `${error.message}
 Stack:
 ${error.stack ?? ''}`)
+  desktopNotificationService.notify({
+    event:  'fatalError',
+    title:  'Lucid Git encountered an error',
+    body:   error.message.length > 140 ? error.message.slice(0, 137) + '…' : error.message,
+    urgent: true,
+  })
 })
 
 process.on('unhandledRejection', (reason) => {
@@ -98,6 +84,13 @@ Stack:
 ${reason.stack ?? ''}`
     : String(reason)
   logService.error('main.unhandledRejection', message)
+  const display = reason instanceof Error ? reason.message : String(reason)
+  desktopNotificationService.notify({
+    event:  'fatalError',
+    title:  'Lucid Git encountered an error',
+    body:   display.length > 140 ? display.slice(0, 137) + '…' : display,
+    urgent: true,
+  })
 })
 
 function fmt(bytes: number): string {

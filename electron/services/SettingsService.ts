@@ -1,26 +1,20 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import { app } from 'electron'
+import type { AppSettings, DesktopNotificationEvents } from '../types'
 
-export interface AppSettings {
-  autoFetchIntervalMinutes: number
-  defaultCloneDepth: number
-  largeFileWarnMB: number
-  scheduledCleanup: {
-    enabled: boolean
-    frequencyDays: number
-    includeGc: boolean
-    includePruneLfs: boolean
-  }
-  fontFamily: string
-  fontSize: number
-  uiDensity: 'compact' | 'normal' | 'relaxed'
-  theme: 'dark' | 'darker' | 'midnight' | 'dracula' | 'nord' | 'catppuccin' | 'tokyo-night' | 'ocean' | 'forest' | 'rose-pine' | 'monokai'
-  codeFontFamily?: string
-  fontWeight?: 300 | 400 | 500 | 600
-  borderRadius?: 'sharp' | 'default' | 'rounded' | 'pill'
-  accentColor?: string
-  defaultBranchName?: string
+export type { AppSettings } from '../types'
+
+export const DESKTOP_NOTIFICATION_DEFAULTS: DesktopNotificationEvents = {
+  // Tier 1 — high signal
+  appUpdate:         true,
+  prResolved:        true,
+  forceUnlock:       true,
+  operationComplete: true,
+  fatalError:        true,
+  // Tier 2 — opt-in
+  conflictForecast:  false,
+  lockOnDirtyFile:   false,
 }
 
 const DEFAULTS: AppSettings = {
@@ -41,6 +35,7 @@ const DEFAULTS: AppSettings = {
   fontWeight: 500,
   borderRadius: 'default',
   defaultBranchName: 'main',
+  desktopNotificationEvents: { ...DESKTOP_NOTIFICATION_DEFAULTS },
 }
 
 class SettingsService {
@@ -51,9 +46,19 @@ class SettingsService {
   getAll(): AppSettings {
     try {
       const raw = fs.readFileSync(this.filePath(), 'utf8')
-      return { ...DEFAULTS, ...JSON.parse(raw) }
+      const stored = JSON.parse(raw) as Partial<AppSettings>
+      return {
+        ...DEFAULTS,
+        ...stored,
+        // Merge nested DesktopNotificationEvents so newly-added toggles get
+        // their default value when reading an older settings file.
+        desktopNotificationEvents: {
+          ...DESKTOP_NOTIFICATION_DEFAULTS,
+          ...(stored.desktopNotificationEvents ?? {}),
+        },
+      }
     } catch {
-      return { ...DEFAULTS }
+      return { ...DEFAULTS, desktopNotificationEvents: { ...DESKTOP_NOTIFICATION_DEFAULTS } }
     }
   }
 
@@ -62,6 +67,10 @@ class SettingsService {
       ...DEFAULTS,
       ...settings,
       defaultBranchName: (settings.defaultBranchName ?? 'main').trim() || 'main',
+      desktopNotificationEvents: {
+        ...DESKTOP_NOTIFICATION_DEFAULTS,
+        ...(settings.desktopNotificationEvents ?? {}),
+      },
     }
     fs.writeFileSync(this.filePath(), JSON.stringify(normalized, null, 2), 'utf8')
   }

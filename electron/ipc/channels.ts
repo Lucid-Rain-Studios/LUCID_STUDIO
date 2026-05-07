@@ -71,8 +71,9 @@ export const CHANNELS = {
   CLEANUP_UNSHALLOW: 'cleanup:unshallow',
 
   // Notifications + webhooks
-  NOTIFICATION_LIST:      'notification:list',
-  NOTIFICATION_MARK_READ: 'notification:mark-read',
+  NOTIFICATION_LIST:           'notification:list',
+  NOTIFICATION_MARK_READ:      'notification:mark-read',
+  NOTIFICATION_DESKTOP_NOTIFY: 'notification:desktop-notify',
   WEBHOOK_TEST:           'webhook:test',
   WEBHOOK_LOAD:           'webhook:load',
   WEBHOOK_SAVE:           'webhook:save',

@@ -6,9 +6,15 @@ import { authService } from './AuthService'
 import { CHANNELS } from '../ipc/channels'
 import type { Lock } from '../types'
 import { notificationService } from './NotificationService'
+import { desktopNotificationService } from './DesktopNotificationService'
 import { webhookService } from './WebhookService'
 import { heatmapService } from './HeatmapService'
 import { gitService } from './GitService'
+
+// Window after a self-unlock during which a poll-detected lock removal is
+// attributed to that unlock rather than to an external force-unlock. Generous
+// because `git lfs unlock` + the next poll cycle can be slow.
+const SELF_UNLOCK_GRACE_MS = 60_000
 
 class LockService {
   private pollTimers  = new Map<string, ReturnType<typeof setInterval>>()
@@ -16,6 +22,9 @@ class LockService {
   private watchedFiles: Array<{ repoPath: string; filePath: string }> = []
   // Track when each file was locked so we can compute duration on unlock
   private lockTimestamps = new Map<string, number>()  // `${repoPath}::${filePath}` → timestamp
+  // Track recent self-initiated unlocks so the poller can tell external
+  // unlocks (force-unlocks by an admin / teammate) apart from your own.
+  private recentSelfUnlocks = new Map<string, number>()  // key → unlock timestamp
 
   // ── Core LFS commands ───────────────────────────────────────────────────────
 
@@ -115,6 +124,7 @@ class LockService {
     const now = Date.now()
     const lockedAt = this.lockTimestamps.get(`${repoPath}::${normalized}`) ?? now
     this.lockTimestamps.delete(`${repoPath}::${normalized}`)
+    this.recentSelfUnlocks.set(`${repoPath}::${normalized}`, now)
     heatmapService.recordLockEvent({
       repoPath, filePath: normalized, eventType: force ? 'force-unlocked' : 'unlocked',
       actorLogin, actorName, timestamp: now, durationMs: now - lockedAt,
@@ -187,6 +197,7 @@ class LockService {
     }
 
     // Released locks since last poll
+    const currentUserLogin = this.currentUserLogin()
     for (const lock of previous) {
       if (!current.find(l => l.path === lock.path)) {
         const title = 'File unlocked'
@@ -203,6 +214,25 @@ class LockService {
           timestamp: now, durationMs: now - lockedAt,
         })
 
+        // External-unlock-of-your-lock detection: if a lock you owned just
+        // disappeared and you didn't initiate the unlock yourself within the
+        // grace window, surface it as a force-unlock toast so coordination
+        // doesn't get missed.
+        if (currentUserLogin && lock.owner.login === currentUserLogin) {
+          const key = `${repoPath}::${lock.path}`
+          const selfUnlockedAt = this.recentSelfUnlocks.get(key)
+          if (selfUnlockedAt !== undefined && now - selfUnlockedAt < SELF_UNLOCK_GRACE_MS) {
+            this.recentSelfUnlocks.delete(key)
+          } else {
+            desktopNotificationService.notify({
+              event:  'forceUnlock',
+              title:  'Your lock was released',
+              body:   `${lock.path} was unlocked by another user`,
+              urgent: true,
+            })
+          }
+        }
+
         // High-priority notification if this file was being watched
         const watchIdx = this.watchedFiles.findIndex(
           w => w.repoPath === repoPath && w.filePath === lock.path
@@ -213,8 +243,24 @@ class LockService {
       }
     }
 
+    // Garbage-collect stale self-unlock entries so the map doesn't grow
+    // unbounded across long-running sessions.
+    const cutoff = Date.now() - SELF_UNLOCK_GRACE_MS
+    for (const [key, ts] of this.recentSelfUnlocks) {
+      if (ts < cutoff) this.recentSelfUnlocks.delete(key)
+    }
+
     this.prevLocks.set(repoPath, current)
     this.broadcastLocks(repoPath, current)
+  }
+
+  private currentUserLogin(): string | null {
+    try {
+      const { accounts, currentAccountId } = authService.listAccounts()
+      return accounts.find(a => a.userId === currentAccountId)?.login ?? null
+    } catch {
+      return null
+    }
   }
 
   private emitNotification(notification: import('../types').AppNotification): void {

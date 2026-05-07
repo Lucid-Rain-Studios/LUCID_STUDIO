@@ -1,6 +1,7 @@
 import { BrowserWindow } from 'electron'
 import { execSafe } from '../util/dugite-exec'
 import { CHANNELS } from '../ipc/channels'
+import { desktopNotificationService } from './DesktopNotificationService'
 
 export interface ForecastConflict {
   filePath: string
@@ -132,6 +133,7 @@ class ForecastService {
     }
 
     // 6. Update status and emit events
+    const previousConflicts = this.conflicts.get(repoPath) ?? []
     this.conflicts.set(repoPath, newConflicts)
     const st = this.status.get(repoPath)
     if (st) {
@@ -145,6 +147,24 @@ class ForecastService {
           win.webContents.send(CHANNELS.EVT_FORECAST_CONFLICT, newConflicts)
         }
       })
+
+      // Only toast on NEWLY-detected conflicts so the user isn't pinged every
+      // poll cycle for the same overlap. Compare by file+remoteBranch tuple.
+      const wasKnown = new Set(previousConflicts.map(c => `${c.filePath}::${c.remoteBranch}`))
+      const fresh = newConflicts.filter(c => !wasKnown.has(`${c.filePath}::${c.remoteBranch}`))
+      if (fresh.length > 0) {
+        const first = fresh[0]
+        const extra = fresh.length - 1
+        const summary = extra > 0
+          ? `${first.filePath} on ${first.remoteBranch} (+${extra} more)`
+          : `${first.filePath} on ${first.remoteBranch}`
+        desktopNotificationService.notify({
+          event:  'conflictForecast',
+          title:  fresh.length === 1 ? 'Potential merge conflict' : `${fresh.length} potential merge conflicts`,
+          body:   summary,
+          urgent: fresh.some(c => c.severity === 'high'),
+        })
+      }
     }
   }
 }

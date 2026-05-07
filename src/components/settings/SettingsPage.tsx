@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { GeneralSettings } from './GeneralSettings'
 import { AppearanceSettings } from './AppearanceSettings'
+import { NotificationSettings } from './NotificationSettings'
 import { WebhookPanel } from './WebhookPanel'
 import { TeamConfigPanel } from './TeamConfigPanel'
 import { useAuthStore } from '@/stores/authStore'
@@ -9,13 +10,14 @@ interface SettingsPageProps {
   repoPath: string | null
 }
 
-type SettingsTab = 'general' | 'appearance' | 'discord' | 'team'
+type SettingsTab = 'general' | 'appearance' | 'notifications' | 'discord' | 'team'
 
 const ALL_TABS: { id: SettingsTab; label: string; requiresRepo?: boolean; adminOnly?: boolean }[] = [
-  { id: 'general',    label: 'General' },
-  { id: 'appearance', label: 'Appearance' },
-  { id: 'discord',    label: 'Discord',     requiresRepo: true, adminOnly: true },
-  { id: 'team',       label: 'Team config', requiresRepo: true, adminOnly: true },
+  { id: 'general',       label: 'General' },
+  { id: 'appearance',    label: 'Appearance' },
+  { id: 'notifications', label: 'Notifications' },
+  { id: 'discord',       label: 'Discord',     requiresRepo: true, adminOnly: true },
+  { id: 'team',          label: 'Team config', requiresRepo: true, adminOnly: true },
 ]
 
 export function SettingsPage({ repoPath }: SettingsPageProps) {
@@ -56,10 +58,11 @@ export function SettingsPage({ repoPath }: SettingsPageProps) {
 
       {/* Content */}
       <div style={{ flex: 1, overflowY: 'auto', pointerEvents: showAdminBanner ? 'none' : undefined, opacity: showAdminBanner ? 0.5 : 1 }}>
-        {activeTab === 'appearance' && <AppearanceSettings />}
-        {activeTab === 'general'    && <GeneralSettings />}
-        {activeTab === 'discord'    && repoPath && <WebhookPanel repoPath={repoPath} />}
-        {activeTab === 'team'       && repoPath && <TeamConfigPanel repoPath={repoPath} />}
+        {activeTab === 'appearance'    && <AppearanceSettings />}
+        {activeTab === 'general'       && <GeneralSettings />}
+        {activeTab === 'notifications' && <NotificationSettings />}
+        {activeTab === 'discord'       && repoPath && <WebhookPanel repoPath={repoPath} />}
+        {activeTab === 'team'          && repoPath && <TeamConfigPanel repoPath={repoPath} />}
       </div>
     </div>
   )

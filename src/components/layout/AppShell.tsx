@@ -242,6 +242,23 @@ export function AppShell() {
     const unsub = ipc.onNotification((n: AppNotification) => {
       pushNotification(n)
       if (n.type === 'pr-merged') showStatusToast('PR has been approved.')
+
+      // Lock-on-dirty-file: fire a desktop toast (gated by Settings) when a
+      // teammate locks a file you currently have uncommitted changes on. The
+      // backend doesn't know about your dirty files, so the renderer is the
+      // right place to compute the overlap.
+      if (n.type === 'lock') {
+        const lockedPath = n.body.replace(/\\/g, '/')
+        const dirtyPaths = useRepoStore.getState().fileStatus.map(f => f.path.replace(/\\/g, '/'))
+        if (dirtyPaths.includes(lockedPath)) {
+          ipc.notifyDesktop({
+            event:  'lockOnDirtyFile',
+            title:  'Conflict ahead — file locked',
+            body:   `${lockedPath} was locked by ${n.title.replace(/ locked a file$/, '')}`,
+            urgent: true,
+          }).catch(() => {})
+        }
+      }
     })
     return unsub
   }, [pushNotification, showStatusToast])
