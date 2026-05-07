@@ -5,6 +5,7 @@ import { useOperationStore } from '@/stores/operationStore'
 import { cn } from '@/lib/utils'
 import { FilePathText } from '@/components/ui/FilePathText'
 import { ActionBtn } from '@/components/ui/ActionBtn'
+import { useDialogOverlayDismiss } from '@/lib/useDialogOverlayDismiss'
 
 interface MergePreviewDialogProps {
   targetBranch: string
@@ -214,11 +215,13 @@ export function MergePreviewDialog({ targetBranch, onClose, onMerged }: MergePre
     }
   }
 
+  const overlayDismiss = useDialogOverlayDismiss(onClose, !inConflictResolution)
+
   return (
     /* Backdrop */
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
-      onMouseDown={e => { if (!inConflictResolution && e.target === e.currentTarget) onClose() }}
+      {...overlayDismiss}
     >
       <div className="bg-lg-bg-elevated border border-lg-border rounded-lg shadow-2xl w-[640px] max-h-[80vh] flex flex-col">
 

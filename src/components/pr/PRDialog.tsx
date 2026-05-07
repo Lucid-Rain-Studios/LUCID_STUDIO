@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { BranchDiffCommit, ipc } from '@/ipc'
 import { usePRStore } from '@/stores/prStore'
 import { useRepoStore } from '@/stores/repoStore'
@@ -6,6 +6,7 @@ import { useLockStore } from '@/stores/lockStore'
 import { useAuthStore } from '@/stores/authStore'
 import { useStatusToastStore } from '@/stores/statusToastStore'
 import { ActionBtn } from '@/components/ui/ActionBtn'
+import { useDialogOverlayDismiss } from '@/lib/useDialogOverlayDismiss'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -200,7 +201,8 @@ export function PRDialog() {
         const commits = diff.aheadCommits
         setMergeCommits(commits)
         if (commits.length > 0) {
-          setTitle(commits[0].message)
+          const firstMeaningful = commits.find(c => !c.message.includes('Merge remote-tracking branch'))
+          setTitle((firstMeaningful ?? commits[0]).message)
           setBody(commits.map(c => `- ${c.message}`).join('\n'))
         }
       })
@@ -216,13 +218,14 @@ export function PRDialog() {
   ), [mergeCommits])
 
   // Close on Escape
-  const overlayRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeDialog() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [open, closeDialog])
+
+  const overlayDismiss = useDialogOverlayDismiss(closeDialog)
 
   if (!open) return null
 
@@ -264,8 +267,7 @@ export function PRDialog() {
 
   return (
     <div
-      ref={overlayRef}
-      onClick={e => { if (e.target === overlayRef.current) closeDialog() }}
+      {...overlayDismiss}
       style={{
         position: 'fixed', inset: 0, zIndex: 1000,
         background: 'rgba(0,0,0,0.65)',

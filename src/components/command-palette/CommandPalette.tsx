@@ -6,6 +6,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { cn } from '@/lib/utils'
 import { markFetchPerformed } from '@/lib/fetchState'
 import { getTopBarSyncHandlers, getTopBarSyncSnapshot } from '@/lib/topBarSyncBridge'
+import { useDialogOverlayDismiss } from '@/lib/useDialogOverlayDismiss'
 
 interface CommandPaletteProps {
   open: boolean
@@ -154,12 +155,14 @@ export function CommandPalette({
     return () => window.removeEventListener('keydown', handler)
   }, [open, onClose])
 
+  const overlayDismiss = useDialogOverlayDismiss(onClose)
+
   if (!open) return null
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh]"
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+      {...overlayDismiss}
     >
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/60" />

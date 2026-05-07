@@ -611,63 +611,63 @@ export function TopBar({ onOpen, onClone, onAddAccount, onSynced, onMergeConflic
             </>
           )}
 
-          {/* Split Fetch | Pull button */}
+          {/* Git flow: Fetch|Pull → Update from main → Push → Create PR */}
           {repoPath && (
-            <FetchPullSplitBtn
-              fetchLabel={fetchButtonLabel(busyState)}
-              pullLabel={pullButtonLabel(busyState)}
-              behindCount={hasBehind && isIdle ? (sync?.behind ?? 0) : 0}
-              hasFetched={hasFetched}
-              error={!!syncErr}
-              disabled={!isIdle}
-              fetchDisabledReason={fetchDisabledReason(busyState)}
-              pullDisabledReason={pullDisabledReason(hasFetched, sync?.behind ?? 0, busyState)}
-              onFetch={doFetch}
-              onPull={doTopBarPull}
-            />
-          )}
+            <>
+              <FetchPullSplitBtn
+                fetchLabel={fetchButtonLabel(busyState)}
+                pullLabel={pullButtonLabel(busyState)}
+                behindCount={hasBehind && isIdle ? (sync?.behind ?? 0) : 0}
+                hasFetched={hasFetched}
+                error={!!syncErr}
+                disabled={!isIdle}
+                fetchDisabledReason={fetchDisabledReason(busyState)}
+                pullDisabledReason={pullDisabledReason(hasFetched, sync?.behind ?? 0, busyState)}
+                onFetch={doFetch}
+                onPull={doTopBarPull}
+              />
 
-          {/* Push button */}
-          {repoPath && (
-            <SyncBtn
-              label={pushButtonLabel(busyState)}
-              icon={<ArrowUp />}
-              count={canPushNow ? (sync?.ahead ?? 0) : 0}
-              countColor="#2dbd6e"
-              active={canPushNow}
-              error={false}
-              disabled={!canPushNow}
-              disabledReason={pushReason}
-              onClick={doPush}
-            />
-          )}
+              <FlowArrow />
 
-          {repoPath && (
-            <SyncBtn
-              label="Create PR"
-              icon={<PullRequestIcon />}
-              count={0}
-              countColor="#a78bfa"
-              active={canCreatePRNow}
-              error={false}
-              disabled={!canCreatePRNow}
-              disabledReason={createPRReason}
-              onClick={() => {
-                if (!repoPath || !remoteUrl || !currentBranch || !canCreatePRNow) return
-                openPRDialog(repoPath, currentBranch, remoteUrl)
-              }}
-            />
-          )}
+              <UpdateFromMainBtn
+                defaultBranch={defaultBranch}
+                currentBranch={currentBranch ?? ''}
+                busy={updatingFromMain}
+                disabled={syncOp !== 'idle'}
+                onClick={doUpdateFromMain}
+              />
 
-          {/* Update from main button */}
-          {repoPath && (
-            <UpdateFromMainBtn
-              defaultBranch={defaultBranch}
-              currentBranch={currentBranch ?? ''}
-              busy={updatingFromMain}
-              disabled={syncOp !== 'idle'}
-              onClick={doUpdateFromMain}
-            />
+              <FlowArrow />
+
+              <SyncBtn
+                label={pushButtonLabel(busyState)}
+                icon={<ArrowUp />}
+                count={canPushNow ? (sync?.ahead ?? 0) : 0}
+                countColor="#2dbd6e"
+                active={canPushNow}
+                error={false}
+                disabled={!canPushNow}
+                disabledReason={pushReason}
+                onClick={doPush}
+              />
+
+              <FlowArrow />
+
+              <SyncBtn
+                label="Create PR"
+                icon={<PullRequestIcon />}
+                count={0}
+                countColor="#a78bfa"
+                active={canCreatePRNow}
+                error={false}
+                disabled={!canCreatePRNow}
+                disabledReason={createPRReason}
+                onClick={() => {
+                  if (!repoPath || !remoteUrl || !currentBranch || !canCreatePRNow) return
+                  openPRDialog(repoPath, currentBranch, remoteUrl)
+                }}
+              />
+            </>
           )}
 
           {repoPath && <div style={{ width: 1, height: 18, background: 'var(--lg-border)', flexShrink: 0, marginLeft: 2, marginRight: 2 }} />}
@@ -1461,6 +1461,27 @@ function ArrowDown() {
     <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
       <path d="M6 2.5V9.5M3 7L6 10L9 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
+  )
+}
+
+function FlowArrow() {
+  return (
+    <span
+      aria-hidden
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        color: 'var(--lg-text-secondary)',
+        opacity: 0.6,
+        flexShrink: 0,
+        pointerEvents: 'none',
+        margin: '0 -2px',
+      }}
+    >
+      <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+        <path d="M3.5 2.5L8 6L3.5 9.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </span>
   )
 }
 

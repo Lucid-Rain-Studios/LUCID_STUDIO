@@ -4,6 +4,7 @@ import { useRepoStore } from '@/stores/repoStore'
 import { useOperationStore } from '@/stores/operationStore'
 import { cn } from '@/lib/utils'
 import { ActionBtn } from '@/components/ui/ActionBtn'
+import { useDialogOverlayDismiss } from '@/lib/useDialogOverlayDismiss'
 
 interface CloneDialogProps {
   onClose: () => void
@@ -63,14 +64,15 @@ export function CloneDialog({ onClose }: CloneDialogProps) {
     if (e.key === 'Escape' && !isCloning) onClose()
   }
 
+  const overlayDismiss = useDialogOverlayDismiss(onClose, !isCloning)
+
   return (
     <div
       className="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
-      onClick={() => { if (!isCloning) onClose() }}
+      {...overlayDismiss}
     >
       <div
         className="bg-lg-bg-elevated border border-lg-border rounded-lg w-[540px] shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
         onKeyDown={handleKeyDown}
       >
         {/* Header */}

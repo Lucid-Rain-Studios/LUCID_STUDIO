@@ -9,6 +9,7 @@ import { AppTooltip } from '@/components/ui/AppTooltip'
 import { FilePathText } from '@/components/ui/FilePathText'
 import { AppRightSelectionItem, AppRightSelectionOptions, AppRightSelectionSeparator } from '@/components/ui/AppRightSelectionOptions'
 import { ActionBtn } from '@/components/ui/ActionBtn'
+import { useDialogOverlayDismiss } from '@/lib/useDialogOverlayDismiss'
 
 function parseGitHubSlug(url: string): string | null {
   const m = url.match(/github\.com[/:]([\w.-]+\/[\w.-]+?)(?:\.git)?$/)
@@ -454,6 +455,8 @@ function BlameModal({ file, commitHash, repoPath, onClose }: {
       .catch(e => { setError(String(e)); setLoading(false) })
   }, [repoPath, file.path, commitHash])
 
+  const overlayDismiss = useDialogOverlayDismiss(onClose)
+
   return (
     <div
       style={{
@@ -461,7 +464,7 @@ function BlameModal({ file, commitHash, repoPath, onClose }: {
         background: 'rgba(0,0,0,0.65)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+      {...overlayDismiss}
     >
       <div style={{
         width: 'min(920px, 92vw)', height: 'min(700px, 88vh)',
