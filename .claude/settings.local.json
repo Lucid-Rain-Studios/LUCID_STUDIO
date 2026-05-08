@@ -54,7 +54,9 @@
       "PowerShell(gh pr list --head claude/confident-cartwright-63d803 --state all)",
       "Bash(node ./node_modules/typescript/bin/tsc --noEmit -p tsconfig.main.json)",
       "Bash(echo \"EXIT=$?\")",
-      "Bash(echo \"exit=$?\")"
+      "Bash(echo \"exit=$?\")",
+      "Bash(node -e \"console.log\\(JSON.stringify\\(require\\('./package.json'\\).scripts, null, 2\\)\\)\")",
+      "Bash(node -p \"require\\('H:/LUCID_GIT/package.json'\\).version\")"
     ]
   }
 }

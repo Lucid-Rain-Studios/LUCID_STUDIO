@@ -517,18 +517,19 @@ class GitService {
     }
   }
 
-  /** Fetch origin then merge origin/main into HEAD. */
-  async updateFromMain(repoPath: string): Promise<void> {
+  /** Fetch origin then merge origin/main into HEAD. Streams progress. */
+  async updateFromMain(repoPath: string, onProgress?: ProgressCallback): Promise<void> {
     if (await this.hasUncommittedChanges(repoPath)) {
       throw new Error('Update from main needs a clean working tree. Commit or stash your current changes first so incoming files are not mixed with local edits.')
     }
 
     const token = await authService.getCurrentToken()
     const remoteUrl = await this.getRemoteUrl(repoPath)
-    const fetchRes = await execSafe([...gitAuthArgs(token, remoteUrl), 'fetch', 'origin', '--prune', '--progress'], repoPath)
-    if (fetchRes.exitCode !== 0) {
-      throw new Error(fetchRes.stderr || fetchRes.stdout || `Fetch from origin failed (exit ${fetchRes.exitCode})`)
-    }
+
+    // Synthetic stage events — guarantee the bar shows progression even when
+    // git itself goes silent (already up-to-date fetch, pure ref-bump merge).
+    onProgress?.({ id: 'stage', label: 'Fetching origin', status: 'running' })
+    await execWithProgress([...gitAuthArgs(token, remoteUrl), 'fetch', 'origin', '--prune', '--progress'], repoPath, onProgress)
 
     const defaultBranch = await this.remoteDefaultBranch(repoPath)
     const check = await execSafe(['rev-parse', '--verify', defaultBranch.ref], repoPath)
@@ -536,13 +537,16 @@ class GitService {
       throw new Error(`Could not find ${defaultBranch.ref}`)
     }
 
-    const mergeArgs = [...gitAuthArgs(token, remoteUrl), 'merge', '--no-edit', defaultBranch.ref]
+    onProgress?.({ id: 'stage', label: `Merging ${defaultBranch.ref}`, status: 'running' })
+    // --progress on merge surfaces "Updating files: N% (X/Y)" during the
+    // checkout phase — the main thing the user wants to watch on a big update.
+    const mergeArgs = [...gitAuthArgs(token, remoteUrl), 'merge', '--no-edit', '--progress', defaultBranch.ref]
     try {
-      await exec(mergeArgs, repoPath)
+      await execWithProgress(mergeArgs, repoPath, onProgress)
     } catch (error) {
       if (!this.shouldRunLfsRecovery(error)) throw error
       await this.recoverLfsAndMergeState(repoPath)
-      await exec(mergeArgs, repoPath)
+      await execWithProgress(mergeArgs, repoPath, onProgress)
     }
   }
 

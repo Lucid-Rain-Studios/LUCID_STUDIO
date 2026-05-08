@@ -210,7 +210,8 @@ class DependencyService {
         label: 'Scanning assets',
         status: processed >= total ? 'done' : 'running',
         progress: Math.round((processed / total) * 100),
-        detail: `${processed} / ${total}`,
+        current: processed,
+        total,
       })
     }
 

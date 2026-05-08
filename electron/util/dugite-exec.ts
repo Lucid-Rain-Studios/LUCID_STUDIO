@@ -39,6 +39,7 @@ const PROGRESS_PATTERNS: ProgressPattern[] = [
   { regex: /Updating references:\s+(\d+)%/i,             id: 'update-refs',  label: 'Updating references' },
   { regex: /migrate:.*Rewriting commits:\s+(\d+)%/i,     id: 'lfs-rewrite',  label: 'Rewriting commits' },
   { regex: /Checking out files:\s+(\d+)%/i,              id: 'checkout',     label: 'Checking out files' },
+  { regex: /Updating files:\s+(\d+)%/i,                  id: 'update-files', label: 'Updating files' },
 ]
 
 function parseGitProgress(line: string): OperationStep | null {
@@ -48,11 +49,27 @@ function parseGitProgress(line: string): OperationStep | null {
     const progressMatch = line.match(/(\d+)%/)
     const isDone = /done\./i.test(line)
 
+    // Counts come in two shapes:
+    //   "Receiving objects: 35% (420/1200), …"   → current/total
+    //   "Counting objects: 1234, done."          → current only
+    let current: number | undefined
+    let total: number | undefined
+    const pairMatch = line.match(/\((\d+)\/(\d+)\)/)
+    if (pairMatch) {
+      current = parseInt(pairMatch[1], 10)
+      total   = parseInt(pairMatch[2], 10)
+    } else if (!progressMatch) {
+      const soloMatch = line.match(/:\s+(\d+)(?:,|\s|$)/)
+      if (soloMatch) current = parseInt(soloMatch[1], 10)
+    }
+
     return {
       id,
       label,
       status: isDone ? 'done' : 'running',
       progress: progressMatch ? parseInt(progressMatch[1], 10) : undefined,
+      current,
+      total,
       detail: line.trim().replace(/\r/g, ''),
     }
   }

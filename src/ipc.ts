@@ -234,6 +234,8 @@ export interface OperationStep {
   label: string
   status: 'pending' | 'running' | 'done' | 'error'
   progress?: number
+  current?: number
+  total?: number
   detail?: string
   duration?: number
 }

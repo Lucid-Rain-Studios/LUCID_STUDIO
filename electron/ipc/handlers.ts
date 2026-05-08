@@ -279,8 +279,10 @@ export function registerHandlers(): void {
     return gitService.getSyncStatus(repoPath)
   })
 
-  handle(CHANNELS.GIT_UPDATE_FROM_MAIN, async (_event, repoPath: string) => {
-    return gitService.updateFromMain(repoPath)
+  handle(CHANNELS.GIT_UPDATE_FROM_MAIN, async (event, repoPath: string) => {
+    return gitService.updateFromMain(repoPath, (step) => {
+      if (!event.sender.isDestroyed()) event.sender.send(CHANNELS.EVT_OPERATION_PROGRESS, step)
+    })
   })
 
   handle(CHANNELS.GIT_DIFF, async (_event, repoPath: string, filePath: string, staged: boolean) => {

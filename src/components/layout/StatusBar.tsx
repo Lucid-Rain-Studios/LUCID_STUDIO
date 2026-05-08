@@ -42,16 +42,33 @@ export function StatusBar() {
   const effectiveRole   = isRealAdmin && viewAsRole ? viewAsRole : realPermission
 
   const progress   = latestStep?.progress
+  const current    = latestStep?.current
+  const total      = latestStep?.total
   const stepLabel  = latestStep?.label ?? label
   const stepDetail = latestStep?.detail
 
-  const displayText = stepDetail
-    ? progress !== undefined && !stepDetail.includes('%')
-      ? `${stepDetail}  ${progress}%`
-      : stepDetail
-    : progress !== undefined
-      ? `${stepLabel}  ${progress}%`
-      : stepLabel
+  // Smoother bar fill when we have per-item counts: 1200 distinct
+  // values instead of 100 percentage steps.
+  const barFill = current !== undefined && total !== undefined && total > 0
+    ? (current / total) * 100
+    : progress
+
+  const countText =
+    current !== undefined && total !== undefined ? `${current.toLocaleString()}/${total.toLocaleString()}`
+    : current !== undefined                      ? current.toLocaleString()
+    : null
+
+  const pctText = progress !== undefined ? `${progress}%` : null
+
+  // Prefer structured count when present; otherwise fall back to the
+  // raw detail (e.g. "5.2 MB / 12.4 MB · 1.5 MB/s" from the auto-updater).
+  const displayText = countText
+    ? [stepLabel, pctText, countText].filter(Boolean).join('  ·  ')
+    : stepDetail
+      ? (pctText && !stepDetail.includes('%')) ? `${stepDetail}  ${pctText}` : stepDetail
+      : pctText
+        ? `${stepLabel}  ${pctText}`
+        : stepLabel
 
   return (
     <footer style={{
@@ -63,11 +80,11 @@ export function StatusBar() {
       {/* Progress strip */}
       <div style={{ height: 2, width: '100%', background: '#141924', overflow: 'hidden' }}>
         {isRunning && (
-          progress !== undefined
+          barFill !== undefined
             ? <div style={{
                 height: '100%',
                 background: 'linear-gradient(90deg, #e8622f, #f5a832)',
-                width: `${progress}%`,
+                width: `${barFill}%`,
                 transition: 'width 0.3s ease',
                 boxShadow: '0 0 6px rgba(232,98,47,0.6)',
               }} />

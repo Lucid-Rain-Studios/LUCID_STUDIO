@@ -6,6 +6,7 @@ import { useOperationStore } from '@/stores/operationStore'
 import { useLockStore } from '@/stores/lockStore'
 import { usePRStore } from '@/stores/prStore'
 import { ContributionGraph } from './ContributionGraph'
+import { PotentialConflictsDialog } from './PotentialConflictsDialog'
 import { getLastFetch, markFetchPerformed, onFetchPerformed } from '@/lib/fetchState'
 import {
   canCreatePR,
@@ -106,6 +107,7 @@ export function DashboardPanel({ repoPath, onNavigate }: DashboardPanelProps) {
   const [hasFetched, setHasFetched] = useState(() => sessionFetchedRepos.has(repoPath))
   const [conflictReport, setConflictReport] = useState<PotentialMergeConflictReport | null>(null)
   const [conflictChecking, setConflictChecking] = useState<'lightweight' | 'deep' | null>(null)
+  const [conflictDialogOpen, setConflictDialogOpen] = useState(false)
   const syncTickRef = useRef(syncTick)
 
   const staged       = React.useMemo(() => fileStatus.filter(f =>  f.staged).length,  [fileStatus])
@@ -289,6 +291,7 @@ export function DashboardPanel({ repoPath, onNavigate }: DashboardPanelProps) {
           conflictReport={conflictReport}
           conflictChecking={conflictChecking}
           onDeepConflictCheck={() => runPotentialConflictCheck('deep')}
+          onShowConflictDialog={() => setConflictDialogOpen(true)}
           onFetch={doFetch}
           busy={busyState === 'idle' ? null : busyState}
         />
@@ -336,6 +339,15 @@ export function DashboardPanel({ repoPath, onNavigate }: DashboardPanelProps) {
         <LocksCard locks={locks} currentLogin={currentLogin} repoPath={repoPath} unlockFile={unlockFile} isAdmin={isAdmin} />
         <PRsCard ghSlug={ghSlug} />
       </div>
+
+      {conflictDialogOpen && conflictReport && (
+        <PotentialConflictsDialog
+          report={conflictReport}
+          deepChecking={conflictChecking === 'deep'}
+          onRunDeepCheck={() => runPotentialConflictCheck('deep')}
+          onClose={() => setConflictDialogOpen(false)}
+        />
+      )}
 
     </div>
   )
@@ -544,7 +556,7 @@ type SuggestionUrgency = 'ok' | 'tip' | 'warn' | 'high' | 'critical'
 interface Suggestion {
   urgency: SuggestionUrgency
   text: string
-  conflictItems?: Array<{ file: string; branch: string }>
+  conflictSummary?: { branchCount: number; fileCount: number; onView: () => void }
   action?: { label: string; onClick: () => void; disabled: boolean }
   loading?: boolean
 }
@@ -557,7 +569,7 @@ const URGENCY_COLOR: Record<SuggestionUrgency, { dot: string; bg: string; border
   critical: { dot: '#e84545', bg: 'rgba(232,69,69,0.08)',   border: 'rgba(232,69,69,0.28)',   text: '#c05050'  },
 }
 
-function SuggestionsCard({ lastFetch, lastPull, sync, fileStatus, conflictReport, conflictChecking, onDeepConflictCheck, onFetch, busy }: {
+function SuggestionsCard({ lastFetch, lastPull, sync, fileStatus, conflictReport, conflictChecking, onDeepConflictCheck, onShowConflictDialog, onFetch, busy }: {
   lastFetch: number | null
   lastPull: number | null
   sync: SyncStatus | null
@@ -565,6 +577,7 @@ function SuggestionsCard({ lastFetch, lastPull, sync, fileStatus, conflictReport
   conflictReport: PotentialMergeConflictReport | null
   conflictChecking: 'lightweight' | 'deep' | null
   onDeepConflictCheck: () => void
+  onShowConflictDialog: () => void
   onFetch: () => void
   busy: 'idle' | 'fetch' | 'pull' | 'push' | null
 }) {
@@ -589,14 +602,10 @@ function SuggestionsCard({ lastFetch, lastPull, sync, fileStatus, conflictReport
     })
   } else if (conflictBranches.length > 0) {
     const fileCount = new Set(conflictBranches.flatMap(branch => branch.files)).size
-    const firstBranch = conflictBranches[0]
-    const conflictItems = conflictBranches.flatMap(branch =>
-      branch.files.map(file => ({ file, branch: branch.branch }))
-    )
     suggestions.push({
       urgency: 'critical',
-      text: `${conflictReport?.mode === 'deep' ? 'In-depth check' : 'Fetch check'} found ${conflictBranches.length} branch${conflictBranches.length !== 1 ? 'es' : ''} touching ${fileCount} of your changed file${fileCount !== 1 ? 's' : ''}. Highest risk: ${firstBranch.branch} (${firstBranch.conflictCount} file${firstBranch.conflictCount !== 1 ? 's' : ''}).`,
-      conflictItems,
+      text: `${conflictReport?.mode === 'deep' ? 'In-depth check' : 'Fetch check'} found ${conflictBranches.length} potential merge conflict${conflictBranches.length !== 1 ? 's' : ''} across ${fileCount} of your changed file${fileCount !== 1 ? 's' : ''}.`,
+      conflictSummary: { branchCount: conflictBranches.length, fileCount, onView: onShowConflictDialog },
       action: { label: 'Run In-depth Check', onClick: onDeepConflictCheck, disabled: false },
     })
   } else if (conflictReport && conflictReport.changedFiles.length > 0) {
@@ -688,16 +697,26 @@ function SuggestionsCard({ lastFetch, lastPull, sync, fileStatus, conflictReport
                 <p style={{ margin: 0, fontSize: 12, lineHeight: 1.65, color: uc.text, fontFamily: 'var(--lg-font-ui)' }}>
                   {s.text}
                 </p>
-                {s.conflictItems && s.conflictItems.length > 0 && (
-                  <ul style={{ margin: '8px 0 0', paddingLeft: 15, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    {s.conflictItems.map(item => (
-                      <li key={`${item.branch}:${item.file}`} style={{ fontSize: 11.5, lineHeight: 1.45, color: '#ff6b6b', fontFamily: 'var(--lg-font-mono)', overflowWrap: 'anywhere' }}>
-                        <span style={{ color: '#ff8a8a' }}>{item.file}</span>
-                        <span style={{ color: '#9a5560' }}> may conflict with </span>
-                        <span style={{ color: '#ff8a8a' }}>{item.branch}</span>
-                      </li>
-                    ))}
-                  </ul>
+                {s.conflictSummary && (
+                  <div style={{
+                    marginTop: 8,
+                    display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
+                    padding: '7px 10px',
+                    borderRadius: 6,
+                    background: 'rgba(232,69,69,0.06)',
+                    border: '1px solid rgba(232,69,69,0.18)',
+                  }}>
+                    <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 11, color: '#ff8a8a', flex: 1, minWidth: 0 }}>
+                      {s.conflictSummary.branchCount} potential merge conflict{s.conflictSummary.branchCount !== 1 ? 's' : ''} found
+                      <span style={{ color: '#9a5560' }}> · {s.conflictSummary.fileCount} of your file{s.conflictSummary.fileCount !== 1 ? 's' : ''}</span>
+                    </span>
+                    <SmallBtn
+                      label="View Details"
+                      color="#e84545"
+                      disabled={false}
+                      onClick={s.conflictSummary.onView}
+                    />
+                  </div>
                 )}
                 {s.action && (
                   <div style={{ marginTop: 8 }}>
