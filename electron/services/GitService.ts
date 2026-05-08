@@ -76,6 +76,28 @@ function parseStatus(raw: string): FileStatus[] {
   return result
 }
 
+// Windows' CreateProcess caps the full command line at ~32 767 chars. Long UE
+// asset paths plus a large changeset overflow that limit and surface as
+// `spawn ENAMETOOLONG`. Run `fn` over `paths` split into safely-sized chunks.
+async function runInPathChunks(
+  paths: string[],
+  fn: (chunk: string[]) => Promise<unknown>,
+): Promise<void> {
+  const BUDGET = 7000
+  let chunk: string[] = []
+  let chunkLen = 0
+  for (const p of paths) {
+    if (chunkLen + p.length + 1 > BUDGET && chunk.length > 0) {
+      await fn(chunk)
+      chunk = []
+      chunkLen = 0
+    }
+    chunk.push(p)
+    chunkLen += p.length + 1
+  }
+  if (chunk.length > 0) await fn(chunk)
+}
+
 // ── GitService ────────────────────────────────────────────────────────────────
 
 class GitService {
@@ -167,16 +189,17 @@ class GitService {
     }
 
     if (existing.length > 0) {
-      await exec(['add', '-A', '--', ...existing], repoPath)
+      await runInPathChunks(existing, c => exec(['add', '-A', '--', ...c], repoPath))
     }
     if (missing.length > 0) {
-      await exec(['rm', '--cached', '--ignore-unmatch', '-r', '--', ...missing], repoPath)
+      await runInPathChunks(missing, c => exec(['rm', '--cached', '--ignore-unmatch', '-r', '--', ...c], repoPath))
     }
   }
 
   /** Unstage specific paths (moves them back to working tree). */
   async unstage(repoPath: string, paths: string[]): Promise<void> {
-    await exec(['restore', '--staged', '--', ...paths], repoPath)
+    if (paths.length === 0) return
+    await runInPathChunks(paths, c => exec(['restore', '--staged', '--', ...c], repoPath))
   }
 
   /** Create a commit with the given message. Pass noVerify=true to skip hooks. */
@@ -703,8 +726,8 @@ class GitService {
       }
     } else {
       // Unstage first (no-op if not staged), then restore working tree
-      await execSafe(['restore', '--staged', '--', ...paths], repoPath)
-      await execSafe(['restore', '--', ...paths], repoPath)
+      await runInPathChunks(paths, c => execSafe(['restore', '--staged', '--', ...c], repoPath))
+      await runInPathChunks(paths, c => execSafe(['restore', '--', ...c], repoPath))
     }
   }
 
