@@ -969,14 +969,23 @@ class GitService {
   async listInProgressConflicts(repoPath: string): Promise<ConflictPreviewFile[]> {
     const merge = await this.mergeInProgress(repoPath)
     if (!merge) return []
+    return this._buildConflictPreviews(repoPath, merge.unresolvedFiles, 'MERGE_HEAD', merge.mergedBranch)
+  }
 
+  /** Shared conflict-preview builder for merge and cherry-pick in-progress states. */
+  private async _buildConflictPreviews(
+    repoPath: string,
+    unresolvedFiles: string[],
+    theirRef: string,
+    theirLabel: string,
+  ): Promise<ConflictPreviewFile[]> {
     const UE_EXTS = new Set(['.uasset', '.umap', '.udk', '.ubulk', '.uexp', '.ucas'])
     const currentBranch = await this.currentBranch(repoPath)
     const status = await this.status(repoPath)
     const statusByPath = new Map(status.map(f => [f.path, f]))
 
     const out: ConflictPreviewFile[] = []
-    for (const filePath of merge.unresolvedFiles) {
+    for (const filePath of unresolvedFiles) {
       const ext = path.extname(filePath).toLowerCase()
       const isBin = BINARY_EXTS.has(ext)
       const type: ConflictPreviewFile['type'] = UE_EXTS.has(ext) ? 'ue-asset'
@@ -1000,14 +1009,110 @@ class GitService {
         this._contributorInfo(repoPath, filePath, 'HEAD', currentBranch).catch(() => ({
           branch: currentBranch, lastContributor: { name: '', email: '' }, lastEditedAt: '', lastCommitMessage: '', sizeBytes: 0,
         } as ContributorInfo)),
-        this._contributorInfo(repoPath, filePath, 'MERGE_HEAD', merge.mergedBranch).catch(() => ({
-          branch: merge.mergedBranch, lastContributor: { name: '', email: '' }, lastEditedAt: '', lastCommitMessage: '', sizeBytes: 0,
+        this._contributorInfo(repoPath, filePath, theirRef, theirLabel).catch(() => ({
+          branch: theirLabel, lastContributor: { name: '', email: '' }, lastEditedAt: '', lastCommitMessage: '', sizeBytes: 0,
         } as ContributorInfo)),
       ])
 
       out.push({ path: filePath, type, conflictType, ours: oursInfo, theirs: theirsInfo })
     }
     return out
+  }
+
+  /**
+   * Returns the in-progress cherry-pick state, or null if no cherry-pick is active.
+   * - cherryPickHead: the commit being applied
+   * - sourceMessage: the commit's subject line (for UI display)
+   * - unresolvedFiles: paths still unmerged in the index
+   */
+  async cherryPickInProgress(repoPath: string): Promise<{
+    cherryPickHead: string
+    sourceMessage: string
+    unresolvedFiles: string[]
+  } | null> {
+    const gitDirRes = await execSafe(['rev-parse', '--git-dir'], repoPath)
+    if (gitDirRes.exitCode !== 0) return null
+    const gitDir = path.resolve(repoPath, gitDirRes.stdout.trim())
+    const cherryHeadPath = path.join(gitDir, 'CHERRY_PICK_HEAD')
+
+    let cherryPickHead: string
+    try {
+      cherryPickHead = (await fs.promises.readFile(cherryHeadPath, 'utf8')).trim().split(/\s+/)[0]
+    } catch {
+      return null
+    }
+    if (!cherryPickHead) return null
+
+    const subjectRes = await execSafe(['log', '-1', '--format=%s', cherryPickHead], repoPath)
+    const sourceMessage = subjectRes.exitCode === 0 ? subjectRes.stdout.trim() : ''
+
+    const unresolvedRes = await execSafe(['diff', '--name-only', '--diff-filter=U'], repoPath)
+    const unresolvedFiles = unresolvedRes.stdout.split('\n').map(s => s.trim()).filter(Boolean)
+
+    return { cherryPickHead, sourceMessage, unresolvedFiles }
+  }
+
+  /** Build conflict-preview records for an in-progress cherry-pick (mirrors listInProgressConflicts). */
+  async listInProgressCherryPickConflicts(repoPath: string): Promise<ConflictPreviewFile[]> {
+    const cp = await this.cherryPickInProgress(repoPath)
+    if (!cp) return []
+    const label = cp.sourceMessage
+      ? `${cp.cherryPickHead.slice(0, 7)} ${cp.sourceMessage.slice(0, 60)}`
+      : cp.cherryPickHead.slice(0, 7)
+    return this._buildConflictPreviews(repoPath, cp.unresolvedFiles, 'CHERRY_PICK_HEAD', label)
+  }
+
+  /** Finalize an in-progress cherry-pick after all conflicts have been resolved. */
+  async continueCherryPick(repoPath: string): Promise<void> {
+    const unresolved = await execSafe(['diff', '--name-only', '--diff-filter=U'], repoPath)
+    const unresolvedFiles = unresolved.stdout.trim().split('\n').filter(Boolean)
+    if (unresolvedFiles.length > 0) {
+      throw new Error(`Resolve all cherry-pick conflicts before finalizing:\n${unresolvedFiles.join('\n')}`)
+    }
+    // `git commit --no-edit` reuses the prepared commit message git stored
+    // in .git/MERGE_MSG when cherry-pick was paused, and clears CHERRY_PICK_HEAD
+    // on success — same effect as `cherry-pick --continue` but without ever
+    // spawning an editor (matches how continueMerge works).
+    await exec(['commit', '--no-edit'], repoPath)
+  }
+
+  /** Cancel an in-progress cherry-pick, restoring the working tree. */
+  async abortCherryPick(repoPath: string): Promise<void> {
+    const res = await execSafe(['cherry-pick', '--abort'], repoPath)
+    if (res.exitCode !== 0) {
+      throw new Error(res.stderr || res.stdout || 'No cherry-pick is currently in progress.')
+    }
+  }
+
+  /**
+   * Inspect .git/index.lock — git creates this during write operations and
+   * removes it when done. A leftover lock means a previous git/LFS subprocess
+   * crashed or was killed mid-write. Returns null if no lock exists.
+   */
+  async getIndexLockInfo(repoPath: string): Promise<{ path: string; ageSeconds: number } | null> {
+    const gitDirRes = await execSafe(['rev-parse', '--git-dir'], repoPath)
+    if (gitDirRes.exitCode !== 0) return null
+    const gitDir = path.resolve(repoPath, gitDirRes.stdout.trim())
+    const lockPath = path.join(gitDir, 'index.lock')
+    try {
+      const stat = await fs.promises.stat(lockPath)
+      const ageSeconds = Math.max(0, Math.floor((Date.now() - stat.mtimeMs) / 1000))
+      return { path: lockPath, ageSeconds }
+    } catch {
+      return null
+    }
+  }
+
+  /**
+   * Remove a stale .git/index.lock. Caller must warn the user — deleting the
+   * lock while another git process is genuinely writing the index can corrupt
+   * the repo. Returns true if a lock was removed.
+   */
+  async removeIndexLock(repoPath: string): Promise<boolean> {
+    const info = await this.getIndexLockInfo(repoPath)
+    if (!info) return false
+    await fs.promises.unlink(info.path)
+    return true
   }
 
 /** Resolve a branch name to a ref usable for merge. Prefers origin/<branch>

@@ -255,6 +255,18 @@ const api = {
     ipcRenderer.invoke(CHANNELS.GIT_REVERT, repoPath, hash, noCommit),
   gitCherryPick: (repoPath: string, hash: string, noCommit?: boolean) =>
     ipcRenderer.invoke(CHANNELS.GIT_CHERRY_PICK, repoPath, hash, noCommit),
+  cherryPickInProgress: (repoPath: string) =>
+    ipcRenderer.invoke(CHANNELS.GIT_CHERRY_PICK_IN_PROGRESS, repoPath),
+  cherryPickContinue: (repoPath: string) =>
+    ipcRenderer.invoke(CHANNELS.GIT_CHERRY_PICK_CONTINUE, repoPath),
+  cherryPickAbort: (repoPath: string) =>
+    ipcRenderer.invoke(CHANNELS.GIT_CHERRY_PICK_ABORT, repoPath),
+  getIndexLockInfo: (repoPath: string) =>
+    ipcRenderer.invoke(CHANNELS.GIT_INDEX_LOCK_INFO, repoPath),
+  removeIndexLock: (repoPath: string) =>
+    ipcRenderer.invoke(CHANNELS.GIT_INDEX_LOCK_REMOVE, repoPath),
+  aheadFilePaths: (repoPath: string) =>
+    ipcRenderer.invoke(CHANNELS.GIT_AHEAD_FILE_PATHS, repoPath),
   gitResetTo: (repoPath: string, hash: string, mode: 'soft' | 'mixed' | 'hard') =>
     ipcRenderer.invoke(CHANNELS.GIT_RESET_TO, repoPath, hash, mode),
   gitLsFiles: (repoPath: string) =>

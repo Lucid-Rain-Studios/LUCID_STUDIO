@@ -19,6 +19,8 @@ import { CommitBox } from '@/components/changes/CommitBox'
 import { StashPanel } from '@/components/changes/StashPanel'
 import { BranchPanel } from '@/components/branches/BranchPanel'
 import { MergePreviewDialog } from '@/components/merge/MergeDialog'
+import { CherryPickConflictDialog } from '@/components/merge/CherryPickConflictDialog'
+import { PushBlockedByLocksDialog } from '@/components/locks/PushBlockedByLocksDialog'
 import { LfsPanel } from '@/components/lfs/LfsPanel'
 import { CleanupPanel } from '@/components/cleanup/CleanupPanel'
 import { SettingsPage } from '@/components/settings/SettingsPage'
@@ -165,6 +167,8 @@ export function AppShell() {
   const [showLoginDialog,  setShowLoginDialog]  = useState(false)
   const [leftTab, setLeftTab] = useState<TabId>('dashboard')
   const [mergeTarget, setMergeTarget] = useState<string | null>(null)
+  const [cherryPickConflict, setCherryPickConflict] = useState(false)
+  const [pushBlockedError, setPushBlockedError] = useState<string | null>(null)
   const [cmdOpen, setCmdOpen] = useState(false)
   const [authChecked, setAuthChecked] = useState(false)
 
@@ -175,6 +179,17 @@ export function AppShell() {
 
   const { repoPath, fileStatus, isLoading, error, openRepo, refreshStatus, silentRefresh, recentRepos, removeRecentRepo, clearRepo } = useRepoStore()
   const { updateStep } = useOperationStore()
+
+  // Auto-open the cherry-pick conflict dialog if a previous session left
+  // CHERRY_PICK_HEAD around (e.g. user closed the app mid-resolution).
+  useEffect(() => {
+    if (!repoPath) return
+    let cancelled = false
+    ipc.cherryPickInProgress(repoPath).then(state => {
+      if (!cancelled && state) setCherryPickConflict(true)
+    }).catch(() => {})
+    return () => { cancelled = true }
+  }, [repoPath])
   const { loadAccounts, accounts, currentAccountId } = useAuthStore()
   const { locks, loadLocks, setLocks } = useLockStore()
 
@@ -394,6 +409,7 @@ export function AppShell() {
         onAddAccount={() => setShowLoginDialog(true)}
         onSynced={handleRefresh}
         onMergeConflict={branch => setMergeTarget(branch)}
+        onPushBlockedByLocks={msg => setPushBlockedError(msg)}
       />
 
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
@@ -538,7 +554,7 @@ export function AppShell() {
           ) : leftTab === 'tools' ? (
             /* ── Tools — full width ── */
             <PanelErrorBoundary tabId={leftTab} onGoHome={() => setLeftTab('dashboard')}>
-              <ToolsPanel repoPath={repoPath} onRefresh={handleRefresh} />
+              <ToolsPanel repoPath={repoPath} onRefresh={handleRefresh} onCherryPickConflict={() => setCherryPickConflict(true)} />
             </PanelErrorBoundary>
           ) : leftTab === 'content' ? (
             /* ── Content Browser — full width ── */
@@ -634,6 +650,19 @@ export function AppShell() {
           targetBranch={mergeTarget}
           onClose={() => setMergeTarget(null)}
           onMerged={() => { setMergeTarget(null); handleRefresh() }}
+        />
+      )}
+      {cherryPickConflict && (
+        <CherryPickConflictDialog
+          onClose={() => setCherryPickConflict(false)}
+          onResolved={() => { setCherryPickConflict(false); handleRefresh() }}
+        />
+      )}
+      {pushBlockedError && (
+        <PushBlockedByLocksDialog
+          errorMessage={pushBlockedError}
+          onClose={() => setPushBlockedError(null)}
+          onPushed={() => { setPushBlockedError(null); handleRefresh() }}
         />
       )}
 

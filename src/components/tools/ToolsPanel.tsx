@@ -1,5 +1,5 @@
-import React, { useState } from 'react'
-import { ipc, CommitEntry, LfsLocksMaintenanceResult } from '@/ipc'
+import React, { useEffect, useState } from 'react'
+import { ipc, BranchInfo, CommitEntry, LfsLocksMaintenanceResult } from '@/ipc'
 import { useOperationStore } from '@/stores/operationStore'
 import { useDialogStore } from '@/stores/dialogStore'
 import { FilePathText } from '@/components/ui/FilePathText'
@@ -7,6 +7,8 @@ import { FilePathText } from '@/components/ui/FilePathText'
 interface ToolsPanelProps {
   repoPath: string
   onRefresh: () => void
+  /** Called when a cherry-pick fails with a conflict — host opens the conflict dialog. */
+  onCherryPickConflict?: () => void
 }
 
 type ToolId = 'restore' | 'revert' | 'cherrypick' | 'reset' | 'lfslocks'
@@ -19,7 +21,7 @@ const TOOLS: { id: ToolId; label: string; icon: string; desc: string }[] = [
   { id: 'lfslocks',   label: 'LFS Locks',        icon: 'LFS', desc: 'Check and refresh Git LFS lock cache state' },
 ]
 
-export function ToolsPanel({ repoPath, onRefresh }: ToolsPanelProps) {
+export function ToolsPanel({ repoPath, onRefresh, onCherryPickConflict }: ToolsPanelProps) {
   const [activeTool, setActiveTool] = useState<ToolId>('restore')
   const opRun = useOperationStore(s => s.run)
 
@@ -48,7 +50,7 @@ export function ToolsPanel({ repoPath, onRefresh }: ToolsPanelProps) {
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         {activeTool === 'restore'    && <RestoreTool    repoPath={repoPath} run={run} />}
         {activeTool === 'revert'     && <RevertTool     repoPath={repoPath} run={run} />}
-        {activeTool === 'cherrypick' && <CherryPickTool repoPath={repoPath} run={run} />}
+        {activeTool === 'cherrypick' && <CherryPickTool repoPath={repoPath} onRefresh={onRefresh} onConflict={onCherryPickConflict} />}
         {activeTool === 'reset'      && <ResetTool      repoPath={repoPath} run={run} />}
         {activeTool === 'lfslocks'   && <LfsLocksTool   repoPath={repoPath} onRefresh={onRefresh} />}
       </div>
@@ -166,20 +168,27 @@ function ActionButton({ label, onClick, disabled, danger }: { label: string; onC
   )
 }
 
-function CommitPicker({ repoPath, value, onChange, placeholder, onCommitSelect }: {
+function CommitPicker({ repoPath, value, onChange, placeholder, onCommitSelect, sourceRef }: {
   repoPath: string; value: string; onChange: (v: string) => void; placeholder?: string
   onCommitSelect?: (c: CommitEntry) => void
+  /** Optional ref (branch name) to load commits from. Defaults to HEAD. */
+  sourceRef?: string
 }) {
   const [commits, setCommits] = useState<CommitEntry[]>([])
   const [loading, setLoading] = useState(false)
   const [showList, setShowList] = useState(false)
   const [query, setQuery] = useState('')
 
+  useEffect(() => {
+    setCommits([])
+    setShowList(false)
+  }, [sourceRef])
+
   const load = async () => {
     if (commits.length > 0) { setShowList(true); return }
     setLoading(true)
     try {
-      const result = await ipc.log(repoPath, { limit: 200 })
+      const result = await ipc.log(repoPath, { limit: 200, refs: sourceRef ? [sourceRef] : undefined })
       setCommits(result)
       setShowList(true)
     } finally { setLoading(false) }
@@ -450,21 +459,54 @@ function RevertTool({ repoPath, run }: { repoPath: string; run: (label: string, 
 
 // ── Cherry-pick Tool ──────────────────────────────────────────────────────────
 
-function CherryPickTool({ repoPath, run }: { repoPath: string; run: (label: string, fn: () => Promise<void>) => Promise<void> }) {
+function CherryPickTool({ repoPath, onRefresh, onConflict }: {
+  repoPath: string
+  onRefresh: () => void
+  onConflict?: () => void
+}) {
   const [hash, setHash] = useState('')
+  const [sourceRef, setSourceRef] = useState<string>('')   // empty = current branch (HEAD)
+  const [branches, setBranches] = useState<BranchInfo[]>([])
+  const dialog = useDialogStore()
+  const opRun = useOperationStore(s => s.run)
 
-  const doPick = () => {
+  useEffect(() => {
+    ipc.branchList(repoPath).then(setBranches).catch(() => {})
+  }, [repoPath])
+
+  const doPick = async () => {
     if (!hash.trim()) return
-    if (!confirm(`Cherry-pick ${hash.slice(0, 8)} onto HEAD?`)) return
-    run('Cherry-picking…', () => ipc.gitCherryPick(repoPath, hash))
+    const ok = await dialog.confirm({
+      title: 'Cherry-pick commit',
+      message: `Apply commit ${hash.slice(0, 8)} onto your current branch?`,
+      detail: sourceRef ? `Source branch: ${sourceRef}` : undefined,
+      confirmLabel: 'Cherry-pick',
+    })
+    if (!ok) return
+    try {
+      await opRun('Cherry-picking…', () => ipc.gitCherryPick(repoPath, hash))
+      onRefresh()
+    } catch (e) {
+      // Cherry-pick may have left CHERRY_PICK_HEAD — if so, it's a recoverable
+      // conflict we can resolve via the dialog. Otherwise it's a real error.
+      const inProgress = await ipc.cherryPickInProgress(repoPath).catch(() => null)
+      if (inProgress && onConflict) {
+        onConflict()
+      } else {
+        alert(String(e))
+      }
+    }
   }
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <ToolHeader title="Cherry-pick" desc="Apply changes from a single commit to your current branch without merging the full branch." />
       <div style={{ flex: 1, overflowY: 'auto', padding: '18px 18px' }}>
+        <Field label="Source branch" hint="Browse commits from any local or remote branch">
+          <BranchPicker branches={branches} value={sourceRef} onChange={ref => { setSourceRef(ref); setHash('') }} />
+        </Field>
         <Field label="Commit to cherry-pick">
-          <CommitPicker repoPath={repoPath} value={hash} onChange={setHash} />
+          <CommitPicker repoPath={repoPath} value={hash} onChange={setHash} sourceRef={sourceRef || undefined} />
         </Field>
         <ActionButton label="Cherry-pick" disabled={!hash.trim()} onClick={doPick} />
         <p style={{ marginTop: 10, fontFamily: 'var(--lg-font-ui)', fontSize: 11, color: '#4e5870' }}>
@@ -479,6 +521,125 @@ function CherryPickTool({ repoPath, run }: { repoPath: string; run: (label: stri
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+function BranchPicker({ branches, value, onChange }: {
+  branches: BranchInfo[]
+  value: string
+  onChange: (ref: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
+
+  // Sort: current branch first, then locals (alpha), then remote-only (alpha).
+  const sorted = [...branches].sort((a, b) => {
+    if (a.current && !b.current) return -1
+    if (b.current && !a.current) return 1
+    if (a.isRemote !== b.isRemote) return a.isRemote ? 1 : -1
+    return a.name.localeCompare(b.name)
+  }).filter(b => !(b.isRemote && b.hasLocal))   // hide remote duplicates of locals
+
+  const filtered = query
+    ? sorted.filter(b => b.name.toLowerCase().includes(query.toLowerCase()))
+    : sorted
+
+  const selected = branches.find(b => b.name === value)
+  const label = selected
+    ? selected.name
+    : value
+      ? value
+      : (branches.find(b => b.current)?.name ?? 'Current branch (HEAD)')
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{
+          width: '100%', display: 'flex', alignItems: 'center', gap: 8,
+          background: '#10131c', border: '1px solid #252d42',
+          borderRadius: 5, padding: '7px 10px',
+          fontFamily: 'var(--lg-font-mono)', fontSize: 12, color: '#dde1f0',
+          cursor: 'pointer', textAlign: 'left',
+        }}
+      >
+        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
+        {selected?.isRemote && (
+          <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 10, color: '#4d9dff', textTransform: 'uppercase', letterSpacing: '0.06em' }}>remote</span>
+        )}
+        <span style={{ color: '#8b94b0', fontSize: 14 }}>▾</span>
+      </button>
+
+      {open && (
+        <>
+          <div
+            onClick={() => setOpen(false)}
+            style={{ position: 'fixed', inset: 0, zIndex: 49 }}
+          />
+          <div style={{
+            position: 'absolute', top: 38, left: 0, right: 0, zIndex: 50,
+            background: '#1d2235', border: '1px solid #2f3a54',
+            borderRadius: 6, boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+            maxHeight: 300, display: 'flex', flexDirection: 'column',
+          }}>
+            <input
+              type="text"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder="Filter branches…"
+              autoFocus
+              style={{
+                background: '#10131c', border: 'none', borderBottom: '1px solid #252d42',
+                padding: '8px 10px', fontFamily: 'var(--lg-font-ui)', fontSize: 12,
+                color: '#dde1f0', outline: 'none',
+              }}
+            />
+            <div style={{ overflowY: 'auto' }}>
+              <button
+                onMouseDown={() => { onChange(''); setOpen(false); setQuery('') }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+                  padding: '7px 12px', background: value === '' ? '#242a3d' : 'transparent',
+                  border: 'none', borderBottom: '1px solid #252d42', cursor: 'pointer', textAlign: 'left',
+                }}
+                onMouseEnter={e => { if (value !== '') e.currentTarget.style.background = '#242a3d' }}
+                onMouseLeave={e => { if (value !== '') e.currentTarget.style.background = 'transparent' }}
+              >
+                <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 12, color: '#dde1f0', flex: 1 }}>Current branch (HEAD)</span>
+              </button>
+              {filtered.length === 0 ? (
+                <div style={{ padding: '10px 12px', fontFamily: 'var(--lg-font-ui)', fontSize: 12, color: '#4e5870' }}>No branches match</div>
+              ) : filtered.map(b => {
+                const isSelected = b.name === value
+                return (
+                  <button
+                    key={b.name}
+                    onMouseDown={() => { onChange(b.name); setOpen(false); setQuery('') }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+                      padding: '7px 12px', background: isSelected ? '#242a3d' : 'transparent',
+                      border: 'none', cursor: 'pointer', textAlign: 'left',
+                    }}
+                    onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = '#242a3d' }}
+                    onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = 'transparent' }}
+                  >
+                    <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 12, color: b.current ? '#2ec573' : '#dde1f0', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {b.name}
+                    </span>
+                    {b.current && (
+                      <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 10, color: '#2ec573', textTransform: 'uppercase', letterSpacing: '0.06em' }}>current</span>
+                    )}
+                    {b.isRemote && (
+                      <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 10, color: '#4d9dff', textTransform: 'uppercase', letterSpacing: '0.06em' }}>remote</span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   )
 }

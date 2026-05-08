@@ -675,6 +675,17 @@ export interface LucidGitAPI {
   gitRestoreFile: (repoPath: string, filePath: string, fromHash: string) => Promise<void>
   gitRevert: (repoPath: string, hash: string, noCommit: boolean) => Promise<void>
   gitCherryPick: (repoPath: string, hash: string, noCommit?: boolean) => Promise<void>
+  cherryPickInProgress: (repoPath: string) => Promise<{
+    cherryPickHead: string
+    sourceMessage: string
+    unresolvedFiles: string[]
+    conflicts: ConflictPreviewFile[]
+  } | null>
+  cherryPickContinue: (repoPath: string) => Promise<void>
+  cherryPickAbort: (repoPath: string) => Promise<void>
+  getIndexLockInfo: (repoPath: string) => Promise<{ path: string; ageSeconds: number } | null>
+  removeIndexLock: (repoPath: string) => Promise<boolean>
+  aheadFilePaths: (repoPath: string) => Promise<string[]>
   gitResetTo: (repoPath: string, hash: string, mode: 'soft' | 'mixed' | 'hard') => Promise<void>
   gitLsFiles: (repoPath: string) => Promise<string[]>
   gitFileLog: (repoPath: string, filePath: string, limit?: number) => Promise<CommitEntry[]>

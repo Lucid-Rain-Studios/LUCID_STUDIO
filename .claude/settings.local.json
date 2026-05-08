@@ -53,7 +53,8 @@
       "Bash(xargs -0 sed -i \"s|\\\\\"'IBM Plex Sans', system-ui\\\\\"|'var\\(--lg-font-ui\\)'|g; s|\\\\\"'JetBrains Mono', monospace\\\\\"|'var\\(--lg-font-mono\\)'|g\")",
       "PowerShell(gh pr list --head claude/confident-cartwright-63d803 --state all)",
       "Bash(node ./node_modules/typescript/bin/tsc --noEmit -p tsconfig.main.json)",
-      "Bash(echo \"EXIT=$?\")"
+      "Bash(echo \"EXIT=$?\")",
+      "Bash(echo \"exit=$?\")"
     ]
   }
 }

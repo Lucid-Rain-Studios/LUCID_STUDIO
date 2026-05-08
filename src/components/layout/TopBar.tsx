@@ -30,6 +30,8 @@ interface TopBarProps {
   onAddAccount:     () => void
   onSynced?:        () => void
   onMergeConflict?: (branch: string) => void
+  /** Called when a push is rejected by GitHub LFS strict locking. */
+  onPushBlockedByLocks?: (errorMessage: string) => void
 }
 
 const CONFIRM_BRANCH_KEY = 'lucid-git:confirm-branch-switch'
@@ -43,7 +45,7 @@ function parseGitHubSlug(url: string): string | null {
   return null
 }
 
-export function TopBar({ onOpen, onClone, onAddAccount, onSynced, onMergeConflict }: TopBarProps) {
+export function TopBar({ onOpen, onClone, onAddAccount, onSynced, onMergeConflict, onPushBlockedByLocks }: TopBarProps) {
   const { repoPath, currentBranch, refreshStatus, recentRepos, openRepo, removeRecentRepo, clearRepo, branches, checkout, fileStatus, syncTick, bumpSyncTick } = useRepoStore()
   const { accounts, currentAccountId, permissionErrors, fetchRepoPermission, viewAsRole, setViewAsRole } = useAuthStore()
   const opRun   = useOperationStore(s => s.run)
@@ -149,6 +151,13 @@ export function TopBar({ onOpen, onClone, onAddAccount, onSynced, onMergeConflic
       const s = String(e)
       if (s.toLowerCase().includes('everything up-to-date') || s.toLowerCase().includes('up to date')) {
         showStatusToast('No files to push.')
+        return
+      }
+      // GitHub LFS strict-mode rejection: surface a recovery dialog that lists
+      // the locks blocking this push and lets the user unlock or coordinate.
+      if (/cannot update locked files/i.test(s) && onPushBlockedByLocks) {
+        showStatusToast('Push blocked by LFS locks.')
+        onPushBlockedByLocks(s)
         return
       }
       showStatusToast('Push failed.')

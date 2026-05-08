@@ -675,6 +675,33 @@ export function registerHandlers(): void {
     runGitOp('Cherry-pick', () => gitService.cherryPick(repoPath, hash, noCommit))
   )
 
+  handle(CHANNELS.GIT_CHERRY_PICK_IN_PROGRESS, async (_event, repoPath: string) => {
+    const state = await gitService.cherryPickInProgress(repoPath)
+    if (!state) return null
+    const conflicts = await gitService.listInProgressCherryPickConflicts(repoPath)
+    return { ...state, conflicts }
+  })
+
+  handle(CHANNELS.GIT_CHERRY_PICK_CONTINUE, async (_event, repoPath: string) => {
+    await runGitOp('Finalize cherry-pick', () => gitService.continueCherryPick(repoPath))
+  })
+
+  handle(CHANNELS.GIT_CHERRY_PICK_ABORT, async (_event, repoPath: string) => {
+    await runGitOp('Abort cherry-pick', () => gitService.abortCherryPick(repoPath))
+  })
+
+  handle(CHANNELS.GIT_INDEX_LOCK_INFO, async (_event, repoPath: string) => {
+    return gitService.getIndexLockInfo(repoPath)
+  })
+
+  handle(CHANNELS.GIT_INDEX_LOCK_REMOVE, async (_event, repoPath: string) => {
+    return gitService.removeIndexLock(repoPath)
+  })
+
+  handle(CHANNELS.GIT_AHEAD_FILE_PATHS, async (_event, repoPath: string) => {
+    return gitService.aheadFilePaths(repoPath)
+  })
+
   handle(CHANNELS.GIT_RESET_TO, async (_event, repoPath: string, hash: string, mode: 'soft' | 'mixed' | 'hard') => {
     if (mode === 'hard') await requireAdmin(repoPath)
     return runGitOp('Reset', () => gitService.resetTo(repoPath, hash, mode))
