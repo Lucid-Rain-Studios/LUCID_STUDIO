@@ -261,17 +261,24 @@ export function AppShell() {
       // Lock-on-dirty-file: fire a desktop toast (gated by Settings) when a
       // teammate locks a file you currently have uncommitted changes on. The
       // backend doesn't know about your dirty files, so the renderer is the
-      // right place to compute the overlap.
+      // right place to compute the overlap. Skip self-locks: locking a file
+      // you've already started editing is the normal workflow, not a conflict.
       if (n.type === 'lock') {
-        const lockedPath = n.body.replace(/\\/g, '/')
-        const dirtyPaths = useRepoStore.getState().fileStatus.map(f => f.path.replace(/\\/g, '/'))
-        if (dirtyPaths.includes(lockedPath)) {
-          ipc.notifyDesktop({
-            event:  'lockOnDirtyFile',
-            title:  'Conflict ahead — file locked',
-            body:   `${lockedPath} was locked by ${n.title.replace(/ locked a file$/, '')}`,
-            urgent: true,
-          }).catch(() => {})
+        const ownerLogin = (n.meta as { ownerLogin?: string } | undefined)?.ownerLogin
+        const auth = useAuthStore.getState()
+        const myLogin = auth.accounts.find(a => a.userId === auth.currentAccountId)?.login ?? null
+        const isSelfLock = !!ownerLogin && !!myLogin && ownerLogin === myLogin
+        if (!isSelfLock) {
+          const lockedPath = n.body.replace(/\\/g, '/')
+          const dirtyPaths = useRepoStore.getState().fileStatus.map(f => f.path.replace(/\\/g, '/'))
+          if (dirtyPaths.includes(lockedPath)) {
+            ipc.notifyDesktop({
+              event:  'lockOnDirtyFile',
+              title:  'Conflict ahead — file locked',
+              body:   `${lockedPath} was locked by ${n.title.replace(/ locked a file$/, '')}`,
+              urgent: true,
+            }).catch(() => {})
+          }
         }
       }
     })

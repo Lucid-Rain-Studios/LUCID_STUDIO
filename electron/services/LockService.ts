@@ -183,7 +183,7 @@ class LockService {
       if (!previous.find(l => l.path === lock.path)) {
         const title = `${lock.owner.name} locked a file`
         const body  = lock.path
-        const n = notificationService.push(repoPath, 'lock', title, body)
+        const n = notificationService.push(repoPath, 'lock', title, body, { ownerLogin: lock.owner.login })
         this.emitNotification(n)
         webhookService.send(repoPath, 'fileLocked', title, body).catch(() => {})
         const now = Date.now()
