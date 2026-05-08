@@ -671,7 +671,7 @@ function TLBranchDropdownRow({ branch, checked, isDefault, bCol, onToggle }: {
       }}
     >
       <label
-        style={{ width: 13, height: 13, position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+        style={{ width: 16, height: 16, position: 'relative', flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
       >
         <input
           type="checkbox"
@@ -684,22 +684,22 @@ function TLBranchDropdownRow({ branch, checked, isDefault, bCol, onToggle }: {
           style={{
             appearance: 'none',
             margin: 0,
-            width: 13,
-            height: 13,
+            width: 16,
+            height: 16,
             borderRadius: 3,
-            border: `1.5px solid ${checked ? bCol : '#2f3a54'}`,
-            background: checked ? bCol : 'transparent',
+            border: `1.5px solid ${checked ? bCol : '#5a6485'}`,
+            background: checked ? bCol : '#0d1019',
             transition: 'all 0.12s',
             cursor: 'pointer',
           }}
         />
         {checked && (
-          <svg width="8" height="6" viewBox="0 0 8 6" fill="none" style={{ position: 'absolute', pointerEvents: 'none' }}>
-            <path d="M1 3L3 5L7 1" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          <svg width="10" height="8" viewBox="0 0 10 8" fill="none" style={{ position: 'absolute', pointerEvents: 'none' }}>
+            <path d="M1 4L4 7L9 1" stroke="#fff" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         )}
       </label>
-      <span style={{ width: 3, height: 14, borderRadius: 2, background: bCol, flexShrink: 0 }} />
+      <span style={{ width: 3, height: 16, borderRadius: 2, background: bCol, flexShrink: 0 }} />
       <button
         type="button"
         onClick={onToggle}
@@ -795,6 +795,152 @@ function TLBranchDropdown({ open, onToggleOpen, branches, selectedBranches, defa
                   bCol={bCol} onToggle={() => onToggleBranch(b.name)} />
               )
             })}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+// ── User filter components ────────────────────────────────────────────────────
+
+function TLUserDropdownRow({ author, checked, color, onToggle }: {
+  author: string; checked: boolean; color: string; onToggle: () => void
+}) {
+  const [hover, setHover] = useState(false)
+  const ini = initials(author)
+  return (
+    <div
+      onClick={onToggle}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 10,
+        padding: '7px 12px', borderBottom: '1px solid #1a1f2e',
+        cursor: 'pointer',
+        background: hover ? '#1e2436' : 'transparent',
+        transition: 'background 0.1s',
+      }}
+    >
+      <label
+        onClick={e => e.stopPropagation()}
+        style={{ width: 16, height: 16, position: 'relative', flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+      >
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={e => {
+            e.stopPropagation()
+            onToggle()
+          }}
+          style={{
+            appearance: 'none',
+            margin: 0,
+            width: 16,
+            height: 16,
+            borderRadius: 3,
+            border: `1.5px solid ${checked ? color : '#5a6485'}`,
+            background: checked ? color : '#0d1019',
+            transition: 'all 0.12s',
+            cursor: 'pointer',
+          }}
+        />
+        {checked && (
+          <svg width="10" height="8" viewBox="0 0 10 8" fill="none" style={{ position: 'absolute', pointerEvents: 'none' }}>
+            <path d="M1 4L4 7L9 1" stroke="#fff" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        )}
+      </label>
+      <span style={{
+        width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
+        background: `${color}22`, border: `1px solid ${color}55`,
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        fontFamily: 'var(--lg-font-mono)', fontSize: 9.5, fontWeight: 700, color,
+        opacity: checked ? 1 : 0.45,
+        transition: 'opacity 0.12s',
+      }}>{ini}</span>
+      <span
+        style={{
+          fontFamily: 'var(--lg-font-ui)', fontSize: 11.5,
+          color: checked ? '#c8cdd8' : '#6a7290',
+          flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          transition: 'color 0.12s',
+        }}
+        title={author}
+      >{author}</span>
+    </div>
+  )
+}
+
+function TLUserDropdown({ open, onToggleOpen, authors, hiddenUsers, onToggleUser, onShowAll, onHideAll }: {
+  open: boolean; onToggleOpen: () => void
+  authors: string[]; hiddenUsers: Set<string>
+  onToggleUser: (author: string) => void; onShowAll: () => void; onHideAll: () => void
+}) {
+  const visibleCount = authors.filter(a => !hiddenUsers.has(a)).length
+  const filtered = hiddenUsers.size > 0
+  return (
+    <div style={{ position: 'relative' }}>
+      <ActionBtn
+        onClick={onToggleOpen}
+        size="sm"
+        title="Filter by user"
+        style={{
+          height: 22, paddingLeft: 8, paddingRight: 6, fontSize: 10.5, gap: 4,
+          color: filtered ? '#e8622f' : undefined,
+        }}
+      >
+        <span>{visibleCount} user{visibleCount !== 1 ? 's' : ''}</span>
+        <svg width="7" height="4" viewBox="0 0 8 5" fill="none"
+          style={{ transition: 'transform 0.15s', transform: open ? 'rotate(180deg)' : 'none' }}>
+          <path d="M1 1L4 4L7 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </ActionBtn>
+
+      {open && (
+        <>
+          <div onClick={onToggleOpen} style={{ position: 'fixed', inset: 0, zIndex: 90 }} />
+          <div style={{
+            position: 'absolute', top: 'calc(100% + 4px)', right: 0, zIndex: 91,
+            background: '#1d2235', border: '1px solid #2f3a54',
+            borderRadius: 6, boxShadow: '0 8px 32px rgba(0,0,0,0.55)',
+            minWidth: 248, maxHeight: 380, overflow: 'auto',
+          }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '8px 12px 6px', borderBottom: '1px solid #1e2436',
+              position: 'sticky', top: 0, background: '#1d2235', zIndex: 1,
+            }}>
+              <span style={{
+                fontFamily: 'var(--lg-font-mono)', fontSize: 9, fontWeight: 700,
+                color: '#3a4260', letterSpacing: '0.1em', textTransform: 'uppercase',
+              }}>Filter users</span>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button onClick={onHideAll} style={{
+                  fontFamily: 'var(--lg-font-ui)', fontSize: 10, color: '#8f99b3',
+                  background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+                  whiteSpace: 'nowrap',
+                }}>Hide all</button>
+                <button onClick={onShowAll} style={{
+                  fontFamily: 'var(--lg-font-ui)', fontSize: 10, color: '#e8622f',
+                  background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+                  whiteSpace: 'nowrap',
+                }}>Show all</button>
+              </div>
+            </div>
+            {authors.length === 0 ? (
+              <div style={{ padding: '10px 12px', fontFamily: 'var(--lg-font-mono)', fontSize: 11, color: '#3a4260' }}>
+                No authors loaded
+              </div>
+            ) : authors.map(author => (
+              <TLUserDropdownRow
+                key={author}
+                author={author}
+                checked={!hiddenUsers.has(author)}
+                color={authorColor(author)}
+                onToggle={() => onToggleUser(author)}
+              />
+            ))}
           </div>
         </>
       )}
@@ -1669,6 +1815,8 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
   const [filterOpen,   setFilterOpen]   = useState(false)
   const [branchTips,   setBranchTips]   = useState<Map<string, BranchInfo[]>>(new Map())
   const [hoveredBranchKey, setHoveredBranchKey] = useState<string | null>(null)
+  const [hiddenUsers,  setHiddenUsers]  = useState<Set<string>>(new Set())
+  const [userFilterOpen, setUserFilterOpen] = useState(false)
 
   const filterBranches = React.useMemo(() => {
     const originBranches = branches.filter(isLiveOriginBranch)
@@ -1691,14 +1839,26 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
     sorted.forEach((b, i) => map.set(b.name, TL_BRANCH_COLORS[i % TL_BRANCH_COLORS.length]))
     return map
   }, [filterBranches, branches, defaultBranch])
-  const graphColW = React.useMemo(() => {
-    if (nodes.length === 0) return GRAPH_PAD * 2 + TL_LANE_W
-    const maxLane = nodes.reduce((m, n) => Math.max(m, n.maxLane), 0)
-    return GRAPH_PAD + (maxLane + 1) * TL_LANE_W + GRAPH_PAD
+  const allAuthors = React.useMemo(() => {
+    const set = new Set<string>()
+    for (const node of nodes) set.add(node.commit.author)
+    return [...set].sort((a, b) => a.localeCompare(b))
   }, [nodes])
+
+  const displayedNodes = React.useMemo(() => {
+    if (hiddenUsers.size === 0) return nodes
+    const filtered = nodes.filter(n => !hiddenUsers.has(n.commit.author))
+    return compactGraphLanes(filtered)
+  }, [nodes, hiddenUsers])
+
+  const graphColW = React.useMemo(() => {
+    if (displayedNodes.length === 0) return GRAPH_PAD * 2 + TL_LANE_W
+    const maxLane = displayedNodes.reduce((m, n) => Math.max(m, n.maxLane), 0)
+    return GRAPH_PAD + (maxLane + 1) * TL_LANE_W + GRAPH_PAD
+  }, [displayedNodes])
   const branchHoverLabels = React.useMemo(() => {
     const labels = new Map<string, string>([['main', defaultBranch || 'main']])
-    for (const node of nodes) {
+    for (const node of displayedNodes) {
       const tips = branchTips.get(node.commit.hash) ?? []
       for (const branch of tips) {
         const key = branch.displayName === defaultBranch || branch.name === defaultBranch ? 'main' : node.color
@@ -1711,7 +1871,7 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
       }
     }
     return labels
-  }, [nodes, branchTips, defaultBranch])
+  }, [displayedNodes, branchTips, defaultBranch])
   const minLeftWidth = React.useMemo(() => Math.max(320, graphColW + 260), [graphColW])
   const maxLeftWidth = Math.max(LEFT_WIDTH_MAX, minLeftWidth)
 
@@ -2024,6 +2184,25 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
     loadHistory(INITIAL_LIMIT, next)
   }
 
+  const toggleUser = (author: string) => {
+    setHiddenUsers(prev => {
+      const next = new Set(prev)
+      if (next.has(author)) next.delete(author)
+      else next.add(author)
+      return next
+    })
+  }
+
+  const showAllUsers = () => {
+    setHiddenUsers(new Set())
+    setUserFilterOpen(false)
+  }
+
+  const hideAllUsers = () => {
+    setHiddenUsers(new Set(allAuthors))
+    setUserFilterOpen(false)
+  }
+
   const toggleStash = () => {
     const next = !stashOpen
     setStashOpen(next)
@@ -2033,21 +2212,21 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
   }
 
   const selectedCommit = leftSel.kind === 'commit' ? leftSel.commit : null
-  const legendHasMain = nodes.some(node => node.isMain)
-  const legendHasMerge = nodes.some(node => node.commit.parentHashes.length > 1)
-  const legendHasBranchTip = nodes.some(node => (branchTips.get(node.commit.hash) ?? []).some(branch => branch.displayName !== defaultBranch && branch.name !== defaultBranch))
-  const legendHasPush = nodes.some(node => needsPushHashes.has(node.commit.hash))
-  const legendHasPull = nodes.some(node => needsPullHashes.has(node.commit.hash))
+  const legendHasMain = displayedNodes.some(node => node.isMain)
+  const legendHasMerge = displayedNodes.some(node => node.commit.parentHashes.length > 1)
+  const legendHasBranchTip = displayedNodes.some(node => (branchTips.get(node.commit.hash) ?? []).some(branch => branch.displayName !== defaultBranch && branch.name !== defaultBranch))
+  const legendHasPush = displayedNodes.some(node => needsPushHashes.has(node.commit.hash))
+  const legendHasPull = displayedNodes.some(node => needsPullHashes.has(node.commit.hash))
   const legendHasWorkingTree = leftSel.kind === 'working-tree'
   const currentHeadLane = React.useMemo(() => {
     const currentBranch = branches.find(b => b.current)?.name
     if (!currentBranch) return 0
-    for (const node of nodes) {
+    for (const node of displayedNodes) {
       const tips = branchTips.get(node.commit.hash) ?? []
       if (tips.some(t => t.name === currentBranch)) return node.lane
     }
-    return nodes[0]?.lane ?? 0
-  }, [nodes, branches, branchTips])
+    return displayedNodes[0]?.lane ?? 0
+  }, [displayedNodes, branches, branchTips])
   return (
     <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
 
@@ -2064,9 +2243,20 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
           borderBottom: '1px solid #1e2436', background: '#0d0f15', gap: 5,
         }}>
           <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 10, fontWeight: 700, color: '#2a3040', letterSpacing: '0.1em', textTransform: 'uppercase', flexShrink: 0 }}>
-            {totalLoaded > 0 ? `${totalLoaded} Commits` : 'Commits'}
+            {hiddenUsers.size > 0
+              ? `${displayedNodes.length} of ${totalLoaded} Commits`
+              : totalLoaded > 0 ? `${totalLoaded} Commits` : 'Commits'}
           </span>
           <div style={{ flex: 1 }} />
+          <TLUserDropdown
+            open={userFilterOpen}
+            onToggleOpen={() => setUserFilterOpen(o => !o)}
+            authors={allAuthors}
+            hiddenUsers={hiddenUsers}
+            onToggleUser={toggleUser}
+            onShowAll={showAllUsers}
+            onHideAll={hideAllUsers}
+          />
           <TLBranchDropdown
             open={filterOpen}
             onToggleOpen={() => setFilterOpen(o => !o)}
@@ -2142,10 +2332,15 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
 
         {/* Commit list */}
         <div style={{ flex: 1, overflowY: 'auto' }}>
-          {histLoading && nodes.length === 0 && (
+          {histLoading && displayedNodes.length === 0 && (
             <p style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 11, color: '#2a3040', padding: '16px 12px' }}>Loading…</p>
           )}
-          {nodes.map(node => (
+          {!histLoading && nodes.length > 0 && displayedNodes.length === 0 && (
+            <p style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 11, color: '#2a3040', padding: '16px 12px' }}>
+              No commits match the user filter.
+            </p>
+          )}
+          {displayedNodes.map(node => (
             <LeftCommitRow
               key={node.commit.hash}
               node={node}

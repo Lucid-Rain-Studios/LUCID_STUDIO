@@ -206,6 +206,34 @@ export function LockedFilesPanel({ repoPath, resolveRequest, onResolvedViewed }:
     }
   }
 
+  const doUnlockAllMine = async () => {
+    if (myLocks.length === 0) return
+    const ok = await dialog.confirm({
+      title: 'Unlock all my files',
+      message: `Unlock all ${myLocks.length} of your locked file${myLocks.length === 1 ? '' : 's'}?`,
+      confirmLabel: 'Unlock All',
+    })
+    if (!ok) return
+    setUnlocking('__bulk__')
+    try {
+      op.start(`Unlocking ${myLocks.length} file${myLocks.length === 1 ? '' : 's'}`)
+      const total = myLocks.length
+      const jobs = myLocks.map(async (lock, idx) => {
+        op.updateStep({ id: `unlock-${lock.id}`, label: 'Unlocking files', status: 'running', detail: lock.path, progress: Math.round(((idx + 1) / total) * 100) })
+        await unlockFile(repoPath, lock.path, false, lock.id)
+      })
+      const results = await Promise.allSettled(jobs)
+      const failed = results.filter(r => r.status === 'rejected') as PromiseRejectedResult[]
+      if (failed.length > 0) throw failed[0].reason
+      setSelectedLockIds(new Set())
+    } catch (e) {
+      await dialog.alert({ title: 'Error', message: String(e) })
+    } finally {
+      op.finish()
+      setUnlocking(null)
+    }
+  }
+
   const doUnlock = async (lock: Lock, force: boolean) => {
     if (force) {
       const ok = await dialog.confirm({
@@ -362,14 +390,26 @@ export function LockedFilesPanel({ repoPath, resolveRequest, onResolvedViewed }:
         <div style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 10, color: '#4a566a' }}>
           {selectedLocks.length} selected · Shift+Click to multi-select
         </div>
-        <ActionBtn
-          onClick={doBulkUnlock}
-          disabled={selectedLocks.length === 0 || isAnyUnlocking}
-          size="sm"
-          style={{ height: 26, fontSize: 11, fontWeight: 600 }}
-        >
-          {unlocking === '__bulk__' ? 'Unlocking…' : 'Unlock Selected'}
-        </ActionBtn>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <ActionBtn
+            onClick={doBulkUnlock}
+            disabled={selectedLocks.length === 0 || isAnyUnlocking}
+            size="sm"
+            style={{ height: 26, fontSize: 11, fontWeight: 600 }}
+          >
+            {unlocking === '__bulk__' && selectedLocks.length > 0 ? 'Unlocking…' : 'Unlock Selected'}
+          </ActionBtn>
+          {tab === 'mine' && (
+            <ActionBtn
+              onClick={doUnlockAllMine}
+              disabled={myLocks.length === 0 || isAnyUnlocking}
+              size="sm"
+              style={{ height: 26, fontSize: 11, fontWeight: 600 }}
+            >
+              {unlocking === '__bulk__' && selectedLocks.length === 0 ? 'Unlocking…' : 'Unlock All'}
+            </ActionBtn>
+          )}
+        </div>
       </div>
 
       {/* ── Stats bar ── */}
