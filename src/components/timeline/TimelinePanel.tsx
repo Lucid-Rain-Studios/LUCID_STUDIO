@@ -1806,6 +1806,7 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
   // ── Left column — history ──────────────────────────────────────────────────
   const [nodes,       setNodes]       = useState<GraphNode[]>([])
   const [totalLoaded, setTotalLoaded] = useState(0)
+  const [hasMore,     setHasMore]     = useState(false)
   const [histLoading, setHistLoading] = useState(false)
   const [limitRef]                    = useState({ current: INITIAL_LIMIT })
   const [remoteUrl,   setRemoteUrl]   = useState<string | null>(null)
@@ -1817,6 +1818,10 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
   const [hoveredBranchKey, setHoveredBranchKey] = useState<string | null>(null)
   const [hiddenUsers,  setHiddenUsers]  = useState<Set<string>>(new Set())
   const [userFilterOpen, setUserFilterOpen] = useState(false)
+  const [showOnlyPushReady, setShowOnlyPushReady] = useState(false)
+  const [needsPushHashes, setNeedsPushHashes] = useState<Set<string>>(new Set())
+  const [needsPullHashes, setNeedsPullHashes] = useState<Set<string>>(new Set())
+  const autoLoadingRef = useRef(false)
 
   const filterBranches = React.useMemo(() => {
     const originBranches = branches.filter(isLiveOriginBranch)
@@ -1846,10 +1851,18 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
   }, [nodes])
 
   const displayedNodes = React.useMemo(() => {
-    if (hiddenUsers.size === 0) return nodes
-    const filtered = nodes.filter(n => !hiddenUsers.has(n.commit.author))
-    return compactGraphLanes(filtered)
-  }, [nodes, hiddenUsers])
+    let filtered = nodes
+    let modified = false
+    if (hiddenUsers.size > 0) {
+      filtered = filtered.filter(n => !hiddenUsers.has(n.commit.author))
+      modified = true
+    }
+    if (showOnlyPushReady) {
+      filtered = filtered.filter(n => needsPushHashes.has(n.commit.hash))
+      modified = true
+    }
+    return modified ? compactGraphLanes(filtered) : filtered
+  }, [nodes, hiddenUsers, showOnlyPushReady, needsPushHashes])
 
   const graphColW = React.useMemo(() => {
     if (displayedNodes.length === 0) return GRAPH_PAD * 2 + TL_LANE_W
@@ -1900,8 +1913,6 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
   })
   const [syncStatus,  setSyncStatus]  = useState<{ ahead: number; behind: number } | null>(null)
   const [prReadyCommits, setPrReadyCommits] = useState<CommitEntry[]>([])
-  const [needsPushHashes, setNeedsPushHashes] = useState<Set<string>>(new Set())
-  const [needsPullHashes, setNeedsPullHashes] = useState<Set<string>>(new Set())
 
   // ── Center column — commit files ───────────────────────────────────────────
   const [commitFiles,   setCommitFiles]   = useState<CommitFileChange[]>([])
@@ -1993,9 +2004,11 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
       if (refs.length === 0) {
         setNodes([])
         setTotalLoaded(0)
+        setHasMore(false)
         return
       }
       const commits = await opRun('Loading history…', () => ipc.log(repoPath, { limit, all: !refs, refs }))
+      setHasMore(commits.length >= limit)
       const defaultRef = branchPool.find(b => !b.isRemote && (b.displayName === mainBranch || b.name === mainBranch))?.name
         ?? branchPool.find(b => active.has(b.name) && (b.displayName === mainBranch || b.name === mainBranch))?.name
         ?? branchPool.find(b => b.displayName === mainBranch || b.name === mainBranch)?.name
@@ -2028,6 +2041,18 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
       setHistLoading(false)
     }
   }, [repoPath, opRun, selBranches, defaultBranch, filterBranches])
+
+  const handleCommitListScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    const el = e.currentTarget
+    const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+    if (distFromBottom > 200) return
+    if (autoLoadingRef.current || histLoading) return
+    if (!hasMore) return
+    autoLoadingRef.current = true
+    const nextLimit = limitRef.current + MORE_INC
+    limitRef.current = nextLimit
+    Promise.resolve(loadHistory(nextLimit)).finally(() => { autoLoadingRef.current = false })
+  }, [histLoading, hasMore, loadHistory, limitRef])
 
   // ── Initial load ───────────────────────────────────────────────────────────
   useEffect(() => {
@@ -2243,11 +2268,20 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
           borderBottom: '1px solid #1e2436', background: '#0d0f15', gap: 5,
         }}>
           <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 10, fontWeight: 700, color: '#2a3040', letterSpacing: '0.1em', textTransform: 'uppercase', flexShrink: 0 }}>
-            {hiddenUsers.size > 0
+            {(hiddenUsers.size > 0 || showOnlyPushReady)
               ? `${displayedNodes.length} of ${totalLoaded} Commits`
               : totalLoaded > 0 ? `${totalLoaded} Commits` : 'Commits'}
           </span>
           <div style={{ flex: 1 }} />
+          <ActionBtn
+            onClick={() => setShowOnlyPushReady(s => !s)}
+            size="sm"
+            title={showOnlyPushReady ? 'Showing only commits ready to push — click to show all' : 'Show only commits ready to push'}
+            color={showOnlyPushReady ? '#7dd3fc' : undefined}
+            style={{ height: 22, paddingLeft: 8, paddingRight: 8, fontSize: 10.5, gap: 4, flexShrink: 0 }}
+          >
+            <span>↑ {needsPushHashes.size}</span>
+          </ActionBtn>
           <TLUserDropdown
             open={userFilterOpen}
             onToggleOpen={() => setUserFilterOpen(o => !o)}
@@ -2331,13 +2365,13 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
         />
 
         {/* Commit list */}
-        <div style={{ flex: 1, overflowY: 'auto' }}>
+        <div onScroll={handleCommitListScroll} style={{ flex: 1, overflowY: 'auto' }}>
           {histLoading && displayedNodes.length === 0 && (
             <p style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 11, color: '#2a3040', padding: '16px 12px' }}>Loading…</p>
           )}
           {!histLoading && nodes.length > 0 && displayedNodes.length === 0 && (
             <p style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 11, color: '#2a3040', padding: '16px 12px' }}>
-              No commits match the user filter.
+              {showOnlyPushReady ? 'No commits ready to push.' : 'No commits match the user filter.'}
             </p>
           )}
           {displayedNodes.map(node => (
@@ -2360,7 +2394,15 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
               needsPull={needsPullHashes.has(node.commit.hash)}
             />
           ))}
-          {!histLoading && totalLoaded >= limitRef.current && (
+          {histLoading && displayedNodes.length > 0 && (
+            <div style={{
+              display: 'flex', justifyContent: 'center', padding: '8px 10px',
+              fontFamily: 'var(--lg-font-mono)', fontSize: 10, color: '#3a4260',
+            }}>
+              Loading more…
+            </div>
+          )}
+          {!histLoading && hasMore && (
             <div style={{ display: 'flex', justifyContent: 'center', padding: 10 }}>
               <ActionBtn
                 onClick={() => { limitRef.current += MORE_INC; loadHistory(limitRef.current) }}
