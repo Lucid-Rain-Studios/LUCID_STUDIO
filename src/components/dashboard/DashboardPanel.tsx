@@ -489,6 +489,7 @@ function DailyFlowStrip({
       display: 'flex', alignItems: 'stretch',
       background: '#131720', border: '1px solid #1a2030', borderRadius: 10,
       overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+      flexShrink: 0, minHeight: 'min-content',
     }}>
       {steps.map((step, i) => (
         <React.Fragment key={step.n}>

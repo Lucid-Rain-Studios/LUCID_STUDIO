@@ -188,12 +188,16 @@ export function registerHandlers(): void {
     })
   })
 
-  handle(CHANNELS.GIT_STAGE, async (_event, repoPath: string, paths: string[]) => {
-    return gitService.stage(repoPath, paths)
+  handle(CHANNELS.GIT_STAGE, async (event, repoPath: string, paths: string[]) => {
+    return gitService.stage(repoPath, paths, (step) => {
+      if (!event.sender.isDestroyed()) event.sender.send(CHANNELS.EVT_OPERATION_PROGRESS, step)
+    })
   })
 
-  handle(CHANNELS.GIT_UNSTAGE, async (_event, repoPath: string, paths: string[]) => {
-    return gitService.unstage(repoPath, paths)
+  handle(CHANNELS.GIT_UNSTAGE, async (event, repoPath: string, paths: string[]) => {
+    return gitService.unstage(repoPath, paths, (step) => {
+      if (!event.sender.isDestroyed()) event.sender.send(CHANNELS.EVT_OPERATION_PROGRESS, step)
+    })
   })
 
   handle(CHANNELS.GIT_COMMIT, async (_event, repoPath: string, message: string, noVerify?: boolean) => {
@@ -289,8 +293,10 @@ export function registerHandlers(): void {
     return gitService.diff(repoPath, filePath, staged)
   })
 
-  handle(CHANNELS.GIT_DISCARD, async (_event, repoPath: string, paths: string[], isUntracked: boolean) => {
-    return gitService.discard(repoPath, paths, isUntracked)
+  handle(CHANNELS.GIT_DISCARD, async (event, repoPath: string, paths: string[], isUntracked: boolean) => {
+    return gitService.discard(repoPath, paths, isUntracked, (step) => {
+      if (!event.sender.isDestroyed()) event.sender.send(CHANNELS.EVT_OPERATION_PROGRESS, step)
+    })
   })
 
   handle(CHANNELS.GIT_DISCARD_ALL, async (_event, repoPath: string) => {

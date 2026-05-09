@@ -82,20 +82,28 @@ function parseStatus(raw: string): FileStatus[] {
 async function runInPathChunks(
   paths: string[],
   fn: (chunk: string[]) => Promise<unknown>,
+  onChunkDone?: (processed: number, total: number) => void,
 ): Promise<void> {
   const BUDGET = 7000
   let chunk: string[] = []
   let chunkLen = 0
+  let processed = 0
   for (const p of paths) {
     if (chunkLen + p.length + 1 > BUDGET && chunk.length > 0) {
       await fn(chunk)
+      processed += chunk.length
+      onChunkDone?.(processed, paths.length)
       chunk = []
       chunkLen = 0
     }
     chunk.push(p)
     chunkLen += p.length + 1
   }
-  if (chunk.length > 0) await fn(chunk)
+  if (chunk.length > 0) {
+    await fn(chunk)
+    processed += chunk.length
+    onChunkDone?.(processed, paths.length)
+  }
 }
 
 // ── GitService ────────────────────────────────────────────────────────────────
@@ -174,7 +182,7 @@ class GitService {
   }
 
   /** Stage specific paths (handles additions, modifications, and deletions). */
-  async stage(repoPath: string, paths: string[]): Promise<void> {
+  async stage(repoPath: string, paths: string[], onProgress?: ProgressCallback): Promise<void> {
     if (paths.length === 0) return
 
     // git add -A fails with "pathspec did not match" when a path is gone from
@@ -188,18 +196,38 @@ class GitService {
       else missing.push(p)
     }
 
+    const total = paths.length
+    let processed = 0
+    const report = (status: 'running' | 'done' = 'running') =>
+      onProgress?.({ id: 'stage', label: 'Staging files', status, current: processed, total })
+
+    report()
     if (existing.length > 0) {
-      await runInPathChunks(existing, c => exec(['add', '-A', '--', ...c], repoPath))
+      await runInPathChunks(existing, c => exec(['add', '-A', '--', ...c], repoPath), (p) => {
+        processed = p
+        report()
+      })
     }
     if (missing.length > 0) {
-      await runInPathChunks(missing, c => exec(['rm', '--cached', '--ignore-unmatch', '-r', '--', ...c], repoPath))
+      const baseline = processed
+      await runInPathChunks(missing, c => exec(['rm', '--cached', '--ignore-unmatch', '-r', '--', ...c], repoPath), (p) => {
+        processed = baseline + p
+        report()
+      })
     }
+    processed = total
+    report('done')
   }
 
   /** Unstage specific paths (moves them back to working tree). */
-  async unstage(repoPath: string, paths: string[]): Promise<void> {
+  async unstage(repoPath: string, paths: string[], onProgress?: ProgressCallback): Promise<void> {
     if (paths.length === 0) return
-    await runInPathChunks(paths, c => exec(['restore', '--staged', '--', ...c], repoPath))
+    onProgress?.({ id: 'unstage', label: 'Unstaging files', status: 'running', current: 0, total: paths.length })
+    await runInPathChunks(
+      paths,
+      c => exec(['restore', '--staged', '--', ...c], repoPath),
+      (processed, total) => onProgress?.({ id: 'unstage', label: 'Unstaging files', status: processed >= total ? 'done' : 'running', current: processed, total }),
+    )
   }
 
   /** Create a commit with the given message. Pass noVerify=true to skip hooks. */
@@ -537,7 +565,17 @@ class GitService {
       throw new Error(`Could not find ${defaultBranch.ref}`)
     }
 
-    onProgress?.({ id: 'stage', label: `Merging ${defaultBranch.ref}`, status: 'running' })
+    // Pre-count files that will change in the merge, so the synthetic stage
+    // event already shows "0/N" before git's own "Updating files" lines kick in.
+    const diffRes = await execSafe(['diff', '--name-only', 'HEAD', defaultBranch.ref], repoPath)
+    const diffCount = diffRes.exitCode === 0 ? diffRes.stdout.trim().split('\n').filter(Boolean).length : undefined
+    onProgress?.({
+      id: 'stage',
+      label: `Merging ${defaultBranch.ref}`,
+      status: 'running',
+      current: diffCount !== undefined ? 0 : undefined,
+      total:   diffCount,
+    })
     // --progress on merge surfaces "Updating files: N% (X/Y)" during the
     // checkout phase — the main thing the user wants to watch on a big update.
     const mergeArgs = [...gitAuthArgs(token, remoteUrl), 'merge', '--no-edit', '--progress', defaultBranch.ref]
@@ -718,8 +756,14 @@ class GitService {
   }
 
   /** Discard changes to the given paths. Untracked files are deleted from disk. */
-  async discard(repoPath: string, paths: string[], isUntracked: boolean): Promise<void> {
+  async discard(repoPath: string, paths: string[], isUntracked: boolean, onProgress?: ProgressCallback): Promise<void> {
+    const total = paths.length
+    const report = (current: number, status: 'running' | 'done' = 'running') =>
+      onProgress?.({ id: 'discard', label: 'Discarding changes', status, current, total })
+
+    report(0)
     if (isUntracked) {
+      let processed = 0
       for (const p of paths) {
         try {
           const fullPath = path.join(repoPath, p)
@@ -727,12 +771,17 @@ class GitService {
           if (stat.isDirectory()) fs.rmSync(fullPath, { recursive: true, force: true })
           else fs.unlinkSync(fullPath)
         } catch { /* ignore */ }
+        processed++
+        // Throttle: emit every 25 files (or on the final file) to avoid IPC flood on huge lists.
+        if (processed === total || processed % 25 === 0) report(processed)
       }
     } else {
-      // Unstage first (no-op if not staged), then restore working tree
-      await runInPathChunks(paths, c => execSafe(['restore', '--staged', '--', ...c], repoPath))
-      await runInPathChunks(paths, c => execSafe(['restore', '--', ...c], repoPath))
+      // Unstage first (no-op if not staged), then restore working tree.
+      // Two passes — each pass covers `total` files, so the bar fills in halves.
+      await runInPathChunks(paths, c => execSafe(['restore', '--staged', '--', ...c], repoPath), (p) => report(Math.floor(p / 2)))
+      await runInPathChunks(paths, c => execSafe(['restore', '--', ...c], repoPath), (p) => report(Math.floor(total / 2) + Math.floor(p / 2)))
     }
+    report(total, 'done')
   }
 
   /** Discard all working-tree modifications (does not delete untracked files). */
