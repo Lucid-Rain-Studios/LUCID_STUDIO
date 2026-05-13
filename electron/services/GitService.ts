@@ -423,10 +423,15 @@ class GitService {
     const activity = await this.branchActivity(repoPath).catch(() => [] as BranchActivity[])
     const activityRank = new Map(activity.map((entry, index) => [entry.ref, index]))
 
+    // Exclude the current branch's own upstream — those overlaps are exactly
+    // what `git pull` is going to apply, not conflicts with a sibling branch.
+    const currentUpstream = branches.find(b => b.current)?.upstream
+
     const candidates = branches
       .filter(branch =>
         !branch.current &&
         branch.name !== current &&
+        branch.name !== currentUpstream &&
         branch.name !== 'origin/HEAD' &&
         !branch.name.endsWith('/HEAD')
       )
@@ -1655,6 +1660,19 @@ class GitService {
   async setGlobalDefaultBranch(defaultBranchName: string): Promise<void> {
     const home = require('os').homedir()
     await exec(['config', '--global', 'init.defaultBranch', defaultBranchName], home)
+  }
+
+  /**
+   * Resolve the path to the user's global git config file (~/.gitconfig).
+   * Creates an empty file if it does not yet exist so the OS can open it.
+   */
+  getGlobalGitConfigPath(): string {
+    const home = require('os').homedir()
+    const configPath = path.join(home, '.gitconfig')
+    if (!fs.existsSync(configPath)) {
+      fs.writeFileSync(configPath, '', 'utf8')
+    }
+    return configPath
   }
 
   /** Read the repo-local git identity (user.name + user.email). */

@@ -567,6 +567,12 @@ export function registerHandlers(): void {
     gitService.setGlobalGitIdentity(name, email)
   )
 
+  handle(CHANNELS.GIT_OPEN_GLOBAL_CONFIG, async () => {
+    const configPath = gitService.getGlobalGitConfigPath()
+    const message = await shell.openPath(configPath)
+    if (message) throw new Error(`Could not open global git config "${configPath}": ${message}`)
+  })
+
   // ── Hooks — Phase 12 ──────────────────────────────────────────────────────
   handle(CHANNELS.HOOK_LIST, (_event, repoPath: string) =>
     hookService.listHooks(repoPath)

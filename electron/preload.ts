@@ -229,6 +229,8 @@ const api = {
     ipcRenderer.invoke(CHANNELS.GIT_GET_GLOBAL_IDENTITY),
   setGlobalGitIdentity: (name: string, email: string) =>
     ipcRenderer.invoke(CHANNELS.GIT_SET_GLOBAL_IDENTITY, name, email),
+  openGlobalGitConfig: () =>
+    ipcRenderer.invoke(CHANNELS.GIT_OPEN_GLOBAL_CONFIG),
 
   // ── App Settings ──────────────────────────────────────────────────────────
   settingsGet: () =>

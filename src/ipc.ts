@@ -664,6 +664,7 @@ export interface LucidGitAPI {
   gitLinkIdentity: (repoPath: string, login: string, name: string) => Promise<void>
   getGlobalGitIdentity: () => Promise<GitIdentity>
   setGlobalGitIdentity: (name: string, email: string) => Promise<void>
+  openGlobalGitConfig: () => Promise<void>
 
   // App Settings
   settingsGet: () => Promise<AppSettings>

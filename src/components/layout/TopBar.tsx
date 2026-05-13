@@ -21,6 +21,7 @@ import {
   pushDisabledReason,
 } from '@/lib/syncButtonLogic'
 import { useStatusToastStore } from '@/stores/statusToastStore'
+import { useDialogStore } from '@/stores/dialogStore'
 import { setTopBarSyncHandlers, updateTopBarSyncSnapshot } from '@/lib/topBarSyncBridge'
 import { ActionBtn } from '@/components/ui/ActionBtn'
 
@@ -210,9 +211,10 @@ export function TopBar({ onOpen, onClone, onAddAccount, onSynced, onMergeConflic
   const hasBehind = (sync?.behind ?? 0) > 0
   const ghSlug = remoteUrl ? parseGitHubSlug(remoteUrl) : null
   const busyState = syncOp === 'idle' ? 'idle' : syncOp === 'fetching' ? 'fetch' : syncOp === 'pulling' ? 'pull' : 'push'
-  const canPushNow = canPush(hasFetched, sync?.behind ?? 0, sync?.ahead ?? 0, busyState)
+  const hasUpstream = sync?.hasUpstream ?? true
+  const canPushNow = canPush(hasFetched, sync?.behind ?? 0, sync?.ahead ?? 0, busyState, hasUpstream)
   const canCreatePRNow = canCreatePR(!!ghSlug, currentBranch, busyState)
-  const pushReason = pushDisabledReason(hasFetched, sync?.behind ?? 0, sync?.ahead ?? 0, busyState)
+  const pushReason = pushDisabledReason(hasFetched, sync?.behind ?? 0, sync?.ahead ?? 0, busyState, hasUpstream)
   const createPRReason = createPRDisabledReason(!!ghSlug, currentBranch, busyState)
 
   const doFetch = async () => {
@@ -235,11 +237,30 @@ export function TopBar({ onOpen, onClone, onAddAccount, onSynced, onMergeConflic
 
   const doTopBarPull = async () => {
     if (!repoPath || syncOp !== 'idle') return
+
+    // Block the pull when the working tree is dirty. A mid-pull failure (e.g.
+    // Unreal Editor holding a .uasset open) can otherwise leave the index in
+    // a half-merged state and silently move staged changes back to unstaged.
+    if (hasChanges) {
+      const stashAndPull = await useDialogStore.getState().confirm({
+        title: 'Commit or stash before pulling',
+        message: 'You have uncommitted changes. Pulling now risks leaving them in an inconsistent state if Git can\'t write to a file that another program (like Unreal Editor) has open.',
+        detail: 'Commit your changes in the Changes panel, or stash them and pull now.',
+        confirmLabel: 'Stash & Pull',
+        cancelLabel: 'Cancel',
+      })
+      if (!stashAndPull) return
+    }
+
     setSyncOp('pulling'); setSyncErr(null)
+    const stashed = hasChanges && useRepoStore.getState().fileStatus.length > 0
     try {
+      if (stashed) {
+        await opRun('Stashing local changes…', () => ipc.stashSave(repoPath, 'Auto-stash before pull'))
+      }
       await opRun('Pulling…', () => ipc.pull(repoPath))
       await refreshRevisionState()
-      showStatusToast('Pull successful.')
+      showStatusToast(stashed ? 'Pull successful — your changes are in the stash.' : 'Pull successful.')
     } catch (e) {
       const s = String(e)
       if (s.toLowerCase().includes('please commit') || s.toLowerCase().includes('local changes')) {
@@ -649,9 +670,9 @@ export function TopBar({ onOpen, onClone, onAddAccount, onSynced, onMergeConflic
               <FlowArrow />
 
               <SyncBtn
-                label={pushButtonLabel(busyState)}
+                label={pushButtonLabel(busyState, hasUpstream)}
                 icon={<ArrowUp />}
-                count={canPushNow ? (sync?.ahead ?? 0) : 0}
+                count={canPushNow && hasUpstream ? (sync?.ahead ?? 0) : 0}
                 countColor="#2dbd6e"
                 active={canPushNow}
                 error={false}
@@ -1293,6 +1314,12 @@ function AccountMenu({ account, onSignOut }: { account: { userId: string; login:
     } catch { } finally { setSaving(false) }
   }
 
+  const handleOpenConfig = async () => {
+    try {
+      await ipc.openGlobalGitConfig()
+    } catch { }
+  }
+
   return (
     <div ref={menuRef} style={{ position: 'relative' }}>
       <button
@@ -1368,6 +1395,24 @@ function AccountMenu({ account, onSignOut }: { account: { userId: string; login:
                 }}
               >
                 {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save'}
+              </button>
+              <button
+                onClick={handleOpenConfig}
+                title="Open ~/.gitconfig in your default text or code editor"
+                style={{
+                  height: 27, borderRadius: 5, cursor: 'pointer',
+                  background: 'rgba(255,255,255,0.04)', border: '1px solid #1d2535',
+                  color: '#7b8499', fontFamily: 'var(--lg-font-ui)', fontSize: 12, fontWeight: 500,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.07)'; e.currentTarget.style.borderColor = '#283047'; e.currentTarget.style.color = '#c8d0e8' }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.borderColor = '#1d2535'; e.currentTarget.style.color = '#7b8499' }}
+              >
+                <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
+                  <path d="M9 2H3a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+                  <path d="M10.5 1.5h4v4M14.5 1.5L7 9" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                Open in editor
               </button>
             </div>
           </div>

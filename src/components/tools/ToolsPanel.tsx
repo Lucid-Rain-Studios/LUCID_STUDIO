@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { ipc, BranchInfo, CommitEntry, LfsLocksMaintenanceResult } from '@/ipc'
 import { useOperationStore } from '@/stores/operationStore'
 import { useDialogStore } from '@/stores/dialogStore'
+import { useRepoStore } from '@/stores/repoStore'
 import { FilePathText } from '@/components/ui/FilePathText'
 
 interface ToolsPanelProps {
@@ -24,9 +25,10 @@ const TOOLS: { id: ToolId; label: string; icon: string; desc: string }[] = [
 export function ToolsPanel({ repoPath, onRefresh, onCherryPickConflict }: ToolsPanelProps) {
   const [activeTool, setActiveTool] = useState<ToolId>('restore')
   const opRun = useOperationStore(s => s.run)
+  const bumpSyncTick = useRepoStore(s => s.bumpSyncTick)
 
   const run = async (label: string, fn: () => Promise<void>) => {
-    try { await opRun(label, fn); onRefresh() } catch (e) { alert(String(e)) }
+    try { await opRun(label, fn); bumpSyncTick(); onRefresh() } catch (e) { alert(String(e)) }
   }
 
   return (
@@ -469,6 +471,7 @@ function CherryPickTool({ repoPath, onRefresh, onConflict }: {
   const [branches, setBranches] = useState<BranchInfo[]>([])
   const dialog = useDialogStore()
   const opRun = useOperationStore(s => s.run)
+  const bumpSyncTick = useRepoStore(s => s.bumpSyncTick)
 
   useEffect(() => {
     ipc.branchList(repoPath).then(setBranches).catch(() => {})
@@ -485,6 +488,7 @@ function CherryPickTool({ repoPath, onRefresh, onConflict }: {
     if (!ok) return
     try {
       await opRun('Cherry-picking…', () => ipc.gitCherryPick(repoPath, hash))
+      bumpSyncTick()
       onRefresh()
     } catch (e) {
       // Cherry-pick may have left CHERRY_PICK_HEAD — if so, it's a recoverable

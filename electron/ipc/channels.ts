@@ -115,6 +115,7 @@ export const CHANNELS = {
   GIT_LINK_IDENTITY:       'git:link-identity',
   GIT_GET_GLOBAL_IDENTITY: 'git:get-global-identity',
   GIT_SET_GLOBAL_IDENTITY: 'git:set-global-identity',
+  GIT_OPEN_GLOBAL_CONFIG:  'git:open-global-config',
 
   // Settings
   SETTINGS_GET: 'settings:get',

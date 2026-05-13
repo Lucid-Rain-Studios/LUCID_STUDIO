@@ -198,6 +198,7 @@ class LockService {
 
     // Released locks since last poll
     const currentUserLogin = this.currentUserLogin()
+    const externalUnlocksOfMine: string[] = []
     for (const lock of previous) {
       if (!current.find(l => l.path === lock.path)) {
         const title = 'File unlocked'
@@ -216,20 +217,15 @@ class LockService {
 
         // External-unlock-of-your-lock detection: if a lock you owned just
         // disappeared and you didn't initiate the unlock yourself within the
-        // grace window, surface it as a force-unlock toast so coordination
-        // doesn't get missed.
+        // grace window, collect it for a single bundled toast below so a
+        // batch force-unlock doesn't spam the OS notification center.
         if (currentUserLogin && lock.owner.login === currentUserLogin) {
           const key = `${repoPath}::${lock.path}`
           const selfUnlockedAt = this.recentSelfUnlocks.get(key)
           if (selfUnlockedAt !== undefined && now - selfUnlockedAt < SELF_UNLOCK_GRACE_MS) {
             this.recentSelfUnlocks.delete(key)
           } else {
-            desktopNotificationService.notify({
-              event:  'forceUnlock',
-              title:  'Your lock was released',
-              body:   `${lock.path} was unlocked by another user`,
-              urgent: true,
-            })
+            externalUnlocksOfMine.push(lock.path)
           }
         }
 
@@ -241,6 +237,22 @@ class LockService {
           this.watchedFiles.splice(watchIdx, 1)
         }
       }
+    }
+
+    if (externalUnlocksOfMine.length === 1) {
+      desktopNotificationService.notify({
+        event:  'forceUnlock',
+        title:  'Your lock was released',
+        body:   `${externalUnlocksOfMine[0]} was unlocked by another user`,
+        urgent: true,
+      })
+    } else if (externalUnlocksOfMine.length > 1) {
+      desktopNotificationService.notify({
+        event:  'forceUnlock',
+        title:  'Your locks were released',
+        body:   `${externalUnlocksOfMine.length} of your files were unlocked`,
+        urgent: true,
+      })
     }
 
     // Garbage-collect stale self-unlock entries so the map doesn't grow

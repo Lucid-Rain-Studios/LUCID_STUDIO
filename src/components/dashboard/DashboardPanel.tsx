@@ -407,7 +407,8 @@ function DailyFlowStrip({
   }
 
   const isBusy = busy !== 'idle'
-  const pushEnabled = canPush(hasFetched, behind, ahead, busy)
+  const hasUpstream = sync?.hasUpstream ?? true
+  const pushEnabled = canPush(hasFetched, behind, ahead, busy, hasUpstream)
   const onDefaultBranch = currentBranch === defaultBranch
   const updateFromMainEnabled = !onDefaultBranch && !updatingFromMain && !isBusy
 
@@ -426,10 +427,10 @@ function DailyFlowStrip({
       onClick:  onPull,
     },
     {
-      label:    pushButtonLabel(busy),
+      label:    pushButtonLabel(busy, hasUpstream),
       color:    pushEnabled ? '#2dbd6e' : undefined,
       disabled: !pushEnabled,
-      disabledReason: pushDisabledReason(hasFetched, behind, ahead, busy),
+      disabledReason: pushDisabledReason(hasFetched, behind, ahead, busy, hasUpstream),
       onClick:  onPush,
     },
     {

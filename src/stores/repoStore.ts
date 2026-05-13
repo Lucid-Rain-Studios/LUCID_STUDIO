@@ -137,11 +137,17 @@ export const useRepoStore = create<RepoState>((set, get) => ({
     const op = useOperationStore.getState()
     await op.run(`Switching to ${branch}…`, async () => {
       await window.lucidGit.checkout(repoPath, branch)
-      const [status, currentBranch] = await Promise.all([
+      const [status, currentBranch, branches] = await Promise.all([
         window.lucidGit.status(repoPath),
         window.lucidGit.currentBranch(repoPath),
+        window.lucidGit.branchList(repoPath),
       ])
-      set(s => ({ currentBranch, fileStatus: status ?? [], historyTick: s.historyTick + 1 }))
+      set(s => ({
+        currentBranch,
+        fileStatus: status ?? [],
+        branches: branches ?? s.branches,
+        historyTick: s.historyTick + 1,
+      }))
     })
   },
 
