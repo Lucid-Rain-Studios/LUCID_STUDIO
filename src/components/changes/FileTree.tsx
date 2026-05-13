@@ -7,6 +7,7 @@ import { useDialogStore } from '@/stores/dialogStore'
 import { useLockStore } from '@/stores/lockStore'
 import { useAuthStore } from '@/stores/authStore'
 import { ActionBtn as SharedActionBtn } from '@/components/ui/ActionBtn'
+import { HunkStagingDialog } from './HunkStagingDialog'
 
 // ── Content Browser tree types ────────────────────────────────────────────────
 
@@ -169,6 +170,7 @@ export function FileTree({
   const dialog = useDialogStore()
   const [treeMode, setTreeMode] = useState(false)
   const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(new Set())
+  const [hunkTarget, setHunkTarget] = useState<{ path: string; reverse: boolean } | null>(null)
   const opRun = useOperationStore(s => s.run)
   const unlockFile = useLockStore(s => s.unlockFile)
   const { accounts, currentAccountId } = useAuthStore()
@@ -388,6 +390,20 @@ export function FileTree({
             run('Stashing…', () => ipc.stashSave(repoPath, msg || undefined))
           }}
         />
+        {selectedPath && (() => {
+          const f = files.find(x => x.path === selectedPath)
+          if (!f) return null
+          const effective = f.staged ? f.indexStatus : f.workingStatus
+          const eligible = effective !== '?' && effective !== 'D' && effective !== 'R'
+          if (!eligible) return null
+          return (
+            <ActionBtn
+              label={f.staged ? 'Unstage hunks…' : 'Stage hunks…'}
+              disabled={busy}
+              onClick={() => setHunkTarget({ path: f.path, reverse: f.staged })}
+            />
+          )
+        })()}
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 2 }}>
           <ViewToggleBtn active={!treeMode} title="Flat list" onClick={() => setTreeMode(false)}>
             <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
@@ -536,6 +552,16 @@ export function FileTree({
             onMouseLeave={e => (e.currentTarget.style.color = '#4e5870')}
           >Clear</button>
         </div>
+      )}
+
+      {hunkTarget && (
+        <HunkStagingDialog
+          repoPath={repoPath}
+          filePath={hunkTarget.path}
+          reverse={hunkTarget.reverse}
+          onClose={() => setHunkTarget(null)}
+          onComplete={() => { setHunkTarget(null); onRefresh() }}
+        />
       )}
 
       {/* Bulk context menu */}

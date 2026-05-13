@@ -3,6 +3,7 @@ import { useRepoStore } from '@/stores/repoStore'
 import { useOperationStore } from '@/stores/operationStore'
 import { useAuthStore } from '@/stores/authStore'
 import { RepoPermission } from '@/ipc'
+import { compactPath } from '@/lib/pathDisplay'
 
 declare const __APP_VERSION__: string
 
@@ -60,15 +61,35 @@ export function StatusBar() {
 
   const pctText = progress !== undefined ? `${progress}%` : null
 
+  // Detail strings that look like file paths get compacted (parent/.../file)
+  // so the status bar stays readable even for deeply-nested paths.
+  const isPathLikeDetail = stepDetail !== undefined
+    && /[\\/]/.test(stepDetail)
+    && !/\s/.test(stepDetail)
+    && !stepDetail.includes('%')
+
+  const displayDetail = isPathLikeDetail && stepDetail
+    ? compactPath(stepDetail)
+    : stepDetail
+
   // Prefer structured count when present; otherwise fall back to the
   // raw detail (e.g. "5.2 MB / 12.4 MB · 1.5 MB/s" from the auto-updater).
   const displayText = countText
     ? [stepLabel, pctText, countText].filter(Boolean).join('  ·  ')
-    : stepDetail
-      ? (pctText && !stepDetail.includes('%')) ? `${stepDetail}  ${pctText}` : stepDetail
+    : displayDetail
+      ? (pctText && !displayDetail.includes('%')) ? `${displayDetail}  ${pctText}` : displayDetail
       : pctText
         ? `${stepLabel}  ${pctText}`
         : stepLabel
+
+  // Tooltip shows the full, un-compacted detail (e.g. the original file path)
+  // plus the operation label so the user can hover to see exactly what's
+  // being processed.
+  const tooltipText = stepDetail
+    ? `${stepLabel}\n${stepDetail}`
+    : label
+      ? label
+      : stepLabel
 
   return (
     <footer style={{
@@ -175,11 +196,16 @@ export function StatusBar() {
             v{__APP_VERSION__}
           </span>
           {isRunning ? (
-            <span style={{
-              fontFamily: 'var(--lg-font-mono)', fontSize: 10.5, color: '#e8622f',
-              animation: 'pulse 1.6s ease-in-out infinite',
-              maxWidth: 480, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-            }}>
+            <span
+              title={tooltipText}
+              style={{
+                fontFamily: 'var(--lg-font-mono)', fontSize: 10.5, color: '#e8622f',
+                animation: 'pulse 1.6s ease-in-out infinite',
+                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                maxWidth: 640,
+                cursor: 'help',
+              }}
+            >
               {displayText}
             </span>
           ) : (

@@ -9,6 +9,7 @@ import { AppCheckbox } from '@/components/ui/AppCheckbox'
 import { AppTooltip } from '@/components/ui/AppTooltip'
 import { FilePathText } from '@/components/ui/FilePathText'
 import { AppRightSelectionItem, AppRightSelectionOptions, AppRightSelectionSeparator } from '@/components/ui/AppRightSelectionOptions'
+import { HunkStagingDialog } from './HunkStagingDialog'
 
 interface FileRowProps {
   file: FileStatus
@@ -86,6 +87,11 @@ export function FileRow({
 
   const [ctx, setCtx]   = useState<{ x: number; y: number } | null>(null)
   const ctxRef = useRef<HTMLDivElement>(null)
+  const [hunkMode, setHunkMode] = useState<'stage' | 'unstage' | null>(null)
+  // Hunk-level staging makes sense only for tracked text files with content
+  // changes. Untracked, deleted, renamed, or binary changes have no hunks to
+  // pick from.
+  const canStageHunks = !isUntracked && effectiveStatus !== 'D' && effectiveStatus !== 'R'
 
   useEffect(() => {
     if (!ctx) return
@@ -257,6 +263,12 @@ export function FileRow({
       {ctx && (
         <AppRightSelectionOptions x={ctx.x} y={ctx.y} minWidth={200} menuRef={ctxRef}>
           <AppRightSelectionItem label={isUntracked ? 'Delete file…' : 'Discard changes…'} onClick={doDiscard} danger />
+          {canStageHunks && (
+            <AppRightSelectionItem
+              label={file.staged ? 'Unstage hunks…' : 'Stage hunks…'}
+              onClick={() => { close(); setHunkMode(file.staged ? 'unstage' : 'stage') }}
+            />
+          )}
           <AppRightSelectionSeparator />
           <AppRightSelectionItem label="Ignore file"                onClick={doIgnoreFile} />
           {dir && <AppRightSelectionItem label="Ignore folder"      onClick={doIgnoreFolder} />}
@@ -289,6 +301,16 @@ export function FileRow({
             <AppRightSelectionItem label="Blame with dependencies" onClick={() => { close(); onBlameDeps(file) }} />
           </>}
         </AppRightSelectionOptions>
+      )}
+
+      {hunkMode && (
+        <HunkStagingDialog
+          repoPath={repoPath}
+          filePath={file.path}
+          reverse={hunkMode === 'unstage'}
+          onClose={() => setHunkMode(null)}
+          onComplete={() => { setHunkMode(null); onRefresh() }}
+        />
       )}
     </div>
   )

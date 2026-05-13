@@ -152,6 +152,31 @@ export async function exec(
   return { stdout: result.stdout, stderr: result.stderr }
 }
 
+/**
+ * Like `exec`, but pipes `stdin` into the git process. Used for commands
+ * that read patches from standard input (e.g. `git apply --cached -`).
+ */
+export async function execWithStdin(
+  args: string[],
+  repoPath: string,
+  stdin: string,
+): Promise<{ stdout: string; stderr: string }> {
+  const result = await GitProcess.exec(args, repoPath, {
+    env: {
+      ...process.env,
+      GIT_TERMINAL_PROMPT: '0',
+      GIT_ASKPASS: 'echo',
+    },
+    stdin,
+    stdinEncoding: 'utf8',
+  })
+  if (result.exitCode !== 0) {
+    const combined = [result.stderr, result.stdout].filter(Boolean).join('\n')
+    throw new Error(`git ${args[0]} failed (exit ${result.exitCode}):\n${combined}`)
+  }
+  return { stdout: result.stdout, stderr: result.stderr }
+}
+
 // ── withTimeout — races a promise against a deadline ─────────────────────────
 
 export function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {

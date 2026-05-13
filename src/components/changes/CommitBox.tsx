@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useRepoStore } from '@/stores/repoStore'
 import { useOperationStore } from '@/stores/operationStore'
 import { ipc } from '@/ipc'
@@ -7,6 +7,7 @@ import { useErrorStore } from '@/stores/errorStore'
 import { useDialogStore } from '@/stores/dialogStore'
 import { markFetchPerformed } from '@/lib/fetchState'
 import { ActionBtn } from '@/components/ui/ActionBtn'
+import { AppCheckbox } from '@/components/ui/AppCheckbox'
 
 type HookState = 'idle' | 'running' | 'passed' | 'failed'
 
@@ -19,17 +20,77 @@ export function CommitBox({ deferredStagePaths }: CommitBoxProps = {}) {
   const opRun = useOperationStore(s => s.run)
   const dialog = useDialogStore()
 
-  const [message, setMessage]         = useState('')
+  const [title, setTitle]               = useState('')
+  const [message, setMessage]           = useState('')
   const [isCommitting, setIsCommitting] = useState(false)
-  const [error, setError]             = useState<string | null>(null)
+  const [error, setError]               = useState<string | null>(null)
+
+  const [amend, setAmend]               = useState(false)
+  const [lastMessage, setLastMessage]   = useState<string | null>(null)
+  const [headPushed, setHeadPushed]     = useState(false)
+  const [originalTitle, setOriginalTitle]     = useState('')
+  const [originalMessage, setOriginalMessage] = useState('')
 
   const pushError = useErrorStore(s => s.pushRaw)
-  const [hookState, setHookState]     = useState<HookState>('idle')
-  const [hookOutput, setHookOutput]   = useState('')
+  const [hookState, setHookState]       = useState<HookState>('idle')
+  const [hookOutput, setHookOutput]     = useState('')
   const [hookDuration, setHookDuration] = useState(0)
 
-  const selectedCount = deferredStagePaths ? deferredStagePaths.length : fileStatus.filter(f => f.staged).length
-  const canCommit   = Boolean(repoPath && message.trim() && selectedCount > 0 && !isCommitting)
+  // Load HEAD info so the amend toggle can pre-fill the message and warn
+  // when the commit is already pushed.
+  useEffect(() => {
+    if (!repoPath) { setLastMessage(null); setHeadPushed(false); return }
+    let cancelled = false
+    Promise.all([
+      ipc.lastCommitMessage(repoPath).catch(() => null),
+      ipc.isHeadPushed(repoPath).catch(() => false),
+    ]).then(([msg, pushed]) => {
+      if (cancelled) return
+      setLastMessage(msg)
+      setHeadPushed(pushed)
+    })
+    return () => { cancelled = true }
+  }, [repoPath, fileStatus.length])
+
+  // When the user toggles amend, swap the title/body content but preserve
+  // what they had typed before, so toggling back restores it.
+  useEffect(() => {
+    if (amend) {
+      setOriginalTitle(title)
+      setOriginalMessage(message)
+      if (lastMessage !== null) {
+        const [firstLine, ...rest] = lastMessage.split('\n')
+        setTitle(firstLine ?? '')
+        // The classic git convention is one blank line between subject and
+        // body; trim that leading blank so the body textarea isn't padded.
+        const body = rest.join('\n').replace(/^\n+/, '')
+        setMessage(body)
+      }
+    } else {
+      setTitle(originalTitle)
+      setMessage(originalMessage)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [amend])
+
+  const selectedCount = deferredStagePaths
+    ? deferredStagePaths.length
+    : fileStatus.filter(f => f.staged).length
+
+  // Amend without new file changes is valid (it can edit just the message),
+  // so don't require staged files when amending. The title is the only
+  // required field — body/description is optional.
+  const canCommit = Boolean(
+    repoPath && title.trim() && !isCommitting && (amend || selectedCount > 0),
+  )
+
+  // Build the final commit message from title + optional body, using the
+  // standard "subject line · blank · body" git convention.
+  const buildCommitMessage = (): string => {
+    const t = title.trim()
+    const b = message.trim()
+    return b ? `${t}\n\n${b}` : t
+  }
 
   const prepareDeferredStage = async () => {
     if (!repoPath || !deferredStagePaths) return
@@ -47,8 +108,17 @@ export function CommitBox({ deferredStagePaths }: CommitBoxProps = {}) {
     setError(null)
 
     try {
-      await opRun('Committing…', () => ipc.commit(repoPath, message.trim(), noVerify))
+      const finalMessage = buildCommitMessage()
+      if (amend) {
+        await opRun('Amending commit…', () => ipc.commitAmend(repoPath, finalMessage, noVerify))
+      } else {
+        await opRun('Committing…', () => ipc.commit(repoPath, finalMessage, noVerify))
+      }
+      setTitle('')
       setMessage('')
+      setOriginalTitle('')
+      setOriginalMessage('')
+      setAmend(false)
       setHookState('idle')
       setHookOutput('')
       await refreshStatus()
@@ -68,6 +138,17 @@ export function CommitBox({ deferredStagePaths }: CommitBoxProps = {}) {
 
   const handleCommit = async () => {
     if (!canCommit || !repoPath) return
+
+    if (amend && headPushed) {
+      const ok = await dialog.confirm({
+        title: 'Amend a pushed commit?',
+        message: 'The last commit has already been pushed to the remote.',
+        detail: 'Amending will rewrite history. Anyone with the old commit will need to force-pull or rebase. You may also need to force-push to update the remote.',
+        confirmLabel: 'Amend anyway',
+        danger: true,
+      })
+      if (!ok) return
+    }
 
     // Run pre-commit hook inline first
     setHookState('running')
@@ -110,8 +191,68 @@ export function CommitBox({ deferredStagePaths }: CommitBoxProps = {}) {
     await runCommit(true)
   }
 
+  const commitLabel = (() => {
+    if (isCommitting)            return amend ? 'Amending…' : 'Committing…'
+    if (hookState === 'running') return 'Running hook…'
+    if (amend) {
+      return selectedCount > 0
+        ? `Amend (+${selectedCount} file${selectedCount !== 1 ? 's' : ''})`
+        : 'Amend message'
+    }
+    return selectedCount > 0
+      ? `Commit ${selectedCount} file${selectedCount !== 1 ? 's' : ''}`
+      : 'Commit'
+  })()
+
   return (
     <div className="border-t border-lg-border p-2.5 space-y-2 shrink-0 bg-lg-bg-secondary">
+      {/* Amend toggle */}
+      {lastMessage !== null && (
+        <label
+          className="flex items-center gap-2 cursor-pointer select-none min-w-0"
+          title={lastMessage}
+        >
+          <AppCheckbox
+            checked={amend}
+            onChange={() => setAmend(a => !a)}
+            color={headPushed ? '#e84545' : '#4a9eff'}
+          />
+          <span className="flex items-baseline gap-1 min-w-0 flex-1 text-[10px] font-mono leading-none">
+            <span className="text-lg-text-secondary whitespace-nowrap">Amend previous commit</span>
+            <span className="text-lg-text-secondary/60 whitespace-nowrap">—</span>
+            <span className="text-lg-text-secondary/70 truncate min-w-0">
+              {lastMessage.split('\n')[0]}
+            </span>
+          </span>
+          {amend && headPushed && (
+            <span
+              className="text-[9px] font-mono text-lg-error font-semibold shrink-0"
+              title="HEAD is reachable from the upstream branch — amending will rewrite shared history."
+            >
+              PUSHED ⚠
+            </span>
+          )}
+        </label>
+      )}
+
+      <input
+        type="text"
+        value={title}
+        onChange={e => setTitle(e.target.value)}
+        onKeyDown={e => {
+          if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && canCommit) handleCommit()
+        }}
+        placeholder={
+          amend
+            ? 'Amend title'
+            : selectedCount > 0
+              ? 'Title (required)'
+              : 'Stage changes to commit'
+        }
+        disabled={(selectedCount === 0 && !amend) || isCommitting}
+        className="w-full bg-lg-bg-primary border border-lg-border rounded px-2 py-1.5 text-xs font-mono text-lg-text-primary placeholder:text-lg-text-secondary focus:outline-none focus:border-lg-accent disabled:opacity-40 transition-colors"
+      />
+
       <textarea
         value={message}
         onChange={e => setMessage(e.target.value)}
@@ -119,16 +260,17 @@ export function CommitBox({ deferredStagePaths }: CommitBoxProps = {}) {
           if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && canCommit) handleCommit()
         }}
         placeholder={
-          selectedCount > 0
-            ? 'Summary (Ctrl+Enter to commit)'
-            : 'Stage changes to commit'
+          amend
+            ? 'Description (optional)'
+            : selectedCount > 0
+              ? 'Description (optional, Ctrl+Enter to commit)'
+              : ''
         }
-        disabled={selectedCount === 0 || isCommitting}
+        disabled={(selectedCount === 0 && !amend) || isCommitting}
         rows={3}
         className="w-full bg-lg-bg-primary border border-lg-border rounded px-2 py-1.5 text-xs font-mono text-lg-text-primary placeholder:text-lg-text-secondary resize-none focus:outline-none focus:border-lg-accent disabled:opacity-40 transition-colors"
       />
 
-      {/* ── Hook output ─────────────────────────────────────────────── */}
       {hookState === 'running' && (
         <div className="flex items-center gap-1.5 text-[10px] font-mono text-lg-text-secondary animate-pulse">
           <span className="w-1.5 h-1.5 rounded-full bg-lg-accent-secondary animate-pulse" />
@@ -167,7 +309,6 @@ export function CommitBox({ deferredStagePaths }: CommitBoxProps = {}) {
         </div>
       )}
 
-      {/* ── Commit error ─────────────────────────────────────────────── */}
       {error && (
         <div
           className="text-[10px] font-mono text-lg-error truncate"
@@ -177,22 +318,15 @@ export function CommitBox({ deferredStagePaths }: CommitBoxProps = {}) {
         </div>
       )}
 
-      {/* ── Commit button (hidden when hook failed — bypass is shown) ── */}
       {hookState !== 'failed' && (
         <ActionBtn
           onClick={handleCommit}
           disabled={!canCommit || hookState === 'running'}
-          color="#2dbd6e"
+          color={amend ? '#f5a832' : '#2dbd6e'}
           size="sm"
           style={{ width: '100%', height: 28, fontSize: 11, fontFamily: 'var(--lg-font-mono)', fontWeight: 600 }}
         >
-          {isCommitting
-            ? 'Committing…'
-            : hookState === 'running'
-              ? 'Running hook…'
-              : selectedCount > 0
-                ? `Commit ${selectedCount} file${selectedCount !== 1 ? 's' : ''}`
-                : 'Commit'}
+          {commitLabel}
         </ActionBtn>
       )}
     </div>

@@ -87,6 +87,20 @@ const api = {
     ipcRenderer.invoke(CHANNELS.GIT_STASH_APPLY, repoPath, ref),
   stashDrop: (repoPath: string, ref: string) =>
     ipcRenderer.invoke(CHANNELS.GIT_STASH_DROP, repoPath, ref),
+  stashShowFiles: (repoPath: string, ref: string) =>
+    ipcRenderer.invoke(CHANNELS.GIT_STASH_SHOW_FILES, repoPath, ref),
+  stashFileDiff: (repoPath: string, ref: string, filePath: string) =>
+    ipcRenderer.invoke(CHANNELS.GIT_STASH_FILE_DIFF, repoPath, ref, filePath),
+  commitAmend: (repoPath: string, message: string, noVerify?: boolean) =>
+    ipcRenderer.invoke(CHANNELS.GIT_COMMIT_AMEND, repoPath, message, noVerify),
+  lastCommitMessage: (repoPath: string) =>
+    ipcRenderer.invoke(CHANNELS.GIT_LAST_COMMIT_MESSAGE, repoPath),
+  isHeadPushed: (repoPath: string) =>
+    ipcRenderer.invoke(CHANNELS.GIT_IS_HEAD_PUSHED, repoPath),
+  diffRaw: (repoPath: string, filePath: string, staged: boolean) =>
+    ipcRenderer.invoke(CHANNELS.GIT_DIFF_RAW, repoPath, filePath, staged),
+  applyPatch: (repoPath: string, patch: string, reverse?: boolean) =>
+    ipcRenderer.invoke(CHANNELS.GIT_APPLY_PATCH, repoPath, patch, reverse),
   commitFiles: (repoPath: string, hash: string) =>
     ipcRenderer.invoke(CHANNELS.GIT_COMMIT_FILES, repoPath, hash),
   checkout: (repoPath: string, branch: string) =>
@@ -317,6 +331,10 @@ const api = {
     ipcRenderer.invoke(CHANNELS.FORECAST_STOP, repoPath),
   forecastStatus: (repoPath: string) =>
     ipcRenderer.invoke(CHANNELS.FORECAST_STATUS, repoPath),
+  forecastPause: () =>
+    ipcRenderer.invoke(CHANNELS.FORECAST_PAUSE),
+  forecastResume: () =>
+    ipcRenderer.invoke(CHANNELS.FORECAST_RESUME),
   onForecastConflict: (cb: (conflicts: unknown) => void) => {
     const handler = (_e: Electron.IpcRendererEvent, c: unknown) => cb(c)
     ipcRenderer.on(CHANNELS.EVT_FORECAST_CONFLICT, handler)

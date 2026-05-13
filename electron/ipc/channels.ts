@@ -45,6 +45,13 @@ export const CHANNELS = {
   GIT_STASH_POP:        'git:stash-pop',
   GIT_STASH_APPLY:      'git:stash-apply',
   GIT_STASH_DROP:       'git:stash-drop',
+  GIT_STASH_SHOW_FILES: 'git:stash-show-files',
+  GIT_STASH_FILE_DIFF:  'git:stash-file-diff',
+  GIT_COMMIT_AMEND:     'git:commit-amend',
+  GIT_LAST_COMMIT_MESSAGE: 'git:last-commit-message',
+  GIT_IS_HEAD_PUSHED:   'git:is-head-pushed',
+  GIT_DIFF_RAW:         'git:diff-raw',
+  GIT_APPLY_PATCH:      'git:apply-patch',
 
   // Locks
   LOCK_FILE:          'lock:file',
@@ -160,6 +167,8 @@ export const CHANNELS = {
   FORECAST_START:         'forecast:start',
   FORECAST_STOP:          'forecast:stop',
   FORECAST_STATUS:        'forecast:status',
+  FORECAST_PAUSE:         'forecast:pause',
+  FORECAST_RESUME:        'forecast:resume',
   EVT_FORECAST_CONFLICT:  'evt:forecast-conflict',
 
   // Dependency-Aware Blame — Phase 18

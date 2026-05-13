@@ -7,11 +7,10 @@ export function getLastFetch(repoPath: string): number | null {
   return Number.isFinite(parsed) ? parsed : null
 }
 
-export function markFetchPerformed(repoPath: string): number {
-  const now = Date.now()
-  localStorage.setItem(LAST_FETCH_KEY(repoPath), String(now))
-  window.dispatchEvent(new CustomEvent(FETCH_EVENT, { detail: { repoPath, at: now } }))
-  return now
+export function markFetchPerformed(repoPath: string, at: number = Date.now()): number {
+  localStorage.setItem(LAST_FETCH_KEY(repoPath), String(at))
+  window.dispatchEvent(new CustomEvent(FETCH_EVENT, { detail: { repoPath, at } }))
+  return at
 }
 
 export function onFetchPerformed(listener: (repoPath: string, at: number) => void): () => void {
@@ -24,4 +23,14 @@ export function onFetchPerformed(listener: (repoPath: string, at: number) => voi
   }
   window.addEventListener(FETCH_EVENT, handler)
   return () => window.removeEventListener(FETCH_EVENT, handler)
+}
+
+export function formatFetchAgo(at: number | null, now: number = Date.now()): string {
+  if (at === null) return 'never fetched'
+  const sec = Math.max(0, Math.floor((now - at) / 1000))
+  if (sec < 10)    return 'fetched just now'
+  if (sec < 60)    return `fetched ${sec}s ago`
+  if (sec < 3600)  return `fetched ${Math.floor(sec / 60)}m ago`
+  if (sec < 86400) return `fetched ${Math.floor(sec / 3600)}h ago`
+  return `fetched ${Math.floor(sec / 86400)}d ago`
 }

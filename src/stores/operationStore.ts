@@ -58,6 +58,10 @@ export const useOperationStore = create<OperationState>((set, get) => ({
   run: async <T>(label: string, fn: () => Promise<T>): Promise<T> => {
     get().start(label)
     const startedAt = Date.now()
+    // Pause background auto-fetch (ForecastService) so it doesn't race with
+    // the user-driven operation we're about to run. Refcounted in the main
+    // process, so nested run() calls remain safe.
+    ipc.forecastPause().catch(() => {})
     try {
       const result = await fn()
       maybeNotifyOperationComplete(label, Date.now() - startedAt, undefined)
@@ -67,6 +71,7 @@ export const useOperationStore = create<OperationState>((set, get) => ({
       throw err
     } finally {
       get().finish()
+      ipc.forecastResume().catch(() => {})
     }
   },
 }))

@@ -7,7 +7,7 @@ import { useOperationStore } from '@/stores/operationStore'
 import { useErrorStore } from '@/stores/errorStore'
 import { usePRStore } from '@/stores/prStore'
 import { NotificationBell } from '@/components/notifications/NotificationBell'
-import { markFetchPerformed, onFetchPerformed } from '@/lib/fetchState'
+import { formatFetchAgo, getLastFetch, markFetchPerformed, onFetchPerformed } from '@/lib/fetchState'
 import {
   canCreatePR,
   canPull,
@@ -57,6 +57,8 @@ export function TopBar({ onOpen, onClone, onAddAccount, onSynced, onMergeConflic
   const [sync, setSync]       = useState<SyncStatus | null>(null)
   const [syncOp, setSyncOp]   = useState<'idle' | 'fetching' | 'pulling' | 'pushing'>('idle')
   const [syncErr, setSyncErr] = useState<string | null>(null)
+  const [lastFetchAt, setLastFetchAt] = useState<number | null>(() => repoPath ? getLastFetch(repoPath) : null)
+  const [nowTick, setNowTick] = useState(() => Date.now())
   const [updatingFromMain, setUpdatingFromMain] = useState(false)
   const [defaultBranch, setDefaultBranch] = useState<string>('main')
   const [hasFetched, setHasFetched] = useState(() => repoPath ? sessionTopBarFetched.has(repoPath) : false)
@@ -118,11 +120,49 @@ export function TopBar({ onOpen, onClone, onAddAccount, onSynced, onMergeConflic
   }, [repoPath, currentBranch, syncTick, loadSync])
 
   useEffect(() => {
-    return onFetchPerformed((path) => {
+    return onFetchPerformed((path, at) => {
       sessionTopBarFetched.add(path)
-      if (path === repoPath) setHasFetched(true)
+      if (path === repoPath) {
+        setHasFetched(true)
+        setLastFetchAt(at)
+      }
     })
   }, [repoPath])
+
+  // Repaint the "Last fetched: …" label so the relative timestamp drifts
+  // forward without needing a fresh fetch.
+  useEffect(() => {
+    const id = setInterval(() => setNowTick(Date.now()), 15_000)
+    return () => clearInterval(id)
+  }, [])
+
+  // Reload the stored last-fetch timestamp when the active repo changes.
+  useEffect(() => {
+    setLastFetchAt(repoPath ? getLastFetch(repoPath) : null)
+  }, [repoPath])
+
+  // Pick up auto-fetches performed by ForecastService. It fetches every
+  // few minutes on its own; mirror its `lastPolledAt` into our renderer-
+  // side last-fetch state so the badge and timestamp stay accurate.
+  useEffect(() => {
+    if (!repoPath) return
+    let cancelled = false
+    const poll = async () => {
+      try {
+        const st = await ipc.forecastStatus(repoPath)
+        if (!cancelled && st?.lastPolledAt) {
+          const stored = getLastFetch(repoPath) ?? 0
+          if (st.lastPolledAt > stored) {
+            markFetchPerformed(repoPath, st.lastPolledAt)
+            await loadSync()
+          }
+        }
+      } catch { /* forecast not started — ignore */ }
+    }
+    poll()
+    const id = setInterval(poll, 30_000)
+    return () => { cancelled = true; clearInterval(id) }
+  }, [repoPath, loadSync])
 
   useEffect(() => {
     ipc.windowIsMaximized().then(setIsMaximized).catch(() => {})
@@ -648,6 +688,8 @@ export function TopBar({ onOpen, onClone, onAddAccount, onSynced, onMergeConflic
                 fetchLabel={fetchButtonLabel(busyState)}
                 pullLabel={pullButtonLabel(busyState)}
                 behindCount={hasBehind && isIdle ? (sync?.behind ?? 0) : 0}
+                aheadCount={isIdle && hasUpstream ? (sync?.ahead ?? 0) : 0}
+                lastFetchLabel={formatFetchAgo(lastFetchAt, nowTick)}
                 hasFetched={hasFetched}
                 error={!!syncErr}
                 disabled={!isIdle}
@@ -1571,9 +1613,10 @@ function CloneIcon() {
 // ── Split Fetch | Pull button ─────────────────────────────────────────────────
 
 function FetchPullSplitBtn({
-  fetchLabel, pullLabel, behindCount, hasFetched, error, disabled, fetchDisabledReason, pullDisabledReason, onFetch, onPull,
+  fetchLabel, pullLabel, behindCount, aheadCount, lastFetchLabel, hasFetched, error, disabled, fetchDisabledReason, pullDisabledReason, onFetch, onPull,
 }: {
-  fetchLabel: string; pullLabel: string; behindCount: number
+  fetchLabel: string; pullLabel: string; behindCount: number; aheadCount: number
+  lastFetchLabel: string
   hasFetched: boolean; error: boolean; disabled: boolean
   fetchDisabledReason?: string | null; pullDisabledReason?: string | null
   onFetch: () => void; onPull: () => void
@@ -1650,19 +1693,46 @@ function FetchPullSplitBtn({
     </button>
   )
 
+  const showSyncBadge = hasFetched && (behindCount > 0 || aheadCount > 0)
+
   return (
-    <div style={{
-      display: 'flex', alignItems: 'stretch',
-      border: `1px solid ${borderColor}`,
-      borderRadius: 5, overflow: 'hidden', height: 28,
-      boxShadow: hasBehind ? '0 0 10px rgba(245,168,50,0.15)' : 'none',
-      animation: hasBehind ? 'glow-pulse 2.5s ease-in-out infinite' : 'none',
-    }}>
-      {fetchButton}
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+      <div
+        title={
+          showSyncBadge
+            ? `${behindCount} behind, ${aheadCount} ahead · ${lastFetchLabel}`
+            : lastFetchLabel
+        }
+        style={{
+          display: 'flex', alignItems: 'center', gap: 5,
+          fontFamily: 'var(--lg-font-mono)', fontSize: 8.5, lineHeight: 1,
+          color: 'var(--lg-text-secondary)',
+          opacity: hasFetched ? 0.85 : 0.55,
+          whiteSpace: 'nowrap', userSelect: 'none',
+        }}
+      >
+        {showSyncBadge && (
+          <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center', fontWeight: 600 }}>
+            {behindCount > 0 && <span style={{ color: '#f5a832' }}>↓{behindCount}</span>}
+            {aheadCount > 0  && <span style={{ color: '#2dbd6e' }}>↑{aheadCount}</span>}
+          </span>
+        )}
+        <span>{lastFetchLabel}</span>
+      </div>
 
-      <div style={{ width: 1, background: borderColor, flexShrink: 0 }} />
+      <div style={{
+        display: 'flex', alignItems: 'stretch',
+        border: `1px solid ${borderColor}`,
+        borderRadius: 5, overflow: 'hidden', height: 28,
+        boxShadow: hasBehind ? '0 0 10px rgba(245,168,50,0.15)' : 'none',
+        animation: hasBehind ? 'glow-pulse 2.5s ease-in-out infinite' : 'none',
+      }}>
+        {fetchButton}
 
-      {pullButton}
+        <div style={{ width: 1, background: borderColor, flexShrink: 0 }} />
+
+        {pullButton}
+      </div>
     </div>
   )
 }

@@ -24,6 +24,18 @@ class ForecastService {
   private timers    = new Map<string, ReturnType<typeof setInterval>>()
   private status    = new Map<string, ForecastStatus>()
   private conflicts = new Map<string, ForecastConflict[]>()
+  // Refcounted pause: callers (op start/finish) increment/decrement; while
+  // >0, scheduled polls become no-ops so we don't compete with user-driven
+  // pushes/pulls/merges/etc.
+  private pauseCount = 0
+
+  pause(): void { this.pauseCount += 1 }
+
+  resume(): void {
+    if (this.pauseCount > 0) this.pauseCount -= 1
+  }
+
+  isPaused(): boolean { return this.pauseCount > 0 }
 
   start(repoPath: string, intervalMinutes = 5): ForecastStatus {
     if (this.timers.has(repoPath)) this.stop(repoPath)
@@ -62,6 +74,7 @@ class ForecastService {
   }
 
   private async poll(repoPath: string): Promise<void> {
+    if (this.pauseCount > 0) return
     // 1. Fetch remote updates
     await execSafe(['fetch', '--all', '--quiet'], repoPath)
 

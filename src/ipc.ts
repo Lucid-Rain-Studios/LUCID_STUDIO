@@ -579,6 +579,13 @@ export interface LucidGitAPI {
   stashPop:       (repoPath: string, ref: string) => Promise<void>
   stashApply:     (repoPath: string, ref: string) => Promise<void>
   stashDrop:      (repoPath: string, ref: string) => Promise<void>
+  stashShowFiles: (repoPath: string, ref: string) => Promise<CommitFileChange[]>
+  stashFileDiff:  (repoPath: string, ref: string, filePath: string) => Promise<DiffContent>
+  commitAmend:    (repoPath: string, message: string, noVerify?: boolean) => Promise<void>
+  lastCommitMessage: (repoPath: string) => Promise<string | null>
+  isHeadPushed:   (repoPath: string) => Promise<boolean>
+  diffRaw:        (repoPath: string, filePath: string, staged: boolean) => Promise<string>
+  applyPatch:     (repoPath: string, patch: string, reverse?: boolean) => Promise<void>
   checkout: (repoPath: string, branch: string) => Promise<void>
   branchDiff: (repoPath: string, base: string, compare: string) => Promise<BranchDiffSummary>
   mergePreview: (repoPath: string, targetBranch: string) => Promise<ConflictPreviewFile[]>
@@ -717,6 +724,8 @@ export interface LucidGitAPI {
   forecastStart: (repoPath: string, intervalMinutes?: number) => Promise<ForecastStatus>
   forecastStop: (repoPath: string) => Promise<void>
   forecastStatus: (repoPath: string) => Promise<ForecastStatus | null>
+  forecastPause: () => Promise<void>
+  forecastResume: () => Promise<void>
   onForecastConflict: (cb: (conflicts: ForecastConflict[]) => void) => () => void
 
   // Dependency-Aware Blame — Phase 18

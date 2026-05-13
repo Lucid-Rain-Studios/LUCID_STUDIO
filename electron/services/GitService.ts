@@ -2,7 +2,7 @@ import { GitProcess } from 'dugite'
 import Database from 'better-sqlite3'
 import fs from 'fs'
 import path from 'path'
-import { exec, execSafe, execWithProgress, gitAuthArgs, ProgressCallback } from '../util/dugite-exec'
+import { exec, execSafe, execWithProgress, execWithStdin, gitAuthArgs, ProgressCallback } from '../util/dugite-exec'
 import { authService } from './AuthService'
 import { parseGitLog, GIT_LOG_FORMAT } from '../util/git-log-parse'
 import { FileStatus, BranchInfo, CommitEntry, DiffContent, StashEntry, ContributorInfo, ConflictPreviewFile, SyncStatus, LFSStatus, LfsLockCacheFile, LfsLocksMaintenanceResult, SizeBreakdown, CleanupResult, BranchActivity, BranchDiffSummary, BranchDiffFile, PotentialMergeConflictReport } from '../types'
@@ -235,6 +235,36 @@ class GitService {
     const args = ['commit', '-m', message]
     if (noVerify) args.push('--no-verify')
     await exec(args, repoPath)
+  }
+
+  /** Amend the last commit, keeping its parent. Pass noVerify=true to skip hooks. */
+  async commitAmend(repoPath: string, message: string, noVerify = false): Promise<void> {
+    const args = ['commit', '--amend', '-m', message]
+    if (noVerify) args.push('--no-verify')
+    await exec(args, repoPath)
+  }
+
+  /** Full subject + body of HEAD, or null if there is no HEAD yet. */
+  async lastCommitMessage(repoPath: string): Promise<string | null> {
+    const res = await execSafe(['log', '-1', '--pretty=%B'], repoPath)
+    if (res.exitCode !== 0) return null
+    return res.stdout.replace(/\n+$/, '')
+  }
+
+  /**
+   * True when HEAD is reachable from the upstream tracking branch — i.e.
+   * the local HEAD commit was already pushed and amending would rewrite
+   * shared history.
+   */
+  async isHeadPushed(repoPath: string): Promise<boolean> {
+    const upstreamRes = await execSafe(['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}'], repoPath)
+    if (upstreamRes.exitCode !== 0) return false
+    const upstream = upstreamRes.stdout.trim()
+    if (!upstream) return false
+    // ahead count: number of HEAD commits not in upstream. 0 means HEAD is pushed.
+    const aheadRes = await execSafe(['rev-list', '--count', `${upstream}..HEAD`], repoPath)
+    if (aheadRes.exitCode !== 0) return false
+    return aheadRes.stdout.trim() === '0'
   }
 
   /** Push current branch to its upstream. Streams progress. */
@@ -846,6 +876,47 @@ class GitService {
 
   async stashDrop(repoPath: string, ref: string): Promise<void> {
     await exec(['stash', 'drop', ref], repoPath)
+  }
+
+  /** List the files captured by a stash entry, with their change status. */
+  async stashShowFiles(
+    repoPath: string,
+    ref: string,
+  ): Promise<Array<{ status: string; path: string; oldPath?: string }>> {
+    const res = await execSafe(
+      ['stash', 'show', '--name-status', ref],
+      repoPath
+    )
+    if (res.exitCode !== 0 || !res.stdout.trim()) return []
+    return res.stdout.trim().split('\n')
+      .filter(Boolean)
+      .map(line => {
+        const parts = line.split('\t')
+        const status  = parts[0].trim().charAt(0)
+        const path    = parts[parts.length - 1].trim()
+        const oldPath = parts.length === 3 ? parts[1].trim() : undefined
+        return { status, path, oldPath }
+      })
+  }
+
+  /**
+   * Old/new content of a single file inside a stash, for the Monaco diff
+   * viewer. "old" is the parent commit's version; "new" is what the stash
+   * captured.
+   */
+  async stashFileDiff(repoPath: string, ref: string, filePath: string): Promise<DiffContent> {
+    const isBinary = BINARY_EXTS.has(path.extname(filePath).toLowerCase())
+    const language = langFromPath(filePath)
+    if (isBinary) return { oldContent: '', newContent: '', isBinary: true, language }
+
+    const parentRes = await execSafe(['show', `${ref}^:${filePath}`], repoPath)
+    const stashRes  = await execSafe(['show', `${ref}:${filePath}`],  repoPath)
+    return {
+      oldContent: parentRes.exitCode === 0 ? parentRes.stdout : '',
+      newContent: stashRes.exitCode === 0  ? stashRes.stdout  : '',
+      isBinary:   false,
+      language,
+    }
   }
 
   /** Switch to an existing branch. */
@@ -1589,6 +1660,40 @@ class GitService {
   async lfsMigrate(repoPath: string, patterns: string[], onProgress?: ProgressCallback): Promise<void> {
     const include = patterns.join(',')
     await execWithProgress(['lfs', 'migrate', 'import', `--include=${include}`, '--everything'], repoPath, onProgress)
+  }
+
+  /**
+   * Raw unified diff for a single file. Used by the hunk-staging UI to
+   * parse the patch on the renderer side. `staged` selects between the
+   * working tree (HEAD..worktree) and the index (HEAD..index).
+   */
+  async diffRaw(repoPath: string, filePath: string, staged: boolean): Promise<string> {
+    const args = ['diff', '--no-color', '-U3']
+    if (staged) args.push('--cached')
+    args.push('--', filePath)
+    const res = await execSafe(args, repoPath)
+    return res.exitCode === 0 ? res.stdout : ''
+  }
+
+  /**
+   * Apply a unified-diff patch to the index. `reverse=true` un-stages
+   * the hunks instead of staging them. Errors bubble up so the UI can
+   * surface conflicts (e.g. the working tree changed since the diff
+   * was generated).
+   */
+  async applyPatch(
+    repoPath: string,
+    patch: string,
+    options: { reverse?: boolean } = {},
+  ): Promise<void> {
+    const args = ['apply', '--cached', '--unidiff-zero', '--whitespace=nowarn']
+    if (options.reverse) args.push('--reverse')
+    args.push('-')
+    // Patches generated from `git diff -U3` use 3 lines of context. The
+    // --unidiff-zero flag tolerates partial hunks where the renderer-side
+    // selection removed some lines from a hunk; without it, git rejects
+    // patches whose context doesn't line up exactly.
+    await execWithStdin(args, repoPath, patch)
   }
 
   /** Return old/new content for the Monaco diff viewer. */

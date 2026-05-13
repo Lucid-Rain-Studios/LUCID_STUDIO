@@ -331,6 +331,34 @@ export function registerHandlers(): void {
     return gitService.stashDrop(repoPath, ref)
   })
 
+  handle(CHANNELS.GIT_STASH_SHOW_FILES, async (_event, repoPath: string, ref: string) => {
+    return gitService.stashShowFiles(repoPath, ref)
+  })
+
+  handle(CHANNELS.GIT_STASH_FILE_DIFF, async (_event, repoPath: string, ref: string, filePath: string) => {
+    return gitService.stashFileDiff(repoPath, ref, filePath)
+  })
+
+  handle(CHANNELS.GIT_COMMIT_AMEND, async (_event, repoPath: string, message: string, noVerify?: boolean) => {
+    return gitService.commitAmend(repoPath, message, noVerify)
+  })
+
+  handle(CHANNELS.GIT_LAST_COMMIT_MESSAGE, async (_event, repoPath: string) => {
+    return gitService.lastCommitMessage(repoPath)
+  })
+
+  handle(CHANNELS.GIT_IS_HEAD_PUSHED, async (_event, repoPath: string) => {
+    return gitService.isHeadPushed(repoPath)
+  })
+
+  handle(CHANNELS.GIT_DIFF_RAW, async (_event, repoPath: string, filePath: string, staged: boolean) => {
+    return gitService.diffRaw(repoPath, filePath, staged)
+  })
+
+  handle(CHANNELS.GIT_APPLY_PATCH, async (_event, repoPath: string, patch: string, reverse?: boolean) => {
+    return gitService.applyPatch(repoPath, patch, { reverse })
+  })
+
   // ── Auth — Phase 3 ────────────────────────────────────────────────────────
   handle(CHANNELS.AUTH_START_DEVICE_FLOW, async () => {
     return authService.startDeviceFlow()
@@ -808,6 +836,14 @@ export function registerHandlers(): void {
   handle(CHANNELS.FORECAST_STATUS, (_event, repoPath: string) =>
     forecastService.getStatus(repoPath)
   )
+
+  handle(CHANNELS.FORECAST_PAUSE, () => {
+    forecastService.pause()
+  })
+
+  handle(CHANNELS.FORECAST_RESUME, () => {
+    forecastService.resume()
+  })
 
   // ── Dependency-Aware Blame — Phase 18 ────────────────────────────────────
   handle(CHANNELS.DEP_BUILD_GRAPH, (event, repoPath: string) =>
