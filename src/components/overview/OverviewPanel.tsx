@@ -389,9 +389,12 @@ function ResolveDialog({
   const bumpHistoryTick = useRepoStore(s => s.bumpHistoryTick)
   const bumpPrTick      = useRepoStore(s => s.bumpPrTick)
   const bumpSyncTick    = useRepoStore(s => s.bumpSyncTick)
+  const currentBranch   = useRepoStore(s => s.currentBranch)
+  const refreshStatus   = useRepoStore(s => s.refreshStatus)
   const [choice, setChoice] = useState<'accept' | 'decline'>('accept')
   const showStatusToast = useStatusToastStore(s => s.show)
   const [conflicts, setConflicts] = useState<ConflictPreviewFile[]>([])
+  const [conflictChoices, setConflictChoices] = useState<Record<string, 'head' | 'base'>>({})
   const [conflictLoading, setConflictLoading] = useState(false)
   const [conflictError, setConflictError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -406,6 +409,14 @@ function ResolveDialog({
     ipc.mergePreview(repoPath, pr.headBranch)
       .then(files => {
         setConflicts(files)
+        setConflictChoices(prev => {
+          const active = new Set(files.map(file => file.path))
+          const next: Record<string, 'head' | 'base'> = {}
+          Object.entries(prev).forEach(([path, selected]) => {
+            if (active.has(path)) next[path] = selected
+          })
+          return next
+        })
       })
       .catch((e) => {
         setConflicts([])
@@ -427,23 +438,52 @@ function ResolveDialog({
       .finally(() => setBranchDiffLoading(false))
   }, [choice, repoPath, pr.baseBranch, pr.headBranch])
 
+  const allConflictChoicesMade = conflicts.length > 0 && conflicts.every(file => conflictChoices[file.path])
+
+  const resolveConflictedPRLocally = async (owner: string, repo: string) => {
+    const originalBranch = currentBranch
+
+    await opRun('Fetching latest PR refs...', () => ipc.fetch(repoPath))
+    markFetchPerformed(repoPath)
+    await opRun(`Switching to ${pr.headBranch}...`, () => ipc.checkout(repoPath, pr.headBranch))
+
+    try {
+      await opRun(`Updating ${pr.headBranch} from ${pr.baseBranch}...`, () => ipc.merge(repoPath, pr.baseBranch))
+    } catch (mergeError) {
+      const message = mergeError instanceof Error ? mergeError.message : String(mergeError)
+      const isConflict = /conflict|automatic merge failed|fix conflicts|cannot merge binary/i.test(message)
+      if (!isConflict) throw mergeError
+
+      for (const file of conflicts) {
+        const selected = conflictChoices[file.path]
+        if (!selected) continue
+        await opRun(
+          `Resolving ${file.path}...`,
+          () => ipc.mergeResolveText(repoPath, file.path, selected === 'head' ? 'ours' : 'theirs'),
+        )
+      }
+      await opRun(`Committing ${pr.baseBranch} update...`, () => ipc.mergeContinue(repoPath, pr.baseBranch))
+    }
+
+    await opRun(`Pushing ${pr.headBranch}...`, () => ipc.push(repoPath))
+    if (originalBranch && originalBranch !== pr.headBranch) {
+      await opRun(`Switching back to ${originalBranch}...`, () => ipc.checkout(repoPath, originalBranch))
+    }
+    await refreshStatus()
+    bumpSyncTick()
+    await opRun(`Merging PR #${pr.number}...`, () => ipc.githubMergePR({ owner, repo, prNumber: pr.number, repoPath }))
+  }
+
   const handleConfirm = async () => {
     const [owner, repo] = ghSlug.split('/')
     setBusy(true)
     try {
       if (choice === 'accept') {
-        // GitHub Desktop never auto-resolves PR conflicts behind the scenes —
-        // it requires the user to switch to the head branch, update from base,
-        // resolve conflicts locally, and push. The previous in-app auto-resolve
-        // flow silently checked out and pushed branches and was the source of
-        // "ended up on wrong branch" / "files merged incorrectly" reports.
         if (conflicts.length > 0) {
-          showStatusToast(
-            `PR #${pr.number} has conflicts. Switch to "${pr.headBranch}", run "Update from ${pr.baseBranch}", resolve conflicts, push, then merge again.`
-          )
-          return
+          await resolveConflictedPRLocally(owner, repo)
+        } else {
+          await opRun(`Merging PR #${pr.number}…`, () => ipc.githubMergePR({ owner, repo, prNumber: pr.number, repoPath }))
         }
-        await opRun(`Merging PR #${pr.number}…`, () => ipc.githubMergePR({ owner, repo, prNumber: pr.number, repoPath }))
         let fetchedMergedPrUpdates = false
         try {
           await opRun('Fetching merged PR updates...', () => ipc.fetch(repoPath))
@@ -602,7 +642,7 @@ function ResolveDialog({
             ) : (
               <>
                 <div style={{ padding: '10px 18px 4px', fontFamily: 'var(--lg-font-ui)', fontSize: 10.5, fontWeight: 700, color: '#f5a832', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                  {conflicts.length} conflict{conflicts.length !== 1 ? 's' : ''} — cannot merge from here
+                  {conflicts.length} conflict{conflicts.length !== 1 ? 's' : ''} - choose a side
                 </div>
                 <div style={{
                   margin: '6px 18px 12px',
@@ -610,13 +650,7 @@ function ResolveDialog({
                   borderRadius: 8, padding: '12px 14px',
                   fontFamily: 'var(--lg-font-ui)', fontSize: 12, color: '#c8d0e8', lineHeight: 1.55,
                 }}>
-                  To merge this PR, resolve the conflicts on the <strong style={{ color: '#4a9eff' }}>{pr.headBranch}</strong> branch first:
-                  <ol style={{ margin: '8px 0 0 18px', padding: 0, color: '#5a6880', fontSize: 11.5 }}>
-                    <li>Switch to <strong style={{ color: '#c8d0e8' }}>{pr.headBranch}</strong></li>
-                    <li>Run <strong style={{ color: '#c8d0e8' }}>Update from {pr.baseBranch}</strong></li>
-                    <li>Resolve the conflicts and push</li>
-                    <li>Return here and merge the PR</li>
-                  </ol>
+                  Pick <strong style={{ color: '#c8d0e8' }}>Mine</strong> to keep <strong style={{ color: '#4a9eff' }}>{pr.headBranch}</strong>, or <strong style={{ color: '#c8d0e8' }}>Theirs</strong> to keep <strong style={{ color: '#5a6880' }}>{pr.baseBranch}</strong>. Lucid Git will update the PR branch, push the resolution, then merge the PR.
                 </div>
                 {conflicts.map(f => (
                   <div
@@ -628,6 +662,29 @@ function ResolveDialog({
                   >
                     <span style={{ color: '#f5a832', fontSize: 11 }}>⚠</span>
                     <FilePathText path={f.path} style={{ flex: 1, fontFamily: 'var(--lg-font-mono)', fontSize: 11, color: '#c8d0e8' }} />
+                    {(['head', 'base'] as const).map(side => {
+                      const selected = conflictChoices[f.path] === side
+                      const color = side === 'head' ? '#2dbd6e' : '#4a9eff'
+                      return (
+                        <button
+                          key={side}
+                          onClick={() => setConflictChoices(prev => ({ ...prev, [f.path]: side }))}
+                          disabled={busy}
+                          style={{
+                            height: 24, padding: '0 9px', borderRadius: 5,
+                            border: `1px solid ${selected ? `${color}99` : '#1a2030'}`,
+                            background: selected ? `${color}1f` : 'rgba(255,255,255,0.02)',
+                            color: selected ? color : '#5a6880',
+                            fontFamily: 'var(--lg-font-ui)', fontSize: 11, fontWeight: 600,
+                            cursor: busy ? 'default' : 'pointer',
+                            flexShrink: 0,
+                          }}
+                          title={side === 'head' ? `Keep ${pr.headBranch}` : `Keep ${pr.baseBranch}`}
+                        >
+                          {side === 'head' ? 'Mine' : 'Theirs'}
+                        </button>
+                      )
+                    })}
                   </div>
                 ))}
               </>
@@ -665,13 +722,13 @@ function ResolveDialog({
             onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
           >Cancel</button>
           {(() => {
-            const blockedByConflicts = choice === 'accept' && conflicts.length > 0
-            const disabled = busy || blockedByConflicts
+            const waitingForConflictChoices = choice === 'accept' && conflicts.length > 0 && !allConflictChoicesMade
+            const disabled = busy || waitingForConflictChoices
             return (
               <button
                 onClick={handleConfirm}
                 disabled={disabled}
-                title={blockedByConflicts ? `Resolve conflicts on ${pr.headBranch} before merging.` : undefined}
+                title={waitingForConflictChoices ? 'Choose Mine or Theirs for every conflicted file.' : undefined}
                 style={{
                   height: 32, paddingLeft: 16, paddingRight: 16, borderRadius: 6,
                   background: choice === 'accept' ? 'rgba(45,189,110,0.15)' : 'rgba(232,69,69,0.15)',
@@ -682,7 +739,7 @@ function ResolveDialog({
                 }}
                 onMouseEnter={e => { if (!disabled) e.currentTarget.style.opacity = '0.8' }}
                 onMouseLeave={e => { if (!disabled) e.currentTarget.style.opacity = '1' }}
-              >{busy ? '…' : choice === 'accept' ? 'Merge PR' : 'Close PR'}</button>
+              >{busy ? '…' : choice === 'accept' ? (conflicts.length > 0 ? 'Resolve & Merge' : 'Merge PR') : 'Close PR'}</button>
             )
           })()}
         </div>
@@ -921,8 +978,9 @@ export function OverviewPanel({ repoPath, onNavigate, onRefresh }: OverviewPanel
         try {
           const prList = await ipc.githubListPRs({ owner, repo })
           if (mounted.current) { setPrs(prList); setPrsError(null) }
-        } catch (err: any) {
-          if (mounted.current) setPrsError(err?.message ?? 'Failed to load pull requests')
+        } catch (err: unknown) {
+          const message = err instanceof Error ? err.message : 'Failed to load pull requests'
+          if (mounted.current) setPrsError(message)
         }
       } else if (mounted.current) {
         setPrs([])
@@ -957,7 +1015,9 @@ export function OverviewPanel({ repoPath, onNavigate, onRefresh }: OverviewPanel
     try {
       const s = await ipc.cleanupSize(repoPath)
       if (mounted.current && requestId === sizeRequestId.current) setSize(s)
-    } catch { }
+    } catch {
+      // Size is best-effort; keep the previous value if cleanup stats fail.
+    }
     finally {
       if (mounted.current && requestId === sizeRequestId.current) setSizeLoading(false)
     }
