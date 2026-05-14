@@ -347,6 +347,10 @@ export function registerHandlers(): void {
     return gitService.lastCommitMessage(repoPath)
   })
 
+  handle(CHANNELS.GIT_COMMIT_MESSAGE, async (_event, repoPath: string, hash: string) => {
+    return gitService.commitMessage(repoPath, hash)
+  })
+
   handle(CHANNELS.GIT_IS_HEAD_PUSHED, async (_event, repoPath: string) => {
     return gitService.isHeadPushed(repoPath)
   })

@@ -251,6 +251,13 @@ class GitService {
     return res.stdout.replace(/\n+$/, '')
   }
 
+  /** Full subject + body of an arbitrary commit, or null if it can't be read. */
+  async commitMessage(repoPath: string, hash: string): Promise<string | null> {
+    const res = await execSafe(['log', '-1', '--pretty=%B', hash], repoPath)
+    if (res.exitCode !== 0) return null
+    return res.stdout.replace(/\n+$/, '')
+  }
+
   /**
    * True when HEAD is reachable from the upstream tracking branch — i.e.
    * the local HEAD commit was already pushed and amending would rewrite

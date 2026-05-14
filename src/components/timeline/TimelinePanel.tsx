@@ -1744,9 +1744,31 @@ function AssetPanel({ repoPath, filePath, hash }: { repoPath: string; filePath: 
 
 // ── Commit detail header ──────────────────────────────────────────────────────
 
-function CommitHeader({ commit }: { commit: CommitEntry }) {
+function CommitHeader({ commit, repoPath }: { commit: CommitEntry; repoPath: string }) {
   const col = authorColor(commit.author)
   const ini = initials(commit.author)
+
+  // The graph's CommitEntry only carries the subject line (%s). Fetch the
+  // full message (%B) on demand so we can also show the body/description.
+  const [fullMessage, setFullMessage] = useState<string | null>(null)
+  const [bodyOpen,    setBodyOpen]    = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    setFullMessage(null)
+    ipc.commitMessage(repoPath, commit.hash)
+      .then(msg => { if (!cancelled) setFullMessage(msg) })
+      .catch(() => { if (!cancelled) setFullMessage(null) })
+    return () => { cancelled = true }
+  }, [repoPath, commit.hash])
+
+  // Split the full message into subject (first line) and body (the rest,
+  // with the conventional blank separator line trimmed away).
+  const subject = (fullMessage ?? commit.message).split('\n')[0] || commit.message
+  const body = fullMessage
+    ? fullMessage.split('\n').slice(1).join('\n').replace(/^\n+/, '').replace(/\s+$/, '')
+    : ''
+
   return (
     <div style={{ padding: '12px 14px', borderBottom: '1px solid #252d42', background: '#131720', flexShrink: 0 }}>
       <div style={{ marginBottom: 6 }}>
@@ -1756,8 +1778,42 @@ function CommitHeader({ commit }: { commit: CommitEntry }) {
         }}>{commit.hash.slice(0, 7)}</span>
       </div>
       <p style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 13.5, fontWeight: 600, color: '#dde1f0', margin: '0 0 8px', lineHeight: 1.4 }}>
-        {commit.message}
+        {subject}
       </p>
+
+      {body && (
+        <div style={{ margin: '0 0 8px' }}>
+          <button
+            onClick={() => setBodyOpen(o => !o)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 5,
+              background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+              fontFamily: 'var(--lg-font-ui)', fontSize: 9.5, fontWeight: 700,
+              color: '#4e5870', letterSpacing: '0.09em', textTransform: 'uppercase',
+            }}
+          >
+            <svg
+              width="8" height="8" viewBox="0 0 8 8" fill="none"
+              style={{ transform: bodyOpen ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.12s' }}
+            >
+              <path d="M2.5 1L6 4L2.5 7" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            Description
+          </button>
+          {bodyOpen && (
+            <pre style={{
+              margin: '6px 0 0', padding: '8px 10px',
+              background: '#0d0f15', border: '1px solid #1e2436', borderRadius: 5,
+              fontFamily: 'var(--lg-font-mono)', fontSize: 11, lineHeight: 1.55,
+              color: '#a8b0c8', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere',
+              maxHeight: 220, overflowY: 'auto',
+            }}>
+              {body}
+            </pre>
+          )}
+        </div>
+      )}
+
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <span style={{
           width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
@@ -2500,7 +2556,7 @@ export function TimelinePanel({ repoPath }: { repoPath: string }) {
         ) : selectedCommit ? (
           /* Commit detail */
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            <CommitHeader commit={selectedCommit} />
+            <CommitHeader commit={selectedCommit} repoPath={repoPath} />
             <div style={{
               display: 'flex', alignItems: 'center', height: 30, paddingLeft: 12, paddingRight: 10,
               borderBottom: '1px solid #1e2436', background: '#0d0f15', flexShrink: 0,

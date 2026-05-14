@@ -95,6 +95,8 @@ const api = {
     ipcRenderer.invoke(CHANNELS.GIT_COMMIT_AMEND, repoPath, message, noVerify),
   lastCommitMessage: (repoPath: string) =>
     ipcRenderer.invoke(CHANNELS.GIT_LAST_COMMIT_MESSAGE, repoPath),
+  commitMessage: (repoPath: string, hash: string) =>
+    ipcRenderer.invoke(CHANNELS.GIT_COMMIT_MESSAGE, repoPath, hash),
   isHeadPushed: (repoPath: string) =>
     ipcRenderer.invoke(CHANNELS.GIT_IS_HEAD_PUSHED, repoPath),
   diffRaw: (repoPath: string, filePath: string, staged: boolean) =>

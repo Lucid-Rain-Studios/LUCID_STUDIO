@@ -583,6 +583,7 @@ export interface LucidGitAPI {
   stashFileDiff:  (repoPath: string, ref: string, filePath: string) => Promise<DiffContent>
   commitAmend:    (repoPath: string, message: string, noVerify?: boolean) => Promise<void>
   lastCommitMessage: (repoPath: string) => Promise<string | null>
+  commitMessage:  (repoPath: string, hash: string) => Promise<string | null>
   isHeadPushed:   (repoPath: string) => Promise<boolean>
   diffRaw:        (repoPath: string, filePath: string, staged: boolean) => Promise<string>
   applyPatch:     (repoPath: string, patch: string, reverse?: boolean) => Promise<void>

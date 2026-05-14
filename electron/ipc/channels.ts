@@ -49,6 +49,7 @@ export const CHANNELS = {
   GIT_STASH_FILE_DIFF:  'git:stash-file-diff',
   GIT_COMMIT_AMEND:     'git:commit-amend',
   GIT_LAST_COMMIT_MESSAGE: 'git:last-commit-message',
+  GIT_COMMIT_MESSAGE:      'git:commit-message',
   GIT_IS_HEAD_PUSHED:   'git:is-head-pushed',
   GIT_DIFF_RAW:         'git:diff-raw',
   GIT_APPLY_PATCH:      'git:apply-patch',
