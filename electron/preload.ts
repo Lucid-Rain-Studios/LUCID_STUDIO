@@ -40,6 +40,12 @@ const api = {
     ipcRenderer.invoke(CHANNELS.STUDIO_TIMER_START, day),
   studioTimerStop: (day: string) =>
     ipcRenderer.invoke(CHANNELS.STUDIO_TIMER_STOP, day),
+  studioFilesList: () =>
+    ipcRenderer.invoke(CHANNELS.STUDIO_FILES_LIST),
+  studioFileAdd: (filePath: string) =>
+    ipcRenderer.invoke(CHANNELS.STUDIO_FILE_ADD, filePath),
+  studioFileRemove: (id: string) =>
+    ipcRenderer.invoke(CHANNELS.STUDIO_FILE_REMOVE, id),
 
   fetchRepoPermission: (repoPath: string) =>
     ipcRenderer.invoke(CHANNELS.AUTH_FETCH_REPO_PERMISSION, repoPath),

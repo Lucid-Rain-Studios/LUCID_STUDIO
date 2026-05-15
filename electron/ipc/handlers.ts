@@ -171,6 +171,15 @@ export function registerHandlers(): void {
   handle(CHANNELS.STUDIO_TIMER_STOP, async (_event, day: string) =>
     studioService.stopTimer(day)
   )
+  handle(CHANNELS.STUDIO_FILES_LIST, async () =>
+    studioService.listFiles()
+  )
+  handle(CHANNELS.STUDIO_FILE_ADD, async (_event, filePath: string) =>
+    studioService.addFile(filePath)
+  )
+  handle(CHANNELS.STUDIO_FILE_REMOVE, async (_event, id: string) => {
+    studioService.removeFile(id)
+  })
 
   handle(CHANNELS.DIALOG_OPEN_DIRECTORY, async (event) => {
     const win = BrowserWindow.fromWebContents(event.sender)

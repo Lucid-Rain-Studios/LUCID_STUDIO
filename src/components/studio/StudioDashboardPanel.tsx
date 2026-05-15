@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { ActionBtn } from '@/components/ui/ActionBtn'
-import { ipc, StudioTimeEntry, StudioTodo } from '@/ipc'
+import { ipc, StudioFileRef, StudioTimeEntry, StudioTodo } from '@/ipc'
 
 function todayKey(): string {
   return new Date().toISOString().slice(0, 10)
@@ -13,6 +13,18 @@ function formatDuration(ms: number): string {
   const s = total % 60
   if (h > 0) return `${h}h ${String(m).padStart(2, '0')}m`
   return `${m}m ${String(s).padStart(2, '0')}s`
+}
+
+function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 B'
+  const units = ['B', 'KB', 'MB', 'GB', 'TB']
+  let value = bytes
+  let unit = 0
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024
+    unit += 1
+  }
+  return `${value >= 10 || unit === 0 ? value.toFixed(0) : value.toFixed(1)} ${units[unit]}`
 }
 
 function greeting(): string {
@@ -28,6 +40,22 @@ interface StudioDashboardPanelProps {
   onNavigate: (tab: string) => void
 }
 
+interface DashboardSummary {
+  workspaceName: string
+  openTasks: number
+  completedTasks: number
+  indexedFiles: number
+  trackedTodayMs: number
+}
+
+const emptySummary: DashboardSummary = {
+  workspaceName: 'Local Studio',
+  openTasks: 0,
+  completedTasks: 0,
+  indexedFiles: 0,
+  trackedTodayMs: 0,
+}
+
 export function StudioDashboardPanel({ onOpenWorkspace, onCloneWorkspace, onNavigate }: StudioDashboardPanelProps) {
   const day = todayKey()
   const [todos, setTodos] = useState<StudioTodo[]>([])
@@ -35,6 +63,8 @@ export function StudioDashboardPanel({ onOpenWorkspace, onCloneWorkspace, onNavi
   const [dailyNote, setDailyNote] = useState('')
   const [timerStart, setTimerStart] = useState<number | null>(null)
   const [timeEntries, setTimeEntries] = useState<StudioTimeEntry[]>([])
+  const [recentFiles, setRecentFiles] = useState<StudioFileRef[]>([])
+  const [summary, setSummary] = useState<DashboardSummary>(emptySummary)
   const [now, setNow] = useState(Date.now())
   const [loading, setLoading] = useState(true)
 
@@ -47,6 +77,8 @@ export function StudioDashboardPanel({ onOpenWorkspace, onCloneWorkspace, onNavi
         setDailyNote(data.note)
         setTimeEntries(data.timeEntries)
         setTimerStart(data.activeTimerStartedAt)
+        setRecentFiles(data.recentFiles)
+        setSummary(data.summary)
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -72,6 +104,12 @@ export function StudioDashboardPanel({ onOpenWorkspace, onCloneWorkspace, onNavi
   const elapsed = timerStart ? now - timerStart : 0
   const timeLog = timeEntries.reduce((sum, entry) => sum + entry.durationMs, 0)
   const totalToday = timeLog + elapsed
+  const workspaceSummary = {
+    ...summary,
+    openTasks: openTodos.length,
+    completedTasks: doneTodos.length,
+    trackedTodayMs: totalToday,
+  }
 
   const focusLabel = useMemo(() => {
     if (openTodos.length === 0) return 'Clear'
@@ -134,7 +172,7 @@ export function StudioDashboardPanel({ onOpenWorkspace, onCloneWorkspace, onNavi
           <Metric label="Tasks" value={focusLabel} detail={`${doneTodos.length} completed`} />
           <Metric label="Tracked Today" value={formatDuration(totalToday)} detail={timerStart ? 'Timer running' : 'Timer stopped'} />
           <Metric label="Daily Note" value={dailyNote.trim() ? 'Started' : 'Empty'} detail={`${dailyNote.length} characters`} />
-          <Metric label="Storage" value="Local" detail="No account required" />
+          <Metric label="Files" value={`${workspaceSummary.indexedFiles}`} detail="indexed locally" />
         </section>
 
         <section style={{ display: 'grid', gridTemplateColumns: 'minmax(320px, 0.95fr) minmax(380px, 1.25fr)', gap: 14 }}>
@@ -212,6 +250,34 @@ export function StudioDashboardPanel({ onOpenWorkspace, onCloneWorkspace, onNavi
             </div>
           </Panel>
         </section>
+
+        <section style={{ display: 'grid', gridTemplateColumns: 'minmax(320px, 0.95fr) minmax(380px, 1.25fr)', gap: 14, marginTop: 14 }}>
+          <Panel title="Active Workspace">
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 }}>
+              <SummaryItem label="Workspace" value={workspaceSummary.workspaceName} />
+              <SummaryItem label="Mode" value="Local first" />
+              <SummaryItem label="Open Tasks" value={`${workspaceSummary.openTasks}`} />
+              <SummaryItem label="Completed" value={`${workspaceSummary.completedTasks}`} />
+              <SummaryItem label="Indexed Files" value={`${workspaceSummary.indexedFiles}`} />
+              <SummaryItem label="Tracked Today" value={formatDuration(workspaceSummary.trackedTodayMs)} />
+            </div>
+          </Panel>
+
+          <Panel title="Recent Files">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minHeight: 154 }}>
+              {recentFiles.length === 0 ? (
+                <EmptyState title="No files indexed" detail="Add files from the Files module to keep local references handy." />
+              ) : (
+                recentFiles.map(file => (
+                  <FileRow key={file.id} file={file} />
+                ))
+              )}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
+                <ActionBtn onClick={() => onNavigate('content')}>Files</ActionBtn>
+              </div>
+            </div>
+          </Panel>
+        </section>
       </div>
     </div>
   )
@@ -277,6 +343,49 @@ function TodoRow({ todo, onToggle, onRemove }: { todo: StudioTodo; onToggle: () 
   )
 }
 
+function SummaryItem({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={{
+      minHeight: 54,
+      border: '1px solid var(--lg-border)',
+      borderRadius: 6,
+      background: '#0d1018',
+      padding: '9px 10px',
+      overflow: 'hidden',
+    }}>
+      <div style={{ color: 'var(--lg-text-secondary)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>{label}</div>
+      <div style={{ color: 'var(--lg-text-primary)', fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{value}</div>
+    </div>
+  )
+}
+
+function FileRow({ file }: { file: StudioFileRef }) {
+  return (
+    <div style={{
+      minHeight: 42,
+      display: 'grid',
+      gridTemplateColumns: '1fr auto auto',
+      alignItems: 'center',
+      gap: 8,
+      border: '1px solid var(--lg-border)',
+      borderRadius: 6,
+      background: '#0d1018',
+      padding: '7px 8px',
+    }}>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ color: 'var(--lg-text-primary)', fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {file.name}
+        </div>
+        <div style={{ marginTop: 3, color: 'var(--lg-text-secondary)', fontSize: 11, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {file.extension.toUpperCase()} - {formatBytes(file.sizeBytes)}
+        </div>
+      </div>
+      <button onClick={() => { void ipc.openPath(file.path) }} style={smallButtonStyle}>Open</button>
+      <button onClick={() => { void ipc.showInFolder(file.path) }} style={smallButtonStyle}>Reveal</button>
+    </div>
+  )
+}
+
 function EmptyState({ title, detail }: { title: string; detail: string }) {
   return (
     <div style={{ border: '1px dashed var(--lg-border)', borderRadius: 7, padding: 18, color: 'var(--lg-text-secondary)' }}>
@@ -318,4 +427,15 @@ const inputStyle: React.CSSProperties = {
   color: 'var(--lg-text-primary)',
   padding: '0 10px',
   outline: 'none',
+}
+
+const smallButtonStyle: React.CSSProperties = {
+  height: 26,
+  borderRadius: 5,
+  border: '1px solid var(--lg-border)',
+  background: 'transparent',
+  color: 'var(--lg-text-secondary)',
+  cursor: 'pointer',
+  padding: '0 9px',
+  fontSize: 12,
 }

@@ -137,6 +137,9 @@ export const CHANNELS = {
   STUDIO_NOTE_SAVE:     'studio:note-save',
   STUDIO_TIMER_START:   'studio:timer-start',
   STUDIO_TIMER_STOP:    'studio:timer-stop',
+  STUDIO_FILES_LIST:    'studio:files-list',
+  STUDIO_FILE_ADD:      'studio:file-add',
+  STUDIO_FILE_REMOVE:   'studio:file-remove',
 
   // Team config
   TEAM_CONFIG_LOAD: 'team-config:load',

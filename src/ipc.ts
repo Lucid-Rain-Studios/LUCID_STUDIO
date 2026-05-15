@@ -407,12 +407,31 @@ export interface StudioTimeEntry {
   updatedAt: number
 }
 
+export interface StudioFileRef {
+  id: string
+  path: string
+  name: string
+  extension: string
+  sizeBytes: number
+  mimeHint: string
+  addedAt: number
+  updatedAt: number
+}
+
 export interface StudioDashboardData {
   day: string
   todos: StudioTodo[]
   note: string
   timeEntries: StudioTimeEntry[]
   activeTimerStartedAt: number | null
+  recentFiles: StudioFileRef[]
+  summary: {
+    workspaceName: string
+    openTasks: number
+    completedTasks: number
+    indexedFiles: number
+    trackedTodayMs: number
+  }
 }
 
 // ── Lock Heatmap & Conflict Forecasting (Phase 19) ───────────────────────────
@@ -579,6 +598,9 @@ export interface LucidGitAPI {
   studioNoteSave: (day: string, content: string) => Promise<void>
   studioTimerStart: (day: string) => Promise<StudioTimeEntry>
   studioTimerStop: (day: string) => Promise<StudioTimeEntry | null>
+  studioFilesList: () => Promise<StudioFileRef[]>
+  studioFileAdd: (filePath: string) => Promise<StudioFileRef>
+  studioFileRemove: (id: string) => Promise<void>
 
   // Permissions — Phase 20
   fetchRepoPermission: (repoPath: string) => Promise<RepoPermission>

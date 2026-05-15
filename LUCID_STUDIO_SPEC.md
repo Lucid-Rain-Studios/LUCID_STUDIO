@@ -253,7 +253,7 @@ The free product should feel complete for personal local use. Paid plans should 
 - [x] Add created/updated/deleted timestamps
 - [x] Add local project/workspace model
 - [x] Add sync-ready change tracking structure
-- [ ] Add local file reference/indexing model
+- [x] Add local file reference/indexing model
 
 ### Phase 3: Daily Dashboard MVP
 
@@ -262,8 +262,8 @@ The free product should feel complete for personal local use. Paid plans should 
 - [x] Add quick capture
 - [x] Add daily note area
 - [x] Add basic time tracker
-- [ ] Add active project summary
-- [ ] Add recent files/projects
+- [x] Add active project summary
+- [x] Add recent files/projects
 - [x] Persist dashboard data locally
 
 ### Phase 4: Notes And Obsidian-Friendly Workflows

@@ -62,6 +62,22 @@ export function runMigrations(db: InstanceType<typeof Database>): void {
     );
     CREATE INDEX IF NOT EXISTS idx_studio_time_entries_day ON studio_time_entries (workspace_id, day, started_at);
 
+    CREATE TABLE IF NOT EXISTS studio_files (
+      id            TEXT PRIMARY KEY,
+      workspace_id  TEXT    NOT NULL DEFAULT 'local',
+      path          TEXT    NOT NULL,
+      name          TEXT    NOT NULL,
+      extension     TEXT    NOT NULL DEFAULT '',
+      size_bytes    INTEGER NOT NULL DEFAULT 0,
+      mime_hint     TEXT    NOT NULL DEFAULT '',
+      added_at      INTEGER NOT NULL,
+      updated_at    INTEGER NOT NULL,
+      deleted_at    INTEGER,
+      UNIQUE(workspace_id, path)
+    );
+    CREATE INDEX IF NOT EXISTS idx_studio_files_workspace ON studio_files (workspace_id, updated_at);
+    CREATE INDEX IF NOT EXISTS idx_studio_files_name ON studio_files (workspace_id, name);
+
     CREATE TABLE IF NOT EXISTS studio_sync_changes (
       id            INTEGER PRIMARY KEY AUTOINCREMENT,
       entity_type   TEXT    NOT NULL,

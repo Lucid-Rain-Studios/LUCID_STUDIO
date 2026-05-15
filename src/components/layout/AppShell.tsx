@@ -51,6 +51,7 @@ import { PanelErrorBoundary } from '@/components/ui/PanelErrorBoundary'
 import { BugLogsPanel } from '@/components/logs/BugLogsPanel'
 import { GlobalLoadingCursor } from '@/components/ui/GlobalLoadingCursor'
 import { StudioDashboardPanel, StudioModulePanel } from '@/components/studio/StudioDashboardPanel'
+import { StudioFilesPanel } from '@/components/studio/StudioFilesPanel'
 
 type TabId = 'timeline' | 'branches' | 'lfs' | 'cleanup' | 'unreal' | 'hooks' | 'settings' | 'tools' | 'presence' | 'overview' | 'map' | 'content' | 'heatmap' | 'forecast' | 'dashboard' | 'locks' | 'logs'
 
@@ -419,6 +420,7 @@ export function AppShell() {
         />
       )
     }
+    if (leftTab === 'content') return <StudioFilesPanel />
 
     const panels: Partial<Record<TabId, { title: string; eyebrow: string; description: string }>> = {
       timeline: {
@@ -445,11 +447,6 @@ export function AppShell() {
         title: 'Time',
         eyebrow: 'Local module',
         description: 'Time tracking starts locally with sessions and daily summaries, then expands to team reporting and billable project views.',
-      },
-      content: {
-        title: 'Files',
-        eyebrow: 'Local-first storage',
-        description: 'Local file references, imports, metadata, recent assets, and selected cloud backup will be organized here.',
       },
       map: {
         title: 'Workspace Map',
@@ -641,9 +638,9 @@ export function AppShell() {
               <ToolsPanel repoPath={repoPath} onRefresh={handleRefresh} onCherryPickConflict={() => setCherryPickConflict(true)} />
             </PanelErrorBoundary>
           ) : leftTab === 'content' ? (
-            /* ── Content Browser — full width ── */
+            /* Studio Files */
             <PanelErrorBoundary tabId={leftTab} onGoHome={() => setLeftTab('dashboard')}>
-              <ContentBrowserPanel repoPath={repoPath} onNavigate={tab => setLeftTab(tab as TabId)} />
+              <StudioFilesPanel />
             </PanelErrorBoundary>
           ) : leftTab === 'map' ? (
             /* ── File Map — full width ── */

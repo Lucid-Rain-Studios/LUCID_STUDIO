@@ -1,4 +1,6 @@
 import { getDb } from '../db/database'
+import fs from 'fs'
+import path from 'path'
 
 export interface StudioTodo {
   id: string
@@ -18,12 +20,31 @@ export interface StudioTimeEntry {
   updatedAt: number
 }
 
+export interface StudioFileRef {
+  id: string
+  path: string
+  name: string
+  extension: string
+  sizeBytes: number
+  mimeHint: string
+  addedAt: number
+  updatedAt: number
+}
+
 export interface StudioDashboardData {
   day: string
   todos: StudioTodo[]
   note: string
   timeEntries: StudioTimeEntry[]
   activeTimerStartedAt: number | null
+  recentFiles: StudioFileRef[]
+  summary: {
+    workspaceName: string
+    openTasks: number
+    completedTasks: number
+    indexedFiles: number
+    trackedTodayMs: number
+  }
 }
 
 type TodoRow = {
@@ -44,6 +65,17 @@ type TimeEntryRow = {
   updated_at: number
 }
 
+type FileRow = {
+  id: string
+  path: string
+  name: string
+  extension: string
+  size_bytes: number
+  mime_hint: string
+  added_at: number
+  updated_at: number
+}
+
 const WORKSPACE_ID = 'local'
 
 function makeId(prefix: string): string {
@@ -55,6 +87,29 @@ function writeChange(entityType: string, entityId: string, operation: string, pa
     INSERT INTO studio_sync_changes (entity_type, entity_id, operation, changed_at, payload)
     VALUES (?, ?, ?, ?, ?)
   `).run(entityType, entityId, operation, Date.now(), JSON.stringify(payload))
+}
+
+function fileMimeHint(extension: string): string {
+  const ext = extension.toLowerCase()
+  if (['md', 'markdown', 'txt'].includes(ext)) return 'text'
+  if (['csv', 'tsv', 'xlsx', 'xls'].includes(ext)) return 'spreadsheet'
+  if (['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg'].includes(ext)) return 'image'
+  if (['pdf'].includes(ext)) return 'document'
+  if (['doc', 'docx'].includes(ext)) return 'document'
+  return ext || 'file'
+}
+
+function mapFile(row: FileRow): StudioFileRef {
+  return {
+    id: row.id,
+    path: row.path,
+    name: row.name,
+    extension: row.extension,
+    sizeBytes: row.size_bytes,
+    mimeHint: row.mime_hint,
+    addedAt: row.added_at,
+    updatedAt: row.updated_at,
+  }
 }
 
 export class StudioService {
@@ -79,6 +134,23 @@ export class StudioService {
       WHERE workspace_id = ? AND day = ? AND deleted_at IS NULL
       ORDER BY started_at ASC
     `).all(WORKSPACE_ID, day) as TimeEntryRow[]
+    const recentFiles = db.prepare(`
+      SELECT id, path, name, extension, size_bytes, mime_hint, added_at, updated_at
+      FROM studio_files
+      WHERE workspace_id = ? AND deleted_at IS NULL
+      ORDER BY updated_at DESC, name ASC
+      LIMIT 5
+    `).all(WORKSPACE_ID) as FileRow[]
+
+    const indexedFileCount = db.prepare(`
+      SELECT COUNT(*) AS count
+      FROM studio_files
+      WHERE workspace_id = ? AND deleted_at IS NULL
+    `).get(WORKSPACE_ID) as { count: number }
+
+    const openTasks = todos.filter(row => row.done !== 1).length
+    const completedTasks = todos.length - openTasks
+    const trackedTodayMs = timeEntries.reduce((sum, row) => sum + row.duration_ms, 0)
 
     return {
       day,
@@ -100,6 +172,14 @@ export class StudioService {
         updatedAt: row.updated_at,
       })),
       activeTimerStartedAt: timeEntries.find(row => row.stopped_at === null)?.started_at ?? null,
+      recentFiles: recentFiles.map(mapFile),
+      summary: {
+        workspaceName: 'Local Studio',
+        openTasks,
+        completedTasks,
+        indexedFiles: indexedFileCount.count,
+        trackedTodayMs,
+      },
     }
   }
 
@@ -212,6 +292,66 @@ export class StudioService {
     const entry = { ...active, stoppedAt: now, durationMs, updatedAt: now }
     writeChange('studio_time_entry', active.id, 'update', entry)
     return entry
+  }
+
+  listFiles(): StudioFileRef[] {
+    const rows = getDb().prepare(`
+      SELECT id, path, name, extension, size_bytes, mime_hint, added_at, updated_at
+      FROM studio_files
+      WHERE workspace_id = ? AND deleted_at IS NULL
+      ORDER BY updated_at DESC, name ASC
+    `).all(WORKSPACE_ID) as FileRow[]
+    return rows.map(mapFile)
+  }
+
+  addFile(filePath: string): StudioFileRef {
+    const stat = fs.statSync(filePath)
+    if (!stat.isFile()) throw new Error(`Not a file: ${filePath}`)
+
+    const now = Date.now()
+    const name = path.basename(filePath)
+    const extension = path.extname(filePath).replace(/^\./, '').toLowerCase()
+    const existing = getDb().prepare(`
+      SELECT id, path, name, extension, size_bytes, mime_hint, added_at, updated_at
+      FROM studio_files
+      WHERE workspace_id = ? AND path = ?
+    `).get(WORKSPACE_ID, filePath) as FileRow | undefined
+
+    const id = existing?.id ?? makeId('file')
+    getDb().prepare(`
+      INSERT INTO studio_files (id, workspace_id, path, name, extension, size_bytes, mime_hint, added_at, updated_at, deleted_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
+      ON CONFLICT(workspace_id, path) DO UPDATE SET
+        name = excluded.name,
+        extension = excluded.extension,
+        size_bytes = excluded.size_bytes,
+        mime_hint = excluded.mime_hint,
+        updated_at = excluded.updated_at,
+        deleted_at = NULL
+    `).run(id, WORKSPACE_ID, filePath, name, extension, stat.size, fileMimeHint(extension), existing?.added_at ?? now, now)
+
+    const file = {
+      id,
+      path: filePath,
+      name,
+      extension,
+      sizeBytes: stat.size,
+      mimeHint: fileMimeHint(extension),
+      addedAt: existing?.added_at ?? now,
+      updatedAt: now,
+    }
+    writeChange('studio_file', id, existing ? 'update' : 'create', file)
+    return file
+  }
+
+  removeFile(id: string): void {
+    const now = Date.now()
+    getDb().prepare(`
+      UPDATE studio_files
+      SET deleted_at = ?, updated_at = ?
+      WHERE workspace_id = ? AND id = ?
+    `).run(now, now, WORKSPACE_ID, id)
+    writeChange('studio_file', id, 'delete', { id, deletedAt: now })
   }
 }
 
