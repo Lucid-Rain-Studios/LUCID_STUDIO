@@ -1,5 +1,5 @@
-appId: com.lucidrainstudios.lucidgit
-productName: Lucid Git
+appId: com.lucidrainstudios.lucidstudio
+productName: LUCID STUDIO
 copyright: Copyright © 2026 Lucid Rain Studios
 
 directories:
@@ -37,7 +37,7 @@ win:
       arch: [x64]
   requestedExecutionLevel: asInvoker   # install to AppData, no UAC prompt
   # Keep executable editing disabled on Windows hosts without symlink privileges;
-  # the NSIS script below sets Lucid Git's desktop shortcut icon explicitly.
+  # the NSIS script below sets LUCID STUDIO's desktop shortcut icon explicitly.
   signAndEditExecutable: false
 
 nsis:
@@ -47,7 +47,7 @@ nsis:
   allowElevation: false
   createDesktopShortcut: true
   createStartMenuShortcut: true
-  shortcutName: Lucid Git
+  shortcutName: LUCID STUDIO
   # Windows code-signing — configure secrets in GitHub when ready:
   # signingHashAlgorithms: [sha256]
   # certificateFile: ${CSC_LINK}
@@ -61,7 +61,7 @@ mac:
   icon: assets/icon.icns
   hardenedRuntime: true            # required for notarization
   gatekeeperAssess: false
-  category: public.app-category.developer-tools
+  category: public.app-category.productivity
   # macOS notarization — configure secrets in GitHub when ready:
   # afterSign: scripts/notarize.js
   entitlementsInherit: assets/entitlements.mac.plist
@@ -82,14 +82,14 @@ dmg:
 linux:
   target: AppImage
   icon: assets/icon.png
-  category: Development
-  synopsis: Git client for game development teams
-  description: Lucid Git — LFS, file locking, merge conflict resolution, and Discord notifications purpose-built for Unreal Engine 5 teams.
+  category: Productivity
+  synopsis: Local-first creative and work studio
+  description: LUCID STUDIO is a local-first desktop workspace for dashboards, notes, tasks, time tracking, files, and creative tools.
 
 # ── Auto-update via GitHub Releases ──────────────────────────────────────────
 publish:
   provider: github
   owner: Lucid-Rain-Studios
-  repo: LUCID_GIT
+  repo: LUCID_STUDIO
   releaseType: release
   publishAutoUpdate: true

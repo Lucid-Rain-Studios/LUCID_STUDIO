@@ -128,7 +128,7 @@ export function StatusBar() {
             </span>
           ) : (
             <span style={{ fontFamily: 'var(--lg-font-mono)', fontSize: 10.5, color: '#283047' }}>
-              {repoPath ? 'No branch' : 'No repository'}
+              {repoPath ? 'No branch' : 'No workspace'}
             </span>
           )}
         </div>

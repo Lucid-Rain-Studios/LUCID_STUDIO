@@ -389,6 +389,32 @@ export interface PresenceFile {
   entries: Record<string, PresenceEntry>
 }
 
+export interface StudioTodo {
+  id: string
+  title: string
+  done: boolean
+  createdAt: number
+  updatedAt: number
+}
+
+export interface StudioTimeEntry {
+  id: string
+  day: string
+  startedAt: number
+  stoppedAt: number | null
+  durationMs: number
+  createdAt: number
+  updatedAt: number
+}
+
+export interface StudioDashboardData {
+  day: string
+  todos: StudioTodo[]
+  note: string
+  timeEntries: StudioTimeEntry[]
+  activeTimerStartedAt: number | null
+}
+
 // ── Lock Heatmap & Conflict Forecasting (Phase 19) ───────────────────────────
 
 export interface HeatmapNode {
@@ -544,6 +570,15 @@ export interface LucidGitAPI {
   listAccounts: () => Promise<{ accounts: Account[]; currentAccountId: string | null }>
   logout: (userId: string) => Promise<void>
   setCurrentAccount: (userId: string) => Promise<void>
+
+  // Studio local data
+  studioDashboardGet: (day: string) => Promise<StudioDashboardData>
+  studioTodoAdd: (title: string) => Promise<StudioTodo>
+  studioTodoUpdate: (id: string, patch: { title?: string; done?: boolean }) => Promise<StudioTodo>
+  studioTodoDelete: (id: string) => Promise<void>
+  studioNoteSave: (day: string, content: string) => Promise<void>
+  studioTimerStart: (day: string) => Promise<StudioTimeEntry>
+  studioTimerStop: (day: string) => Promise<StudioTimeEntry | null>
 
   // Permissions — Phase 20
   fetchRepoPermission: (repoPath: string) => Promise<RepoPermission>

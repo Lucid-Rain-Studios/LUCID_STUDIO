@@ -7,7 +7,7 @@ let _db: InstanceType<typeof Database> | null = null
 
 export function getDb(): InstanceType<typeof Database> {
   if (_db) return _db
-  const dbPath = path.join(app.getPath('userData'), 'lucidgit.db')
+  const dbPath = path.join(app.getPath('userData'), 'lucid-studio.db')
   _db = new Database(dbPath)
   _db.pragma('journal_mode = WAL')
   _db.pragma('foreign_keys = ON')

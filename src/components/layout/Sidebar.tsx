@@ -33,20 +33,20 @@ const NAV_GROUPS: NavGroup[] = [
     key: 'workspace', label: 'Workspace',
     items: [
       { id: 'dashboard', label: 'Dashboard', Icon: DashboardIcon },
-      { id: 'timeline',  label: 'Timeline',  Icon: TimelineIcon },
-      { id: 'branches',  label: 'Branches',  Icon: BranchNavIcon },
+      { id: 'timeline',  label: 'Notes',     Icon: TimelineIcon },
+      { id: 'branches',  label: 'Tasks',     Icon: BranchNavIcon },
     ],
   },
   {
     key: 'tools', label: 'Tools',
     items: [
-      { id: 'tools',    label: 'Tools',            Icon: ToolsIcon },
+      { id: 'tools',    label: 'Marketing',        Icon: ToolsIcon },
       { id: 'presence', label: 'Team',             Icon: PresenceIcon },
-      { id: 'locks',    label: 'Locked Files',     Icon: LocksIcon },
-      { id: 'content',  label: 'Content Browser',  Icon: ContentBrowserIcon },
-      { id: 'map',      label: 'File Map',         Icon: MapIcon },
-      { id: 'heatmap',  label: 'Heatmap',          Icon: HeatmapIcon },
-      { id: 'forecast', label: 'Forecast',         Icon: ForecastIcon },
+      { id: 'locks',    label: 'Time',             Icon: LocksIcon },
+      { id: 'content',  label: 'Files',            Icon: ContentBrowserIcon },
+      { id: 'map',      label: 'Workspace Map',    Icon: MapIcon },
+      { id: 'heatmap',  label: 'Analytics',        Icon: HeatmapIcon },
+      { id: 'forecast', label: 'Planning',         Icon: ForecastIcon },
       { id: 'logs',     label: 'Bug Logs',         Icon: LogsIcon },
     ],
   },
@@ -54,16 +54,16 @@ const NAV_GROUPS: NavGroup[] = [
     key: 'admin', label: 'Admin', adminOnly: true,
     items: [
       { id: 'overview', label: 'Overview', Icon: OverviewIcon },
-      { id: 'lfs',      label: 'LFS',      Icon: LFSIcon },
+      { id: 'lfs',      label: 'Storage',  Icon: LFSIcon },
       { id: 'cleanup',  label: 'Cleanup',  Icon: CleanupIcon },
-      { id: 'unreal',   label: 'Unreal',   Icon: UnrealIcon },
-      { id: 'hooks',    label: 'Hooks',    Icon: HooksIcon },
+      { id: 'unreal',   label: 'Studio',   Icon: UnrealIcon },
+      { id: 'hooks',    label: 'Automate', Icon: HooksIcon },
     ],
   },
 ]
 
-const COLLAPSED_KEY   = 'lucid-git:sidebar-groups'
-const VISIBILITY_KEY  = 'lucid-git:sidebar-visibility'
+const COLLAPSED_KEY   = 'lucid-studio:sidebar-groups'
+const VISIBILITY_KEY  = 'lucid-studio:sidebar-visibility'
 
 const VISIBILITY_DEFAULTS: Record<string, string[]> = {
   workspace: ['dashboard', 'timeline', 'branches'],
@@ -283,7 +283,7 @@ export function Sidebar({ active, onChange, collapsed, onToggle, width, onWidthC
         <nav style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', paddingTop: 4, paddingBottom: 4 }}>
           {!repoPath && !collapsed && (
             <div style={{ padding: '16px 14px 8px', fontFamily: 'var(--lg-font-ui)', fontSize: 11, color: 'var(--lg-text-secondary)', opacity: 0.4, textAlign: 'center' }}>
-              No repository open
+              No workspace open
             </div>
           )}
 
@@ -381,8 +381,8 @@ export function Sidebar({ active, onChange, collapsed, onToggle, width, onWidthC
                       showBadge={item.id === 'timeline' || item.id === 'locks' || item.id === 'overview'}
                       timelineAhead={item.id === 'timeline' ? syncCounts.ahead : 0}
                       timelineBehind={item.id === 'timeline' ? syncCounts.behind : 0}
-                      disabled={item.id !== 'settings' && item.id !== 'logs' && !repoPath}
-                      onClick={() => { if (repoPath || item.id === 'settings' || item.id === 'logs') onChange(item.id) }}
+                      disabled={Boolean(group.adminOnly && !repoPath)}
+                      onClick={() => { if (repoPath || !group.adminOnly) onChange(item.id) }}
                     />
                   ))}
               </div>
@@ -415,7 +415,7 @@ export function Sidebar({ active, onChange, collapsed, onToggle, width, onWidthC
           />
           <BottomBtn
             Icon={SwitchRepoIcon}
-            label="Switch Repository"
+            label="Switch Workspace"
             collapsed={collapsed}
             onClick={onOpenRepo}
             accent

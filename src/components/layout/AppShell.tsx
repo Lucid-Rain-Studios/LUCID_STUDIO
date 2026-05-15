@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
-import lucidGitIcon from '@/lib/icons/lucid_git.svg'
+import lucidStudioIcon from '@/lib/icons/lucid_studio.svg'
 import { ipc, OperationStep, FileStatus, DiffContent, Lock, AppNotification } from '@/ipc'
 import { useRepoStore } from '@/stores/repoStore'
 import { useOperationStore } from '@/stores/operationStore'
@@ -50,6 +50,7 @@ import { AssetViewerPanel } from '@/components/viewer/AssetViewerPanel'
 import { PanelErrorBoundary } from '@/components/ui/PanelErrorBoundary'
 import { BugLogsPanel } from '@/components/logs/BugLogsPanel'
 import { GlobalLoadingCursor } from '@/components/ui/GlobalLoadingCursor'
+import { StudioDashboardPanel, StudioModulePanel } from '@/components/studio/StudioDashboardPanel'
 
 type TabId = 'timeline' | 'branches' | 'lfs' | 'cleanup' | 'unreal' | 'hooks' | 'settings' | 'tools' | 'presence' | 'overview' | 'map' | 'content' | 'heatmap' | 'forecast' | 'dashboard' | 'locks' | 'logs'
 
@@ -408,6 +409,82 @@ export function AppShell() {
     )
   }
 
+  const renderLocalStudioPanel = () => {
+    if (leftTab === 'dashboard') {
+      return (
+        <StudioDashboardPanel
+          onOpenWorkspace={handleOpenRepo}
+          onCloneWorkspace={handleCloneRepo}
+          onNavigate={tab => setLeftTab(tab as TabId)}
+        />
+      )
+    }
+
+    const panels: Partial<Record<TabId, { title: string; eyebrow: string; description: string }>> = {
+      timeline: {
+        title: 'Notes',
+        eyebrow: 'Local module',
+        description: 'Markdown notes, daily notes, and Obsidian-friendly vault workflows will live here. The first version will keep notes local and sync-ready.',
+      },
+      branches: {
+        title: 'Tasks',
+        eyebrow: 'Local module',
+        description: 'Personal tasks and project task lists will live here before expanding into shared Kanban boards for cloud workspaces.',
+      },
+      tools: {
+        title: 'Marketing',
+        eyebrow: 'Studio tools',
+        description: 'Campaign planning, content calendars, copy drafts, asset checklists, and reusable marketing templates will be built into this workspace.',
+      },
+      presence: {
+        title: 'Team',
+        eyebrow: 'Cloud later',
+        description: 'Team presence, comments, roles, and shared workspaces will become available when cloud collaboration is added.',
+      },
+      locks: {
+        title: 'Time',
+        eyebrow: 'Local module',
+        description: 'Time tracking starts locally with sessions and daily summaries, then expands to team reporting and billable project views.',
+      },
+      content: {
+        title: 'Files',
+        eyebrow: 'Local-first storage',
+        description: 'Local file references, imports, metadata, recent assets, and selected cloud backup will be organized here.',
+      },
+      map: {
+        title: 'Workspace Map',
+        eyebrow: 'Studio overview',
+        description: 'Project relationships, notes, tasks, files, and campaign assets will be mapped here as the local data model grows.',
+      },
+      heatmap: {
+        title: 'Analytics',
+        eyebrow: 'Insights',
+        description: 'Personal productivity, project activity, time summaries, and marketing performance snapshots will be collected here.',
+      },
+      forecast: {
+        title: 'Planning',
+        eyebrow: 'Roadmap',
+        description: 'Upcoming focus blocks, project plans, campaigns, deadlines, and later calendar integrations will be managed here.',
+      },
+      logs: {
+        title: 'Logs',
+        eyebrow: 'Diagnostics',
+        description: 'App logs and diagnostics remain available while the Studio modules are being built.',
+      },
+    }
+
+    const panel = panels[leftTab]
+    if (panel) return <StudioModulePanel {...panel} />
+
+    return (
+      <StudioModulePanel
+        title="Workspace Required"
+        eyebrow="Legacy tool"
+        description="This inherited tool still needs an open Git workspace. It will be removed or replaced as LUCID STUDIO modules mature."
+      />
+    )
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--lg-bg-primary)', color: 'var(--lg-text-primary)', overflow: 'hidden' }}>
       <TopBar
@@ -420,20 +497,18 @@ export function AppShell() {
       />
 
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        {repoPath && (
-          <Sidebar
-            active={leftTab}
-            onChange={tab => setLeftTab(tab as TabId)}
-            collapsed={sidebarCollapsed}
-            onToggle={() => setSidebarCollapsed(c => !c)}
-            width={sidebarWidth}
-            onWidthChange={setSidebarWidth}
-            repoPath={repoPath}
-            onOpenTerminal={() => { if (repoPath) ipc.openTerminal(repoPath) }}
-            onOpenRepo={handleOpenRepo}
-            onOpenExplorer={() => { if (repoPath) ipc.showInFolder(repoPath) }}
-          />
-        )}
+        <Sidebar
+          active={leftTab}
+          onChange={tab => setLeftTab(tab as TabId)}
+          collapsed={sidebarCollapsed}
+          onToggle={() => setSidebarCollapsed(c => !c)}
+          width={sidebarWidth}
+          onWidthChange={setSidebarWidth}
+          repoPath={repoPath}
+          onOpenTerminal={() => { if (repoPath) ipc.openTerminal(repoPath) }}
+          onOpenRepo={handleOpenRepo}
+          onOpenExplorer={() => { if (repoPath) ipc.showInFolder(repoPath) }}
+        />
 
         <main style={{ display: 'flex', flex: 1, overflow: 'hidden', flexDirection: 'column', position: 'relative' }}>
           {/* Settings is always accessible — even without a repo */}
@@ -442,6 +517,8 @@ export function AppShell() {
               <SettingsPage repoPath={repoPath} />
             </PanelErrorBoundary>
           ) : !repoPath ? (
+            renderLocalStudioPanel()
+          ) : false ? (
             /* ── Welcome ── */
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden', background: 'var(--lg-bg-primary)' }}>
               {/* Radial ambient glow */}
@@ -456,8 +533,8 @@ export function AppShell() {
                 {/* Logo cluster */}
                 <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 18 }}>
                   <img
-                    src={lucidGitIcon}
-                    alt="Lucid Git"
+                    src={lucidStudioIcon}
+                    alt="LUCID STUDIO"
                     width={72}
                     height={72}
                     style={{ display: 'block', borderRadius: 18, boxShadow: '0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05)' }}
@@ -468,10 +545,10 @@ export function AppShell() {
                   color: '#e2e6f4', letterSpacing: '0.12em',
                   textShadow: '0 2px 20px rgba(0,0,0,0.5)',
                 }}>
-                  LUCID GIT
+                  LUCID STUDIO
                 </div>
                 <div style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 13, color: '#3d4a60', marginTop: 7, letterSpacing: '0.02em' }}>
-                  Git client for game development teams
+                  Local-first creative and work studio
                 </div>
                 {error && (
                   <div style={{
@@ -502,8 +579,8 @@ export function AppShell() {
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 18 }}>
-                      <WelcomeBtn onClick={handleOpenRepo} label="Open Repository" />
-                      <WelcomeBtn onClick={handleCloneRepo} label="Clone Repository" accent />
+                    <WelcomeBtn onClick={handleOpenRepo} label="Open Workspace" />
+                    <WelcomeBtn onClick={handleCloneRepo} label="Clone Workspace" accent />
                     </div>
                   </>
                 )}

@@ -20,6 +20,7 @@ import { webhookService } from '../services/WebhookService'
 import { unrealService } from '../services/UnrealService'
 import { hookService } from '../services/HookService'
 import { settingsService } from '../services/SettingsService'
+import { studioService } from '../services/StudioService'
 import { teamConfigService } from '../services/TeamConfigService'
 import { gitHubService } from '../services/GitHubService'
 import type { PRCreateArgs, PRListArgs, PRActionArgs } from '../services/GitHubService'
@@ -148,6 +149,29 @@ export function registerHandlers(): void {
   })
 
   // ── OS Dialogs ─────────────────────────────────────────────────────────────
+  // Studio local data
+  handle(CHANNELS.STUDIO_DASHBOARD_GET, async (_event, day: string) =>
+    studioService.dashboard(day)
+  )
+  handle(CHANNELS.STUDIO_TODO_ADD, async (_event, title: string) =>
+    studioService.addTodo(title)
+  )
+  handle(CHANNELS.STUDIO_TODO_UPDATE, async (_event, id: string, patch: { title?: string; done?: boolean }) =>
+    studioService.updateTodo(id, patch)
+  )
+  handle(CHANNELS.STUDIO_TODO_DELETE, async (_event, id: string) => {
+    studioService.deleteTodo(id)
+  })
+  handle(CHANNELS.STUDIO_NOTE_SAVE, async (_event, day: string, content: string) => {
+    studioService.saveDailyNote(day, content)
+  })
+  handle(CHANNELS.STUDIO_TIMER_START, async (_event, day: string) =>
+    studioService.startTimer(day)
+  )
+  handle(CHANNELS.STUDIO_TIMER_STOP, async (_event, day: string) =>
+    studioService.stopTimer(day)
+  )
+
   handle(CHANNELS.DIALOG_OPEN_DIRECTORY, async (event) => {
     const win = BrowserWindow.fromWebContents(event.sender)
     const result = await dialog.showOpenDialog(win ?? BrowserWindow.getFocusedWindow()!, {

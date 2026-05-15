@@ -1,7 +1,7 @@
 {
-  "name": "lucid-git",
+  "name": "lucid-studio",
   "version": "1.0.3",
-  "description": "Git client for game development teams",
+  "description": "Local-first creative and work studio",
   "author": "Lucid Rain Studios",
   "main": "dist-electron/main.js",
   "scripts": {

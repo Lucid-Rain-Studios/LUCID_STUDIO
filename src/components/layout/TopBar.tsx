@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
-import lucidGitIcon from '@/lib/icons/lucid_git.svg'
+import lucidStudioIcon from '@/lib/icons/lucid_studio.svg'
 import { ipc, SyncStatus, UpdateInfo, PresenceEntry, GitIdentity } from '@/ipc'
 import { useRepoStore } from '@/stores/repoStore'
 import { useAuthStore } from '@/stores/authStore'
@@ -35,7 +35,7 @@ interface TopBarProps {
   onPushBlockedByLocks?: (errorMessage: string) => void
 }
 
-const CONFIRM_BRANCH_KEY = 'lucid-git:confirm-branch-switch'
+const CONFIRM_BRANCH_KEY = 'lucid-studio:confirm-branch-switch'
 const sessionTopBarFetched = new Set<string>()
 
 function parseGitHubSlug(url: string): string | null {
@@ -527,7 +527,7 @@ export function TopBar({ onOpen, onClone, onAddAccount, onSynced, onMergeConflic
                         borderBottom: '1px solid var(--lg-border)',
                       }}>
                         <div style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 10, fontWeight: 700, color: '#344057', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 3 }}>
-                          Current repository
+                          Current workspace
                         </div>
                         <div style={{
                           fontFamily: 'var(--lg-font-mono)', fontSize: 10.5,
@@ -543,13 +543,13 @@ export function TopBar({ onOpen, onClone, onAddAccount, onSynced, onMergeConflic
                       <div style={{ padding: '4px 0' }}>
                         <RepoMenuItem
                           icon={<FolderOpenIcon />}
-                          label="Open Repository…"
+                          label="Open Workspace..."
                           shortcut="⌘O"
                           onClick={() => { setRepoMenuOpen(false); onOpen() }}
                         />
                         <RepoMenuItem
                           icon={<CloneIcon />}
-                          label="Clone Repository…"
+                          label="Clone Workspace..."
                           onClick={() => { setRepoMenuOpen(false); onClone() }}
                         />
                       </div>
@@ -665,7 +665,7 @@ export function TopBar({ onOpen, onClone, onAddAccount, onSynced, onMergeConflic
             </>
           ) : (
             <span style={{ fontFamily: 'var(--lg-font-ui)', fontSize: 13, color: '#344057' }}>
-              No repository open
+              No workspace open
             </span>
           )}
         </div>
@@ -676,8 +676,8 @@ export function TopBar({ onOpen, onClone, onAddAccount, onSynced, onMergeConflic
           {/* Welcome buttons when no repo */}
           {!repoPath && (
             <>
-              <TopBtn onClick={onOpen} label="Open" />
-              <TopBtn onClick={onClone} label="Clone" accent />
+              <TopBtn onClick={onOpen} label="Open Workspace" />
+              <TopBtn onClick={onClone} label="Clone Workspace" accent />
             </>
           )}
 
@@ -846,7 +846,7 @@ function LogoWordmark({ hasRepo, onClick }: { hasRepo: boolean; onClick: () => v
       onClick={onClick}
       onMouseEnter={() => hasRepo && setHover(true)}
       onMouseLeave={() => setHover(false)}
-      title={hasRepo ? 'Close repository' : undefined}
+      title={hasRepo ? 'Close workspace' : undefined}
       style={{
         display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0,
         cursor: hasRepo ? 'pointer' : 'default',
@@ -856,8 +856,8 @@ function LogoWordmark({ hasRepo, onClick }: { hasRepo: boolean; onClick: () => v
       }}
     >
       <img
-        src={lucidGitIcon}
-        alt="Lucid Git"
+        src={lucidStudioIcon}
+        alt="LUCID STUDIO"
         width={22}
         height={22}
         style={{ display: 'block', flexShrink: 0, opacity: hover ? 1 : 0.85, transition: 'opacity 0.12s' }}
@@ -1072,7 +1072,7 @@ function RepoSwitcherBtn({
       onClick={onToggle}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
-      title={`${repoPath}\nClick to switch repository`}
+      title={`${repoPath}\nClick to switch workspace`}
       style={{
         display: 'flex', alignItems: 'center', gap: 5,
         height: 26, paddingLeft: 8, paddingRight: active ? 7 : 8,

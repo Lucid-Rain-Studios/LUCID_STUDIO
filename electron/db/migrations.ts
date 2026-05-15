@@ -27,5 +27,49 @@ export function runMigrations(db: InstanceType<typeof Database>): void {
     );
     CREATE INDEX IF NOT EXISTS idx_conflict_events_repo ON conflict_events (repo_path, timestamp);
     CREATE INDEX IF NOT EXISTS idx_conflict_events_file ON conflict_events (repo_path, file_path);
+
+    CREATE TABLE IF NOT EXISTS studio_todos (
+      id            TEXT PRIMARY KEY,
+      workspace_id  TEXT    NOT NULL DEFAULT 'local',
+      title         TEXT    NOT NULL,
+      done          INTEGER NOT NULL DEFAULT 0,
+      created_at    INTEGER NOT NULL,
+      updated_at    INTEGER NOT NULL,
+      deleted_at    INTEGER
+    );
+    CREATE INDEX IF NOT EXISTS idx_studio_todos_workspace ON studio_todos (workspace_id, updated_at);
+
+    CREATE TABLE IF NOT EXISTS studio_daily_notes (
+      day           TEXT PRIMARY KEY,
+      workspace_id  TEXT    NOT NULL DEFAULT 'local',
+      content       TEXT    NOT NULL DEFAULT '',
+      created_at    INTEGER NOT NULL,
+      updated_at    INTEGER NOT NULL,
+      deleted_at    INTEGER
+    );
+    CREATE INDEX IF NOT EXISTS idx_studio_daily_notes_workspace ON studio_daily_notes (workspace_id, updated_at);
+
+    CREATE TABLE IF NOT EXISTS studio_time_entries (
+      id            TEXT PRIMARY KEY,
+      workspace_id  TEXT    NOT NULL DEFAULT 'local',
+      day           TEXT    NOT NULL,
+      started_at    INTEGER NOT NULL,
+      stopped_at    INTEGER,
+      duration_ms   INTEGER NOT NULL DEFAULT 0,
+      created_at    INTEGER NOT NULL,
+      updated_at    INTEGER NOT NULL,
+      deleted_at    INTEGER
+    );
+    CREATE INDEX IF NOT EXISTS idx_studio_time_entries_day ON studio_time_entries (workspace_id, day, started_at);
+
+    CREATE TABLE IF NOT EXISTS studio_sync_changes (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      entity_type   TEXT    NOT NULL,
+      entity_id     TEXT    NOT NULL,
+      operation     TEXT    NOT NULL,
+      changed_at    INTEGER NOT NULL,
+      payload       TEXT    NOT NULL DEFAULT '{}'
+    );
+    CREATE INDEX IF NOT EXISTS idx_studio_sync_changes_changed ON studio_sync_changes (changed_at);
   `)
 }

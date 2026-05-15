@@ -11,11 +11,11 @@ import { settingsService } from './services/SettingsService'
 const isDev = !app.isPackaged
 const openDevToolsOnStart = process.env.LUCID_OPEN_DEVTOOLS === '1'
 
-// Required on Windows so toast notifications are attributed to "Lucid Git"
+// Required on Windows so toast notifications are attributed to "LUCID STUDIO"
 // rather than electron.exe. Must match the AppUserModelId baked into the
 // installer shortcut (electron-builder uses appId by default).
 if (process.platform === 'win32') {
-  app.setAppUserModelId('com.lucidrainstudios.lucidgit')
+  app.setAppUserModelId('com.lucidrainstudios.lucidstudio')
 }
 
 // ── Auto-updater setup ────────────────────────────────────────────────────────
@@ -40,7 +40,7 @@ autoUpdater.on('update-available', (info) => {
   })
   desktopNotificationService.notify({
     event:  'appUpdate',
-    title:  'Lucid Git update available',
+    title:  'LUCID STUDIO update available',
     body:   `Version ${info.version} is ready to download.`,
     urgent: true,
   })
@@ -74,7 +74,7 @@ Stack:
 ${error.stack ?? ''}`)
   desktopNotificationService.notify({
     event:  'fatalError',
-    title:  'Lucid Git encountered an error',
+    title:  'LUCID STUDIO encountered an error',
     body:   error.message.length > 140 ? error.message.slice(0, 137) + '…' : error.message,
     urgent: true,
   })
@@ -90,7 +90,7 @@ ${reason.stack ?? ''}`
   const display = reason instanceof Error ? reason.message : String(reason)
   desktopNotificationService.notify({
     event:  'fatalError',
-    title:  'Lucid Git encountered an error',
+    title:  'LUCID STUDIO encountered an error',
     body:   display.length > 140 ? display.slice(0, 137) + '…' : display,
     urgent: true,
   })

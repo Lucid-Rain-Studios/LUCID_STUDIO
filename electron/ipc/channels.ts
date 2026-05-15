@@ -129,6 +129,15 @@ export const CHANNELS = {
   SETTINGS_GET: 'settings:get',
   SETTINGS_SAVE: 'settings:save',
 
+  // Studio local data
+  STUDIO_DASHBOARD_GET: 'studio:dashboard-get',
+  STUDIO_TODO_ADD:      'studio:todo-add',
+  STUDIO_TODO_UPDATE:   'studio:todo-update',
+  STUDIO_TODO_DELETE:   'studio:todo-delete',
+  STUDIO_NOTE_SAVE:     'studio:note-save',
+  STUDIO_TIMER_START:   'studio:timer-start',
+  STUDIO_TIMER_STOP:    'studio:timer-stop',
+
   // Team config
   TEAM_CONFIG_LOAD: 'team-config:load',
   TEAM_CONFIG_SAVE: 'team-config:save',

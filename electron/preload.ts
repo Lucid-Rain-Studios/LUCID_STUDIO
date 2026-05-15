@@ -25,6 +25,22 @@ const api = {
     ipcRenderer.invoke(CHANNELS.AUTH_SET_CURRENT_ACCOUNT, userId),
 
   // ── Permissions — Phase 20 ────────────────────────────────────────────────
+  // Studio local data
+  studioDashboardGet: (day: string) =>
+    ipcRenderer.invoke(CHANNELS.STUDIO_DASHBOARD_GET, day),
+  studioTodoAdd: (title: string) =>
+    ipcRenderer.invoke(CHANNELS.STUDIO_TODO_ADD, title),
+  studioTodoUpdate: (id: string, patch: { title?: string; done?: boolean }) =>
+    ipcRenderer.invoke(CHANNELS.STUDIO_TODO_UPDATE, id, patch),
+  studioTodoDelete: (id: string) =>
+    ipcRenderer.invoke(CHANNELS.STUDIO_TODO_DELETE, id),
+  studioNoteSave: (day: string, content: string) =>
+    ipcRenderer.invoke(CHANNELS.STUDIO_NOTE_SAVE, day, content),
+  studioTimerStart: (day: string) =>
+    ipcRenderer.invoke(CHANNELS.STUDIO_TIMER_START, day),
+  studioTimerStop: (day: string) =>
+    ipcRenderer.invoke(CHANNELS.STUDIO_TIMER_STOP, day),
+
   fetchRepoPermission: (repoPath: string) =>
     ipcRenderer.invoke(CHANNELS.AUTH_FETCH_REPO_PERMISSION, repoPath),
   getRepoPermission: (repoPath: string) =>
